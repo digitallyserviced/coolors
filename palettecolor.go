@@ -49,7 +49,7 @@ func (p *PaletteColor) SetSelected(b bool) {
 
 func (p *PaletteColor) updateStyle() {
 	if p.locked || p.selected {
-		inverse := getBorderColor(p.col)
+		inverse := getFGColor(p.col)
 		p.box.
 			SetBorder(true).
 			SetBorderColor(inverse).
@@ -67,12 +67,12 @@ func (p *PaletteColor) updateStyle() {
 	}
 }
 
-func getBorderColor(col tcell.Color) tcell.Color {
+func getFGColor(col tcell.Color) tcell.Color {
 	r, g, b := col.RGB()
 	if (float64(r)*0.299 + float64(g)*0.587 + float64(b)*0.114) > 150 {
-		return tcell.NewHexColor(0x000000)
+		return tcell.ColorBlack
 	}
-	return tcell.NewHexColor(0xFFFFFF)
+	return tcell.ColorWhite
 }
 
 func inverseColor(col tcell.Color) tcell.Color {
