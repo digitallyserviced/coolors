@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"golang.org/x/crypto/ssh/terminal"
 	"math/rand"
+	"os"
 	"time"
 
 	"github.com/gdamore/tcell"
@@ -105,12 +107,18 @@ func main() {
 		panic(err)
 	}
 
+	isTerminal := terminal.IsTerminal(int(os.Stdout.Fd()))
+
 	for _, pcol := range colors {
 		r, g, b := pcol.RGB()
 		br, bg, bb := getFGColor(pcol.col).RGB()
-		fmt.Printf(
-			"\033[48;2;%d;%d;%d;38;2;%d;%d;%dm #%06x \033[0m\n",
-			r, g, b, br, bg, bb, pcol.Hex(),
-		)
+		if isTerminal {
+			fmt.Printf(
+				"\033[48;2;%d;%d;%d;38;2;%d;%d;%dm #%06x \033[0m\n",
+				r, g, b, br, bg, bb, pcol.Hex(),
+			)
+		} else {
+			fmt.Printf(" %06x \n", pcol.Hex())
+		}
 	}
 }
