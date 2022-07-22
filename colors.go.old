@@ -1,0 +1,53 @@
+package main
+
+import (
+	"fmt"
+	"sync"
+
+	"github.com/digitallyserviced/tview"
+	"github.com/gdamore/tcell/v2"
+)
+
+func GenerateRandomColors(count int) []tcell.Color {
+	tcols := make([]tcell.Color, count)
+	for i := range tcols {
+		tcols[i] = *MakeRandomColor()
+	}
+	return tcols
+}
+
+
+
+func IfStr(b bool, str string) string {
+	if b {
+		return str
+	}
+	return ""
+}
+
+func MakeRandomColor() *tcell.Color {
+	col := tcell.NewRGBColor(int32(randRange(0, 255)), int32(randRange(0, 255)), int32(randRange(0, 255)))
+	return &col
+}
+
+func NewCoolorBox() *tview.Box {
+	return tview.NewBox()
+}
+
+
+
+func getFGColor(col tcell.Color) tcell.Color {
+	r, g, b := col.RGB()
+	if (float64(r)*0.299 + float64(g)*0.587 + float64(b)*0.114) > 150 {
+		return tcell.ColorBlack
+	}
+	return tcell.ColorWhite
+}
+
+func inverseColor(col tcell.Color) tcell.Color {
+	r, g, b := col.RGB()
+	return tcell.NewRGBColor(255-r, 255-g, 255-b)
+}
+
+// vim:ts=4
+

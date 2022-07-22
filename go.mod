@@ -1,9 +1,14 @@
-module github.com/mo0th/coolors
+module github.com/digitallyserviced/coolors
 
 go 1.14
 
 require (
-	github.com/gdamore/tcell v1.3.0
-	gitlab.com/tslocum/cview v1.4.7
-	golang.org/x/crypto v0.0.0-20200728195943-123391ffb6de
+	github.com/charmbracelet/lipgloss v0.5.0
+	github.com/digitallyserviced/tview v0.0.0-20220706225519-45d338f12575
+	github.com/gdamore/tcell/v2 v2.4.1-0.20210905002822-f057f0a857a1
+	github.com/jphsd/graphics2d v0.0.0-20220717174954-0a0ff2476d4b
+	github.com/lucasb-eyer/go-colorful v1.2.0
+	github.com/mazznoer/colorgrad v0.9.0
+	github.com/teacat/noire v1.1.0
+	golang.org/x/term v0.0.0-20210220032956-6a3ed077a48d
 )

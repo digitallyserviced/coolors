@@ -1,0 +1,462 @@
+package main
+
+import (
+	"fmt"
+	"os"
+	"strings"
+	"sync"
+
+	"github.com/digitallyserviced/tview"
+	"github.com/gdamore/tcell/v2"
+	"golang.org/x/term"
+)
+
+func GenerateRandomColors(count int) []tcell.Color {
+	tcols := make([]tcell.Color, count)
+	for i := range tcols {
+		tcols[i] = *MakeRandomColor()
+	}
+	return tcols
+}
+
+type CoolorColor struct {
+	*tview.Box
+	idx                     int8
+	color                   *tcell.Color
+	locked, selected, dirty bool
+	pallette                *CoolorPalette
+	l                       *sync.RWMutex
+	// view             *CoolorColorView
+}
+
+func IfStr(b bool, str string) string {
+	if b {
+		return str
+	}
+	return ""
+}
+func (cc *CoolorColor) String() string {
+	r, g, b := cc.color.RGB()
+	br, bg, bb := getFGColor(*cc.color).RGB()
+	if term.IsTerminal(int(os.Stdout.Fd())) {
+		return fmt.Sprintf(
+			"\033[48;2;%d;%d;%d;38;2;%d;%d;%dm #%06x \033[0m\n",
+			r, g, b, br, bg, bb, cc.color.Hex(),
+		)
+	}
+	return fmt.Sprintf(" %06x \n", cc.color.Hex())
+
+}
+func (cc *CoolorColor) updateStyle() {
+	if cc.locked || cc.selected {
+		inverse := getFGColor(*cc.color)
+		cc.Box.
+			SetBorder(true).
+			SetBorderAttributes(tcell.AttrBold).
+			SetBorderPadding(4, 0, 0, 0).
+			SetBorderColor(tcell.ColorBlack).
+			SetTitleColor(inverse)
+		cc.Box.Focus(nil)
+		var title []string
+		_, _, w, _ := cc.Box.GetInnerRect()
+		if cc.selected {
+			title = append(title, "")
+		}
+		if cc.locked {
+			// title = append(title, "")
+		}
+		if w < 7 && len(title) > 1 {
+			cc.Box.SetTitle(strings.Join(title, "\n"))
+		} else {
+			cc.Box.SetTitle(strings.Join(title, " "))
+		}
+	} else {
+		cc.Box.SetBorderPadding(0, 0, 0, 0)
+		cc.Box.SetBorder(false)
+		cc.Box.Blur()
+	}
+}
+
+func (cc *CoolorColor) GetLocked() bool {
+	cc.l.RLock()
+	defer cc.l.RUnlock()
+	return cc.locked
+}
+func (cc *CoolorColor) SetLocked(s bool) {
+	cc.l.Lock()
+	defer cc.l.Unlock()
+
+	cc.locked = s
+	cc.updateStyle()
+}
+func (cc *CoolorColor) ToggleLocked() {
+	cc.SetLocked(!cc.GetLocked())
+}
+
+func (cc *CoolorColor) SetSelected(s bool) {
+	cc.l.Lock()
+	defer cc.l.Unlock()
+
+	cc.selected = s
+	cc.updateStyle()
+}
+
+func MakeRandomColor() *tcell.Color {
+	col := tcell.NewRGBColor(int32(randRange(0, 255)), int32(randRange(0, 255)), int32(randRange(0, 255)))
+	return &col
+}
+func (c *CoolorColor) Random() bool {
+	c.l.Lock()
+	defer c.l.Unlock()
+	if c.locked {
+		return false
+	}
+	c.dirty = true
+	c.color = MakeRandomColor()
+	c.Box.SetBackgroundColor(*c.color)
+	return true
+}
+
+func (c *CoolorColor) Remove() {
+	c.pallette.RemoveItem(c)
+}
+
+func (c *CoolorColor) SetColorInt(h int32) {
+	col := tcell.Color(h)
+	c.SetColor(&col)
+}
+
+func (c *CoolorColor) SetColorCss(str string) {
+	col := tcell.GetColor(str)
+	c.SetColor(&col)
+}
+
+func (c *CoolorColor) SetColor(col *tcell.Color) {
+	c.l.Lock()
+	defer c.l.Unlock()
+	c.color = col
+	c.Box.SetBackgroundColor(*c.color)
+}
+func NewCoolorBox() *tview.Box {
+	return tview.NewBox()
+}
+
+// func (cc *CoolorColor) SetView(cpv *CoolorColorView) *CoolorColor {
+// 	cc.view = cpv
+// 	return cc
+// }
+func NewDefaultCoolorColor() *CoolorColor {
+	box := NewCoolorBox()
+	cc := &CoolorColor{
+		// Box:      tview.NewBox(),
+		idx:      0,
+		color:    nil,
+		locked:   false,
+		dirty:    false,
+		selected: false,
+		pallette: nil,
+		l:        &sync.RWMutex{},
+	}
+	box.SetDrawFunc(func(screen tcell.Screen, x int, y int, width int, height int) (int, int, int, int) {
+		// Draw a horizontal line across the middle of the box.
+		centerY := y + height/2
+		stripTop := centerY - 2
+		stripBottom := centerY + 1
+		for ypos := stripTop; ypos < stripBottom; ypos++ {
+            tview.Print(screen, fmt.Sprintf("[red:black:b]%s",strings.Repeat(" ", width-2)), x+1, ypos, width-2, tview.AlignCenter, tcell.ColorRed)
+		}
+		// for cx := x + 1; cx < x+width-1; cx++ {
+		//   screen.SetContent(cx, centerY, tview.BoxDrawingsLightHorizontal, nil, tcell.StyleDefault.Foreground(tcell.ColorWhite))
+		// }
+
+		// Write some text along the horizontal line.
+		tview.Print(screen, " Center Line ", x+1, centerY, width-2, tview.AlignCenter, tcell.ColorYellow)
+
+		// Space for other content.
+		return x + 1, centerY + 1, width - 2, height - (centerY + 1 - y)
+	})
+	cc.Box = box
+	return cc
+}
+func NewIntCoolorColor(h int32) *CoolorColor {
+	cc := NewDefaultCoolorColor()
+	cc.SetColorInt(h)
+	return cc
+}
+func NewRandomCoolorColor() *CoolorColor {
+	c := MakeRandomColor()
+	cc := NewDefaultCoolorColor()
+	cc.SetColor(c)
+	return cc
+}
+func NewCoolorColor(col string) *CoolorColor {
+	cc := NewDefaultCoolorColor()
+	cc.SetColorCss(col)
+	return cc
+}
+
+type CoolorColors []*CoolorColor
+type CoolorPalette struct {
+	*tview.Flex
+	colors      CoolorColors
+	selectedIdx int
+	name        string
+	l           *sync.RWMutex
+}
+
+func (cp *CoolorPalette) InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
+	return cp.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
+		ch := event.Rune()
+		kp := event.Key()
+		switch {
+		case ch == ' ' || ch == 'R':
+			cp.Randomize()
+
+		case ch == 'h' || kp == tcell.KeyLeft:
+			cp.NavSelection(-1)
+
+		case ch == 'l' || kp == tcell.KeyRight:
+			cp.NavSelection(1)
+
+		case ch == 'w':
+			cp.ToggleLockSelected()
+
+		case ch == 'r':
+			color, _ := cp.GetSelected()
+			color.Random()
+
+		case ch == '+': // Add a color
+			cp.AddRandomCoolorColor()
+
+		case ch == '-': // Remove a color
+			remcolor, idx := cp.GetSelected()
+			cp.SetSelected(idx - 1)
+			remcolor.Remove()
+		}
+	})
+}
+func (cp *CoolorPalette) ToggleLockSelected() (*CoolorColor, int) {
+	cc, _ := cp.GetSelected()
+	cc.ToggleLocked()
+	return cp.colors[cp.selectedIdx], cp.selectedIdx
+}
+
+func (cp *CoolorPalette) GetSelected() (*CoolorColor, int) {
+	cp.l.RLock()
+	defer cp.l.RUnlock()
+	return cp.colors[cp.selectedIdx], cp.selectedIdx
+}
+
+func (cp *CoolorPalette) SetSelected(idx int) error {
+	sel, _ := cp.GetSelected()
+	sel.SetSelected(false)
+	if idx < len(cp.colors) {
+		if idx < 0 {
+			idx = 0
+		}
+		cp.l.Lock()
+		defer cp.l.Unlock()
+		cp.selectedIdx = idx
+		cp.colors[cp.selectedIdx].SetSelected(true)
+		return nil
+	}
+	return fmt.Errorf("No valid color at idx: %d", idx)
+}
+
+func (cp *CoolorPalette) NavSelection(idx int) error {
+	cp.l.RLock()
+	newidx := cp.selectedIdx + idx
+	if newidx >= len(cp.colors) {
+		newidx = len(cp.colors) - 1
+	}
+	if newidx < 0 {
+		newidx = 0
+	}
+	cp.l.RUnlock()
+	cp.SetSelected(newidx)
+	return nil
+}
+
+func NewCoolorPaletteWithColors(tcols ...tcell.Color) *CoolorPalette {
+	cp := BlankCoolorPalette()
+	for _, v := range tcols {
+		cp.AddCoolorColor(NewIntCoolorColor(v.Hex()))
+	}
+	return cp
+}
+func BlankCoolorPalette() *CoolorPalette {
+	cp := &CoolorPalette{
+		l:           &sync.RWMutex{},
+		colors:      CoolorColors{},
+		Flex:        tview.NewFlex(),
+		selectedIdx: 0,
+	}
+	cp.Flex.SetDirection(tview.FlexColumn)
+	return cp
+}
+func DefaultCoolorPalette() *CoolorPalette {
+	tcols := GenerateRandomColors(5)
+	cp := NewCoolorPaletteWithColors(tcols...)
+	return cp
+}
+func (cp *CoolorPalette) Randomize() int {
+	changed := 0
+	for _, v := range cp.colors {
+		if v.Random() {
+			changed += 1
+		}
+	}
+	cp.ResetViews()
+	return changed
+}
+
+func (cpfv *CoolorPalette) ResetViews() {
+}
+
+func (cp *CoolorPalette) AddRandomCoolorColor() *CoolorColor {
+	newc := NewRandomCoolorColor()
+	newc.pallette = cp
+	cp.colors = append(cp.colors, newc)
+	cp.Flex.AddItem(newc, 0, 1, false)
+	return newc
+}
+
+func (cp *CoolorPalette) AddCoolorColor(color *CoolorColor) *CoolorColor {
+	color.pallette = cp
+	cp.l.Lock()
+	defer cp.l.Unlock()
+	cp.colors = append(cp.colors, color)
+	cp.Flex.AddItem(cp.colors[len(cp.colors)-1], 0, 1, true)
+	return cp.colors[len(cp.colors)-1]
+}
+func (cp *CoolorPalette) AddCssCoolorColor(c string) *CoolorColor {
+	color := cp.AddCoolorColor(NewCoolorColor(c))
+	return color
+}
+func NewCoolorPaletteFromCssStrings(cols []string) *CoolorPalette {
+	cp := BlankCoolorPalette()
+	for _, v := range cols {
+		cp.AddCssCoolorColor(v)
+	}
+	return cp
+}
+
+// func NewCoolorPaletteFromHexStrings(cols ...string) *CoolorPalette {
+// 	tcols := make([]tcell.Color, len(cols))
+// 	for i, v := range cols {
+// 		tcols[i] = tcell.GetColor(v)
+// 	}
+// 	return NewCoolorPaletteWithColors(tcols...)
+// }
+
+// type CoolorColorView struct {
+// 	*tview.Box
+//     id     int8
+// 	coolor *CoolorColor
+// }
+// type CoolorColorViews []*CoolorColorView
+//
+// func NewCoolorPaletteView(c *CoolorColor) *CoolorColorView {
+// 	box := tview.NewBox()
+// 	p := CoolorColorView{coolor: c}
+// 	return &p
+// }
+//
+// func (cpv *CoolorColorView) SetLocked(l bool) {
+// 	cpv.coolor.locked = l
+// }
+//
+// func (cpv *CoolorColorView) SetColor(c *CoolorColor) {
+// 	cpv.coolor = c
+// 	cpv.box.SetBackgroundColor(*cpv.coolor.color)
+// }
+
+// func (ccv CoolorColorViews) Get(ind int) *CoolorColorView {
+// 	if ind < len(ccv) {
+// 		return ccv[ind]
+// 	}
+// 	return nil
+// }
+
+// type CoolorPaletteFlexView struct {
+// 	views    CoolorColorViews
+// 	pallette *CoolorPalette
+// }
+//
+// func (p *CoolorPalette) NewView() *CoolorPaletteFlexView {
+// 	views := make(CoolorColorViews, 0)
+// 	cpfv := CoolorPaletteFlexView{views, p}
+// 	p.view = &cpfv
+// 	return p.view
+// }
+
+type Selectable interface {
+	SetLocked(l bool)
+	SetFocused(i bool)
+}
+
+// type PaletteColor struct {
+// 	box      *tview.Box
+// 	col      tcell.Color
+// 	locked   bool
+// 	selected bool
+// 	palette  []*PaletteColor
+// }
+//
+// func (p *PaletteColor) Hex() int32 {
+// 	return p.col.Hex()
+// }
+//
+// func (p *PaletteColor) RGB() (int32, int32, int32) {
+// 	return p.col.RGB()
+// }
+//
+// func (p *PaletteColor) SetColor(col tcell.Color) {
+// 	p.box.SetBackgroundColor(col)
+// 	p.col = col
+// }
+
+// func (p *CoolorColor) SetLocked(b bool) {
+// 	p.locked = b
+// 	p.view.updateStyle()
+// }
+//
+// func (p *CoolorColor) SetSelected(b bool) {
+// 	p.selected = b
+// 	p.view.updateStyle()
+// }
+//
+// func (p *CoolorColorView) updateStyle() {
+// 	if p.coolor.locked || p.coolor.selected {
+// 		inverse := getFGColor(*p.coolor.color)
+// 		p.box.
+// 			SetBorder(true).
+// 			SetBorderColor(inverse).
+// 			SetTitleColor(inverse)
+// 		title := ""
+// 		if p.coolor.locked {
+// 			title += ""
+// 		}
+// 		if p.coolor.selected {
+// 			title += ""
+// 		}
+// 		p.box.SetTitle(title)
+// 	} else {
+// 		p.box.SetBorder(false)
+// 	}
+// }
+
+func getFGColor(col tcell.Color) tcell.Color {
+	r, g, b := col.RGB()
+	if (float64(r)*0.299 + float64(g)*0.587 + float64(b)*0.114) > 150 {
+		return tcell.ColorBlack
+	}
+	return tcell.ColorWhite
+}
+
+func inverseColor(col tcell.Color) tcell.Color {
+	r, g, b := col.RGB()
+	return tcell.NewRGBColor(255-r, 255-g, 255-b)
+}
+
+// vim:ts=4
