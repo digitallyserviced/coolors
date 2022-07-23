@@ -49,7 +49,7 @@ func NewCoolorPaletteFromCssStrings(cols []string) *CoolorPalette {
 func NewCoolorPaletteWithColors(tcols []tcell.Color) *CoolorPalette {
 	cp := BlankCoolorPalette()
 	for _, v := range tcols {
-  fmt.Printf("%06x", v.Hex())
+  // fmt.Printf("%06x", v.Hex())
 		cp.AddCssCoolorColor(fmt.Sprintf("#%06x", v.Hex()))
 	}
     cp.SetSelected(0)
@@ -57,7 +57,7 @@ func NewCoolorPaletteWithColors(tcols []tcell.Color) *CoolorPalette {
 }
 
 func (cp *CoolorPalette) AddCoolorColor(color *CoolorColor) *CoolorColor {
-  fmt.Printf("%s", color)
+  // fmt.Printf("%s", color)
 	color.pallette = cp
 	cp.l.Lock()
 	defer cp.l.Unlock()

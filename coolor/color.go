@@ -8,7 +8,9 @@ import (
 
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
-	"github.com/teacat/noire"
+
+	// "github.com/gookit/color"
+	// "github.com/lucasb-eyer/go-colorful"
 	"golang.org/x/term"
 )
 
@@ -33,7 +35,7 @@ type CoolorColor struct {
 	*tview.Box
 	idx                     int8
 	color                   *tcell.Color
-	locked, selected, dirty bool
+	static, locked, selected, dirty bool
 	pallette                *CoolorPalette
 	l                       *sync.RWMutex
   handlers      map[string]EventHandlers
@@ -45,19 +47,30 @@ func NewCoolorColor(col string) *CoolorColor {
 	return cc
 }
 // 	
+func NewStaticCoolorColor(col string) *CoolorColor {
+	cc := NewDefaultCoolorColor()
+	cc.SetColorCss(col)
+  cc.static = true
+	return cc
+}
+// 	
  func (cc *CoolorColor) RGBA() (r, g, b, a uint32) {
    ri, gi, bi := cc.color.RGB()
+   fmt.Println(ri,gi,bi)
    return uint32(ri),uint32(gi),uint32(bi),0xffff
  }
 
- func (cc *CoolorColor) Noire() noire.Color {
-   R,G,B,_ := cc.RGBA()
-   pcol := noire.NewRGB(float64(R),float64(G),float64(B))
-   return pcol
- }
+ // func (cc *CoolorColor) Noire() noire.Color {
+ //   pcol := noire.NewRGB(float64(R),float64(G),float64(B))
+ //   return pcol
+ // }
 
  func (cc *CoolorColor) HSL() (float64,float64,float64) {
-   return cc.Noire().HSL()
+   // R,G,B,A := cc.RGBA()
+   // cf, _ := colorful.MakeColor(cc)
+   hsla := NewHSLA(cc)
+
+   return hsla.H, hsla.S, hsla.L
  }
 
  func (cc *CoolorColor) GetCC() *CoolorColor {
@@ -65,8 +78,10 @@ func NewCoolorColor(col string) *CoolorColor {
  }
  func (cc *CoolorColor) Clone() *CoolorColor {
    ccc := NewDefaultCoolorColor()
-   c := tcell.GetColor(cc.GetColor())
-   ccc.color = &c
+   c := tcell.GetColor(cc.Html())
+   ccc.SetColorInt(c.Hex())
+   fmt.Println(ccc.TerminalPreview())
+   // ccc.color = &c
    ccc.locked = false
    ccc.selected = cc.selected
    ccc.dirty = false
@@ -83,6 +98,7 @@ func NewDefaultCoolorColor() *CoolorColor {
 	cc := &CoolorColor{
 		// Box:      tview.NewBox(),
 		idx:      0,
+    static: false,
 		color:    nil,
 		locked:   false,
 		dirty:    false,
@@ -91,7 +107,12 @@ func NewDefaultCoolorColor() *CoolorColor {
 		l:        &sync.RWMutex{},
     handlers: make(map[string]EventHandlers),
 	}
+	cc.Box = box
+
 	box.SetDrawFunc(func(screen tcell.Screen, x int, y int, width int, height int) (int, int, int, int) {
+    if cc.static {
+      return x,y,width,height
+    }
 		// Draw a horizontal line across the middle of the box.
 		centerY := y + height/2
     lowerCenterY := centerY + centerY / 2
@@ -140,7 +161,6 @@ func NewDefaultCoolorColor() *CoolorColor {
 		// Space for other content.
 		return x + 1, centerY + 1, width - 2, height - (centerY + 1 - y)
 	})
-	cc.Box = box
 	return cc
 }
 
@@ -297,6 +317,9 @@ func (cc *CoolorColor) ToggleLocked() {
 }
 
 func (cc *CoolorColor) updateStyle() {
+  if cc.static {
+    return
+  }
 	if cc.selected {
 		inverse := getFGColor(*cc.color)
 		cc.Box.

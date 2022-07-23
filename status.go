@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/digitallyserviced/tview"
@@ -50,13 +49,14 @@ func (s *StatusBar) Init() <-chan *StatusUpdate {
 	s.Table.SetBorder(false)
 	s.Table.SetBorderPadding(0, 0, 0, 0)
 	updatech := make(chan *StatusUpdate)
-	c := tview.NewTableCell(fmt.Sprintf("[black:red:b] %s ", "STATUS")).SetAlign(tview.AlignCenter).SetExpansion(0)
-  s.AddStatusItem("main", c, updatech)
-	c = tview.NewTableCell(fmt.Sprintf("%s", "")).SetExpansion(10)
-  s.AddStatusItem("fill", c, updatech)
-	c = tview.NewTableCell(fmt.Sprintf("[black:blue:b] (%s) ", "untitled")).SetExpansion(0)
-  s.AddStatusItem("name", c, updatech)
   return updatech
+	// c := tview.NewTableCell(fmt.Sprintf("[black:red:b] %s ", "STATUS")).SetAlign(tview.AlignCenter).SetExpansion(0)
+ //  s.AddStatusItem("main", c, updatech)
+	// c = tview.NewTableCell(fmt.Sprintf("%s", "")).SetExpansion(10)
+ //  s.AddStatusItem("fill", c, updatech)
+	// c = tview.NewTableCell(fmt.Sprintf("[black:blue:b] (%s) ", "untitled")).SetExpansion(0)
+ //  s.AddStatusItem("name", c, updatech)
+ //  return updatech
 }
 
 func (s *StatusBar) AddStatusItem(label string, c *tview.TableCell, updatech <-chan *StatusUpdate)  {
@@ -105,6 +105,46 @@ func updateStatusCell(c *tview.TableCell, status *Status) {
 	default:
 		c.SetText(msg).SetTextColor(tcell.ColorDefault)
 	}
+}
+// func (s *StatusBar) AddStatus(id, label string) *StatusBar {
+// 	c := tview.NewTableCell("").
+// 		SetExpansion(2)
+// 	s.statuses[id] = c
+//
+// 	t := s
+// 	n := t.GetColumnCount()
+// 	t.SetCell(0, n, tview.NewTableCell(label))
+// 	t.SetCell(0, n+1, c)
+//
+// 	return s
+// }
+//
+// func (s *StatusBar) UpdateStatusItem(id, msg string, ok bool) *StatusBar {
+// 	// TODO use app.QueueUpdate() to make thread-safe
+// 	c := s.statuses[id]
+// 	if ok {
+// 		c.SetText("✓ " + msg).
+// 			SetTextColor(tcell.ColorGreen)
+// 	} else {
+// 		c.SetText("x " + msg).
+// 			SetTextColor(tcell.ColorRed)
+// 	}
+// 	s.app.Draw()
+// 	return s
+// }
+func startClockStatus() chan *Status {
+	updates := make(chan *Status)
+	go func() {
+		for {
+			time.Sleep(10 * time.Second)
+			update := &Status{
+				Severity: Healthy,
+				Message:  time.Now().String(),
+			}
+			updates <- update
+		}
+	}()
+	return updates
 }
 
 // vim: ts=2 sw=2 et ft=go

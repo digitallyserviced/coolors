@@ -3,7 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
-	"time"
+	"log"
+	"os"
+
+	"net/http"
+	_ "net/http/pprof"
+  "runtime/pprof"
 
 	"github.com/digitallyserviced/coolors/coolor"
 	"github.com/digitallyserviced/tview"
@@ -12,6 +17,7 @@ import (
 
 func main() {
 	// setBordersChars()
+ 	go func() { log.Println(http.ListenAndServe("localhost:6060", nil)) }()
 	flag.Parse()
 	values := flag.Args()
 	app := tview.NewApplication()
@@ -47,10 +53,10 @@ func main() {
 		// kp := event.Key()
 		switch {
 		case ch == 'p':
-      pages.SwitchToPage("palette")
+      pages.SwitchToPage("palette").HidePage("editor")
       return nil
 		case ch == 'e':
-      pages.SwitchToPage("editor")
+      pages.SwitchToPage("editor").HidePage("palette")
       return nil
     }
     return nil
@@ -102,7 +108,7 @@ func main() {
 		return event
 	})
 
-  pages.AddPage("editor", editor, true, false)
+  pages.AddPage("editor", editor, true, true)
   pages.AddAndSwitchToPage("palette", colors, true)
   pages.SetChangedFunc(func() {
     name, _ := pages.GetFrontPage()
@@ -118,6 +124,12 @@ func main() {
 		if err := app.SetRoot(flexview, true).Run(); err != nil {
 			panic(err)
 		}
+  f, err := os.Create("mem.mprof")
+        if err != nil {
+            log.Fatal(err)
+        }
+        pprof.WriteHeapProfile(f)
+        f.Close()
 
 	for i := 0; i < colors.GetItemCount(); i++ {
 		pcol := colors.GetItem(i)
@@ -126,49 +138,5 @@ func main() {
 	}
 }
 
-func NewCoolorPaletteFromCssStrings(values []string) {
-	panic("unimplemented")
-}
-
-// func (s *StatusBar) AddStatus(id, label string) *StatusBar {
-// 	c := tview.NewTableCell("").
-// 		SetExpansion(2)
-// 	s.statuses[id] = c
-//
-// 	t := s
-// 	n := t.GetColumnCount()
-// 	t.SetCell(0, n, tview.NewTableCell(label))
-// 	t.SetCell(0, n+1, c)
-//
-// 	return s
-// }
-//
-// func (s *StatusBar) UpdateStatusItem(id, msg string, ok bool) *StatusBar {
-// 	// TODO use app.QueueUpdate() to make thread-safe
-// 	c := s.statuses[id]
-// 	if ok {
-// 		c.SetText("✓ " + msg).
-// 			SetTextColor(tcell.ColorGreen)
-// 	} else {
-// 		c.SetText("x " + msg).
-// 			SetTextColor(tcell.ColorRed)
-// 	}
-// 	s.app.Draw()
-// 	return s
-// }
-func startClockStatus() chan *Status {
-	updates := make(chan *Status)
-	go func() {
-		for {
-			time.Sleep(10 * time.Second)
-			update := &Status{
-				Severity: Healthy,
-				Message:  time.Now().String(),
-			}
-			updates <- update
-		}
-	}()
-	return updates
-}
 
 // vim: ts=2 sw=2 et ft=go

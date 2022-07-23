@@ -1,0 +1,40 @@
+// func (cm *ColorMod) makeGrad(diff float64, invert bool) [] colorful.Color {
+//   colors := make([] colorful.Color, 0)
+//   for i := 0; i < int(cm.surrounds); i++ {
+//     if diff < 0 {
+//       cc := cm.chm.Mod(&cm.current, -math.Abs(float64(i)*cm.increment))
+//       cfc, _ := colorful.MakeColor(cc.Clone())
+//       colors = append(colors, cfc)
+//     } else {
+//       cc := cm.chm.Mod(&cm.current, math.Abs(float64(i)*cm.increment))
+//       cfc, _ := colorful.MakeColor(cc.Clone())
+//       colors = append(colors, cfc)
+//     }
+//   }
+//
+//   if invert {
+//     newcolors := make([] colorful.Color, 0)
+//     for i := len(colors)-1; i >= 0; i-- {
+//       newcolors = append(newcolors, colors[i])
+//     }
+//   fmt.Println(newcolors)
+//     return newcolors
+//   }
+// 	// cg := colorgrad.NewGradient()
+//  //  if invert {
+//  //    cg.HtmlColors(
+//  //      endcc.Html(),cm.current.Html(),
+//  //    )
+//  //  } else {
+//  //    cg.HtmlColors(
+//  //      cm.current.Html(),endcc.Html(),
+//  //    )
+//  //  }
+// 	// cg.Mode(colorgrad.BlendHsv).Build()
+//  //  grad, _ := cg.Build()
+// 	// return grad.ColorfulColors(uint(cm.surrounds))
+//   return colors
+//
+// }
+
+
