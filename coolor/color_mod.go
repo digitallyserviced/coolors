@@ -3,11 +3,15 @@ package coolor
 import (
 	"fmt"
 	"math"
+	"strings"
+
+	"github.com/gookit/goutil/dump"
+	"github.com/samber/lo"
 	// "github.com/lucasb-eyer/go-colorful"
 )
 
 type CoolColorMod struct {
-  *CoolorColor
+	*CoolorColor
 	// *colorful.Color
 }
 
@@ -17,15 +21,130 @@ func (ccm *CoolColorMod) GetCC() *CoolorColor {
 
 type ColorModifier struct {
 	name string
-	chm  *ChannelMod
+	ChannelMod  *ChannelMod
 	*ChannelModOptions
 }
 
+type ColorModFunction func(float64) *ColorModAction
+// len(ColorModNames) 🮋🮒🮑🮐🮆🮔🮕🮖🮗🮟🮞🮝🮜🮘🮙🮚🮱🮴🮽🮾🮿🯄
+
+var ColorModActionStrings = map[string]string{
+  "set": "[blue:black:-][black:blue:-]=[blue:black:-][-:-:-]",
+  "inc": "[green:black:-][black:green:-]+[green:black:-][-:-:-]",
+  "dec": "[red:black:-][black:red:-]-[red:black:-][-:-:-]",
+}
+type ColorModAction struct {
+  Function string
+  Action ColorModFunction
+  Argument float64
+  Result CoolColor
+}
+
+func (cma *ColorModAction) Summary() string {
+  return fmt.Sprintf("%s %0.2f %s", ColorModActionStrings[cma.Function], cma.Argument, cma.Result.GetCC().TVPreview())
+}
+
+func (cma *ColorModAction) String() string {
+  return fmt.Sprintf("%s", ColorModActionStrings[cma.Function])
+}
+func (cmlog ColorModActions) String() string {
+  // _ = lo.Range(5)
+  // return ""
+  // dump.P("undo shts")
+  summActions := lo.Map(cmlog, func (x *ColorModAction, n int) string {
+    if x != nil {
+
+    return x.Summary()
+    }
+    return ""
+  })
+
+  _ = summActions
+  // lo.Reduce
+  return strings.Join(summActions, "\n")
+}
+
+type ColorModActions []*ColorModAction
+// func (cmas *ColorModActions) String() string {
+//   // str
+//   return fmt.Sprintf("%s", ColorModActionStrings[cma.Function])
+// }
+
+
+type Gradiater interface {
+	Above() []CoolColor
+	Below() []CoolColor
+	At(value float64) CoolColor
+	Set(value float64)
+	Incr(value float64)
+	Decr(value float64)
+	GetChannelValue(cc CoolColor) float64
+	GetCurrentChannelValue() float64
+}
+
+type ColorModder interface {
+  Incr(float64)
+  Decr(float64)
+  Set(float64)
+  Nop(bool)
+}
+
 type ColorMod struct {
+  last *ColorModAction
+  history ColorModActions 
 	orig    *CoolorColor
 	current CoolorColor
 	ring    CoolorColors
 	*ColorModifier
+}
+
+func NewColorModAction(name string, f ColorModFunction, arg float64, result CoolColor) *ColorModAction {
+  return &ColorModAction{
+    Function: name,
+    Action: f,
+    Argument: arg,
+    Result: result,
+  }
+}
+
+func (cm *ColorMod) Log(action *ColorModAction) **ColorModAction {
+  cm.history = lo.Subset(cm.history, -19, 19)
+  cm.history = append(cm.history, action)
+  cm.last = action
+  dump.P(cm.history.String())
+  return &cm.last
+}
+
+func (cm *ColorMod) Set(value float64) *ColorModAction {
+	value = cm.ChannelMod.Max() * value
+  c, _ := cm.ChannelMod.SetChannelValue(&cm.current, value) // .GetCC()
+  cm.current = *c.GetCC()
+	cm.updateState(false)
+  return *cm.Log(NewColorModAction("set",cm.Set, value, cm.current.Clone()))
+}
+
+func (cm *ColorMod) Incr(value float64) *ColorModAction {
+	if value == 0 {
+		value = cm.increment
+	}
+  cnew, err := cm.ChannelMod.Mod(cm.current.GetCC(), math.Abs(cm.increment))
+  cm.current = *cnew.GetCC()
+  // dump.P(value,cm.current.TerminalPreview())
+  _ = err
+	cm.updateState(false)
+  return *cm.Log(NewColorModAction("inc",cm.Incr, value, cm.current.Clone()))
+}
+
+func (cm *ColorMod) Decr(value float64) *ColorModAction {
+	if value == 0 {
+		value = cm.increment
+	}
+  cnew,err := cm.ChannelMod.Mod(cm.current.GetCC(), -math.Abs(cm.increment))
+  cm.current = *cnew.GetCC()
+  // dump.P(value,cm.current.TerminalPreview())
+  _ = err
+	cm.updateState(false)
+  return *cm.Log(NewColorModAction("dec",cm.Decr, value, cm.current.Clone()))
 }
 
 func NewColorMod(mod *ChannelModOptions, chm ChannelModifier) *ColorMod {
@@ -33,37 +152,42 @@ func NewColorMod(mod *ChannelModOptions, chm ChannelModifier) *ColorMod {
 	cm := &ColorMod{
 		ColorModifier: &ColorModifier{},
 	}
+  cm.history = make(ColorModActions, 0)
+  cm.last = NewColorModAction("nop", cm.Set, 0.0, nil)
 	cm.orig = cc
 	cm.current = *cc.Clone()
-	cm.ColorModifier.name = ""
-	cm.ColorModifier.chm = chm(mod)
+	cm.ColorModifier.name = mod.name
+	cm.ColorModifier.ChannelMod = chm(mod)
 	cm.ColorModifier.ChannelModOptions = mod
 	cm.updateState(true)
 	return cm
 }
-
+func (cm *ColorModifier) SetSize(size float64) {
+	cm.size = size
+	cm.updateState(false)
+}
 func (cm *ColorModifier) updateState(noUpdateColor bool) {
 	// if !noUpdateColor {
 	// 	cm.mid = cm.GetChannelValue(&cm.current)
 	// }
-	increment := cm.increment
-	incrs := float64(1.0 / increment)
-	sizeIncrs := float64(1.0 / cm.size)
-	if sizeIncrs < increment {
-		increment = sizeIncrs
-	}
-	count := 1.0 / sizeIncrs
-	if math.Mod(incrs, 2) != 0 {
-		incrs = incrs - 1
-	}
+	// increment := cm.increment
+	// incrs := float64(1.0 / increment)
 
-	split := incrs / 2
-	diff := (split * increment)
+  // cm.increment = cm.minIncrValue
+  // cm.increment = cm.increment * ((cm.size / cm.minIncrValue) + 2)
+  // dump.P("incr: ,", cm.increment)
+  // cm.increment = i
+  // cm.increment := cm.minIncrValue // / cm.max
+  // cm.increment = increment
+	// sizeIncrs := float64(1.0 / cm.size)
+	// count := 1.0 / sizeIncrs
+	// split := incrs / 2
+	// diff := (split * increment)
 	// cm.above = math.Floor(diff/increment) - 1
 	// cm.below = math.Floor(diff/increment) - 1
 	// cm.increment = increment
-	cm.count = count
-	cm.diff = diff
+	// cm.count = count
+	// cm.diff = diff
 }
 
 func (cm *ColorMod) Pop(cc CoolColor) {
@@ -77,32 +201,27 @@ func (cm *ColorMod) Push(cc CoolColor) {
 }
 
 func (cm *ColorMod) Next() CoolColor {
-  // fmt.Printf("val: %f\n", cm.increment)
-  // fmt.Println(cm.current.TerminalPreview())
-	cnew := cm.chm.ModPct(cm.current.Clone(), cm.increment)
-  // fmt.Printf("color: %s\n", cnew.GetCC().TerminalPreview())
+	// fmt.Printf("val: %f\n", cm.increment)
+	// fmt.Println(cm.current.TerminalPreview())
+	cnew := cm.ChannelMod.ModPct(cm.current.Clone(), cm.increment)
+	// fmt.Printf("color: %s\n", cnew.GetCC().TerminalPreview())
 	if cnew.GetCC().Html() == cm.current.GetCC().Html() {
 		// fmt.Printf("Colors are the same %06x", cnew.color.Hex())
-    return cnew.GetCC()
+		return cnew.GetCC()
 	}
 	if len(cm.ring) < int(cm.size) {
 		cm.Push(cnew.GetCC())
 	}
-    return cnew.GetCC()
+	return cnew.GetCC()
 }
 
 func (cm *ColorMod) makeGrad(above bool) []CoolorColor {
-	// fmt.Println(cm)
-
-	// dump.P(cm)
-	// dump.
-	// dump.Dump(cm)
 	num := cm.size
 	if above {
 		num = (-math.Abs(cm.size))
 	}
-	// fmt.Println(cm.below, cm.above, cm.increment)
-	colors := cm.chm.RangePct(&cm.current, cm.increment, num)
+	fmt.Println(cm.size, cm.increment)
+	colors := cm.ChannelMod.RangePct(&cm.current, cm.increment, num)
 	return colors
 }
 
@@ -125,16 +244,16 @@ func (cm *ColorMod) makeGrad(above bool) []CoolorColor {
 //
 // }
 
-func (cm *ColorMod) Below() []CoolorColor {
-	// num := clamp(cm.diff*cm.chm.Max(), cm.chm.Min(), cm.chm.Max())
-	return cm.makeGrad(false)
-}
-
-func (cm *ColorMod) Above() []CoolorColor {
-	// num := clamp(cm.diff*cm.chm.Max(), cm.chm.Min(), cm.chm.Max())
-	return cm.makeGrad(true)
-	// return cm.makeGrad(math.Abs(num), true)
-}
+// func (cm *ColorMod) Below() []CoolorColor {
+// 	// num := clamp(cm.diff*cm.chm.Max(), cm.chm.Min(), cm.chm.Max())
+// 	return cm.makeGrad(false)
+// }
+//
+// func (cm *ColorMod) Above() []CoolorColor {
+// 	// num := clamp(cm.diff*cm.chm.Max(), cm.chm.Min(), cm.chm.Max())
+// 	return cm.makeGrad(true)
+// 	// return cm.makeGrad(math.Abs(num), true)
+// }
 
 func (cm *ColorMod) SetColor(cc CoolColor) {
 	cm.orig = cc.GetCC()
@@ -143,47 +262,34 @@ func (cm *ColorMod) SetColor(cc CoolColor) {
 }
 
 func (cm *ColorMod) GetCurrentChannelValue() float64 {
-  return cm.GetChannelValue(&cm.current)
-	// return cm.mid
+	return cm.GetChannelValue(&cm.current)
+}
+// len(ColorModNames) 
+// func (cm *ChannelMod) GetStatus(cc CoolColor) string {
+//   return cm.FormatChannelValue(cc)
+// }
+
+func (cm *ColorMod) GetStatus() (string,string) {
+  last := ""
+  status := ""
+  if cm.last != nil {
+    last = cm.last.String()
+  }
+  status = cm.ChannelMod.FormatChannelValue(&cm.current)
+	return status, last
 }
 
 func (cm *ColorModifier) String() string {
 	return fmt.Sprintf(
-		"ColorMod: %s mid: %f count: %f diff: %f increment %f size %f",
+		"%s +/- %0.2f ",
 		cm.name,
-		cm.mid,
-		cm.count,
-		cm.diff,
 		cm.increment,
-		cm.size,
 	)
 }
 
 func (cm *ColorMod) GetChannelValue(cc CoolColor) float64 {
-	value := cm.chm.GetChannelValue(&cm.current)
+	value := cm.ChannelMod.GetChannelValue(&cm.current)
 	return float64(value)
-}
-
-func (cm *ColorMod) Set(value float64) {
-	value = cm.chm.Max() * value
-	cm.current = *cm.chm.SetChannelValue(&cm.current, value).GetCC()
-	cm.updateState(false)
-}
-
-func (cm *ColorMod) Incr(value float64) {
-	if value == 0 {
-		value = cm.increment
-	}
-	cm.current = *cm.chm.Mod(&cm.current, math.Abs(value*cm.chm.Max())).GetCC()
-	cm.updateState(false)
-}
-
-func (cm *ColorMod) Decr(value float64) {
-	if value == 0 {
-		value = cm.increment
-	}
-	cm.current = *cm.chm.Mod(&cm.current, -math.Abs(value*cm.chm.Max())).GetCC()
-	cm.updateState(false)
 }
 
 func clamped(val, min, max float64) (float64, bool) {

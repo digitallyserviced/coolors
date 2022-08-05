@@ -1,0 +1,8 @@
+vendor/
+old/
+dump
+extras
+trace
+mem.mprof
+.gonvim
+
