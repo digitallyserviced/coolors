@@ -11,6 +11,7 @@ import (
 	"github.com/digitallyserviced/coolors/tree"
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
+	"github.com/gookit/color"
 	"github.com/gookit/goutil/dump"
 	"github.com/gookit/goutil/errorx"
 )
@@ -32,20 +33,20 @@ type ColorsView struct {
 }
 
 func (cv *ColorsView) Draw(screen tcell.Screen) {
-	// cv.Grid.Clear().SetSize(len(cv.palettes), 1, -2, -2).SetOffset(0, 0)
 	x, y, w, h := cv.Grid.GetRect()
-	dump.P(x, y, w, h)
+  _,_,_,_ = x,w,y,h
 	x, y, w, h = cv.Grid.GetInnerRect()
-	dump.P(x, y, w, h)
-	cv.Grid.SetGap(0, 0)
+  dump.P(x,y,w,h)
+	cv.Grid.SetGap(0, 2)
 	rows := make([]int, 0)
 	for i, v := range cv.palettes {
 		p := v.GetPalette()
+    p.Sort()
 		p.Plainify(true)
 		f := tview.NewFrame(p)
 		f.SetTitle("")
 		f.SetBorder(true).SetBorderPadding(0, 0, 2, 2).SetBorderColor(tree.GetTheme().TopbarBorder)
-		f.SetBorders(0, 0, 0, 0, 1, 1)
+		f.SetBorders(0, 0, 0, 0, 2, 2)
 		cv.Grid.AddItem(f, i, 0, 1, 1, 0, 0, false)
 		rows = append(rows, 4)
 	}
@@ -59,7 +60,7 @@ func (cv *ColorsView) Clear() {
 	cv.Grid.Clear()
 }
 
-func (cv *ColorsView) SetPalettes(pdc *PaletteDataConfig) {
+func (cv *ColorsView) SetPalettes(pdc *HistoryDataConfig) {
 	cv.Clear()
 	pals := pdc.GetPalettes()
 	for _, v := range pals {
@@ -140,15 +141,19 @@ func (ft *PaletteFileView) Draw(screen tcell.Screen) {
 	// dump.P(x, y, w, h)
 	ft.view.Draw(screen)
 }
+
 func (ft *PaletteFileView) GetRect() (int, int, int, int) {
 	return ft.view.GetRect()
 }
+
 func (ft *PaletteFileView) SetRect(x, y, width, height int) {
 	ft.view.SetRect(x, y, width, height)
 }
+
 func (ft *PaletteFileView) InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
 	return ft.view.InputHandler()
 }
+
 func (ft *PaletteFileView) Focus(delegate func(p tview.Primitive)) {
 	ft.view.Focus(delegate)
 }
@@ -156,9 +161,11 @@ func (ft *PaletteFileView) Focus(delegate func(p tview.Primitive)) {
 func (ft *PaletteFileView) HasFocus() bool {
 	return ft.view.HasFocus()
 }
+
 func (ft *PaletteFileView) Blur() {
 	ft.view.Blur()
 }
+
 func (ft *PaletteFileView) MouseHandler() func(action tview.MouseAction, event *tcell.EventMouse, setFocus func(p tview.Primitive)) (consumed bool, capture tview.Primitive) {
 	return ft.view.MouseHandler()
 }
@@ -187,18 +194,18 @@ func (v *PaletteFileView) SetPreview(fsnode *tree.FSNode) {
 	}
 
 	i := []string{}
-
-	i = append(i, fmt.Sprintf(" [#5c6370]│      Mode:[normal] %v", fsnode.Mode))
-	i = append(i, fmt.Sprintf(" [#5c6370]│  Modified:[normal] %v", fsnode.ModTime))
+	// infoHex := fmt.Sprintf("#%6x", theme.InfoLabel.Hex())
+	i = append(i, color.Render(fmt.Sprintf(" <infolabel>│      Mode:</> %v", fsnode.Mode)))
+	i = append(i, color.Render(fmt.Sprintf(" <infolabel>│  Modified:</> %v", fsnode.ModTime)))
 	if fsnode.Size != -1 {
-		i = append(i, fmt.Sprintf(" [#5c6370]│      Size:[normal] %v", formatSize(fsnode.Size)))
+		i = append(i, color.Render(fmt.Sprintf(" <infolabel>│      Size:</> %v", formatSize(fsnode.Size))))
 	}
 
 	if !fsnode.IsDir {
-		i = append(i, fmt.Sprintf(" [#5c6370]│ Mime Type:[normal] %v", fsnode.MimeType))
+		i = append(i, color.Render(fmt.Sprintf(" <infolabel>│ Mime Type:</> %v", fsnode.MimeType)))
 	}
 
-	v.infoView.SetText(strings.Join(i, "\n"))
+	v.infoView.SetText(tview.TranslateANSI(strings.Join(i, "\n")))
 	v.view.SetRows(3, len(i), len(d.GetPalettes())*4, 0)
 }
 

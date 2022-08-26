@@ -154,6 +154,7 @@ func (gs *GradStrip) MakeSelectionGradient() {
 		}
 	}
 }
+
 func (gs *GradStrip) MakeSelections() {
 	gs.MakeSelectionGradient()
 	gs.gauge.Clear()
@@ -161,13 +162,12 @@ func (gs *GradStrip) MakeSelections() {
 	for c, v := range gs.centeredColors {
 		size := gs.sizes[c]
 		if !gs.validGrad[c] {
-			dump.P(v)
+			// dump.P(v)
 		}
 		if gc != len(gs.centeredColors) {
 			if size == SelectedSize {
 				gs.centeredGrad[c].SetInfoLine(fmt.Sprintf(" "), gs.validGrad[c])
 			} else {
-
 				gs.centeredGrad[c].SetInfoLine(fmt.Sprintf(" % 6.2f ", gs.gradOffsets[c]), gs.validGrad[c])
 			}
 			gs.strip.AddItem(gs.centeredGrad[c], size, 0, true)
@@ -205,6 +205,7 @@ func (gs *GradStrip) SetStatus() {
 }
 
 func (gs *GradStrip) updateStrip() {
+	// MainC.app.QueueUpdateDraw(func() {
 	gs.SetStatus()
 	sizes := []int{SecondNearestNeighbor, NearestNeighbor, SelectedSize, NearestNeighbor, SecondNearestNeighbor}
 	// gs.strip.Clear()
@@ -233,6 +234,7 @@ func (gs *GradStrip) updateStrip() {
 	// dump.P(out, len(out), leftovers, wrapNum)
 	gs.sizes = out
 	gs.MakeSelections()
+	// })
 }
 
 type CoolorColorEditorStrips struct {
@@ -243,12 +245,14 @@ type CoolorColorEditorStrips struct {
 	colorMods map[string]*GradStrip
 }
 
-var ColorModNames = []string{"Hue", "Chroma", "Light"}
-var ColorMods = map[string]*ColorMod{
-	"Hue":    HueMod,
-	"Chroma": SatMod,
-	"Light":  LightMod,
-}
+var (
+	ColorModNames = []string{"Hue", "Chroma", "Light"}
+	ColorMods     = map[string]*ColorMod{
+		"Hue":    HueMod,
+		"Chroma": SatMod,
+		"Light":  LightMod,
+	}
+)
 
 func (ccep *CoolorColorEditorStrips) updateState() {
 	ccep.forColorMods(func(c *GradStrip, n string) {
@@ -256,7 +260,20 @@ func (ccep *CoolorColorEditorStrips) updateState() {
 	})
 }
 
+func (ccep *CoolorColorEditorStrips) SaveColor() {
+	if ccep.mainColor != nil {
+		// var cc *CoolorColor
+		// ccep.forColorMods(func(c *GradStrip, n string) {
+		//    cc = &c.cm.current
+		// })
+		// ccep.mainColor.SetColor(cc.color)
+		col, _ := ccep.cce.palette.GetSelected()
+		col.SetColor(ccep.mainColor.color)
+	}
+}
+
 func (ccep *CoolorColorEditorStrips) UpdateColor(cc *CoolorColor) {
+	// MainC.app.QueueUpdateDraw(func() {
 	if ccep == nil {
 		return
 	}
@@ -265,6 +282,7 @@ func (ccep *CoolorColorEditorStrips) UpdateColor(cc *CoolorColor) {
 		c.cm.SetColor(cc.GetCC())
 	})
 	status.NewStatusUpdate("color", ccep.cce.String())
+	// })
 	ccep.updateState()
 }
 
@@ -300,6 +318,7 @@ func NewEditorStrip(cce *CoolorColorEditor) *CoolorColorEditorStrips {
 	ccep.updateState()
 	return ccep
 }
+
 func (ccep *CoolorColorEditorStrips) forColorMods(f func(c *GradStrip, n string)) {
 	if ccep == nil || ccep.colorMods == nil || len(ccep.colorMods) == 0 {
 		return
@@ -320,7 +339,6 @@ func (ccep *CoolorColorEditorStrips) updateColorMods() {
 		MakeSpace(c.Flex, "", "#000000", 0, 1)
 		x, y, w, h := c.Flex.GetInnerRect()
 		_, _, _ = x, y, w
-		dump.P(c.cm.name, x, y, w, h)
 		c.height = h
 		c.cm.SetSize(float64(h))
 		c.updateStrip()
@@ -395,8 +413,9 @@ func (cce *CoolorColorEditor) updateState() {
 			status.NewStatusUpdate("color", cce.String())
 		}
 	})
-	MainC.app.Draw()
+	// MainC.app.Draw()
 }
+
 func (cce *CoolorColorEditor) String() string {
 	if cce == nil || cce.previews == nil || cce.previews.mainColor == nil {
 		return ""
@@ -412,6 +431,7 @@ func (cce *CoolorColorEditor) String() string {
 	return tview.TranslateANSI(is)
 	// return tview.TranslateANSI(is)
 }
+
 func (cce *CoolorColorEditor) KeyEvent(ev *tcell.EventKey) {
 }
 
@@ -434,6 +454,7 @@ func (cce *CoolorColorEditor) Init() {
 	cce.Flex.AddItem(cce.previews, 0, 1, false)
 	cce.updateState()
 }
+
 func (cce *CoolorColorEditor) SetSelected(idx int) {
 	cce.settings.selectedMod = int(clamp(float64(idx), 0, float64(len(ColorModNames))))
 }
@@ -441,7 +462,13 @@ func (cce *CoolorColorEditor) SetSelected(idx int) {
 // NavSelection(idx int) error
 func (cce *CoolorColorEditor) NavSelection(idx int) {
 	idx = cce.settings.selectedMod + idx
-	cce.SetSelected(int(math.Mod(float64(idx), float64(len(ColorModNames)))))
+	if idx < 0 {
+		idx = len(ColorModNames) - 1
+	}
+	if idx > len(ColorModNames)-1 {
+		idx = 0
+	}
+	cce.SetSelected(idx)
 }
 
 func (cce *CoolorColorEditor) GetSelectedVimNav() VimNav {
@@ -457,25 +484,38 @@ func (cce *CoolorColorEditor) InputHandler() func(event *tcell.EventKey, setFocu
 	return cce.Flex.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
 		ch := event.Rune()
 		kp := event.Key()
-		cce.previews.forColorMods(func(c *GradStrip, n string) {
-			c.cm.last = nil
-			c.selected = false
-		})
-		vn := HandleVimNavSelectable(cce)
-		HandleVimNavigableVertical(vn, ch, kp)
-		HandleVimNavigableHorizontal(cce, ch, kp)
-		cce.previews.forColorMods(func(c *GradStrip, n string) {
-			cce.previews.UpdateColor(&c.cm.current)
-			c.SetStatus()
-		})
+		if kp == tcell.KeyEnter || kp == tcell.KeyEscape {
+			if kp == tcell.KeyEnter {
+				cce.previews.SaveColor()
+				MainC.pages.SwitchToPage("palette")
+			}
+			if kp == tcell.KeyEscape {
+				MainC.pages.SwitchToPage("palette")
+			}
+			AppModel.helpbar.SetTable("palette")
+			return
+		}
+		MainC.app.QueueUpdateDraw(func() {
+			cce.previews.forColorMods(func(c *GradStrip, n string) {
+				c.cm.last = nil
+				c.selected = false
+			})
+			HandleVimNavigableHorizontal(cce, ch, kp)
+			vn := HandleVimNavSelectable(cce)
+			HandleVimNavigableVertical(vn, ch, kp)
+			cce.previews.forColorMods(func(c *GradStrip, n string) {
+				cce.previews.UpdateColor(&c.cm.current)
+				c.SetStatus()
+			})
 
-		if ch == '<' {
-			cce.settings.sizeNum = clamp(cce.settings.sizeNum-1, 1, 30)
-		}
-		if ch == '>' {
-			cce.settings.sizeNum = clamp(cce.settings.sizeNum+1, 1, 30)
-		}
-		cce.updateState()
+			if ch == '<' {
+				cce.settings.sizeNum = clamp(cce.settings.sizeNum-1, 1, 30)
+			}
+			if ch == '>' {
+				cce.settings.sizeNum = clamp(cce.settings.sizeNum+1, 1, 30)
+			}
+			cce.updateState()
+		})
 	})
 }
 

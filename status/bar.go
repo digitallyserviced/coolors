@@ -2,11 +2,14 @@ package status
 
 import (
 	"fmt"
+	"sync"
+	// "time"
+
 	// "time"
 
 	"github.com/digitallyserviced/tview"
 	// "github.com/gdamore/tcell/v2"
-	"github.com/gookit/goutil/dump"
+	// "github.com/gookit/goutil/dump"
 )
 
 type Severity int
@@ -35,11 +38,8 @@ func NewStatusUpdate(elem, content string) {
 		updateCh <- &StatusUpdate{
 			elem: elem, content: content,
 		}
-
 	} else {
 		updateCh = make(chan *StatusUpdate)
-		NewStatusUpdate("main", "READY")
-
 	}
 }
 
@@ -48,71 +48,92 @@ type Status struct {
 	Message  string
 }
 type StatusItem struct {
+	name, format string
 	*tview.TableCell
 	row, col int
+	l        sync.Mutex
 }
 type StatusBar struct {
 	*tview.Table
-	statuses map[string]*StatusItem
-	app      *tview.Application
-	elems    int8
+	statuses     map[string]*StatusItem
+	app          *tview.Application
+	elems        int8
+	lastStatuses map[string]StatusUpdate
 }
 
 func NewStatusBar(app *tview.Application) *StatusBar {
 	sb := &StatusBar{
-		statuses: make(map[string]*StatusItem),
-		app:      app,
-		Table:    tview.NewTable().SetBorders(false).InsertRow(0),
-		elems:    0,
+		Table:        tview.NewTable(),
+		statuses:     make(map[string]*StatusItem),
+		app:          app,
+		elems:        0,
+		lastStatuses: make(map[string]StatusUpdate),
 	}
 
+	sb.Table.SetBorders(false).InsertRow(0)
 	sb.Init()
 	return sb
 }
 
 func statusUpdater(s *StatusBar) {
+	// ticker := time.NewTicker(100 * time.Millisecond)
 	for {
 		select {
 		case status := <-updateCh:
-			dump.P(status)
-			go func() {
 				s.app.QueueUpdateDraw(func() {
-					s.statuses[status.elem].TableCell.SetText(status.content)
-					s.Table.SetCell(s.statuses[status.elem].row, s.statuses[status.elem].col, s.statuses[status.elem].TableCell)
+					s.UpdateCell(*status)
 				})
-			}()
 		}
 	}
 }
 
-// 
+func (s *StatusBar) UpdateCell(status StatusUpdate) {
+	s.statuses[status.elem].TableCell.SetText(status.content)
+	s.statuses[status.elem].TableCell.SetExpansion(s.statuses[status.elem].TableCell.Expansion)
+	s.Table.SetCell(s.statuses[status.elem].row, s.statuses[status.elem].col, s.statuses[status.elem].TableCell)
+}
+
+func (si *StatusItem) UpdateItem(txt string) {
+	si.SetText(fmt.Sprintf(si.format, txt))
+}
+
+func NewStatusItem(name, format, content string) *StatusItem {
+	tc := tview.NewTableCell(fmt.Sprintf(format, content))
+	tc.SetExpansion(1)
+	si := &StatusItem{
+		name:      name,
+		format:    format,
+		TableCell: tc,
+		row:       0,
+		col:       0,
+		l:         sync.Mutex{},
+	}
+	return si
+}
+
 func (s *StatusBar) Init() {
 	s.Table.SetBorder(false)
 	s.Table.SetBorderPadding(0, 0, 0, 0)
-	c := tview.NewTableCell(fmt.Sprintf("[black:red:b] %s ", "STATUS")).SetAlign(tview.AlignCenter).SetExpansion(0)
-	s.AddStatusItem("main", c)
-	c = tview.NewTableCell(fmt.Sprintf("[black:yellow:b] 🗲  %s ", "action")).SetExpansion(0)
-	s.AddStatusItem("action", c)
-	c = tview.NewTableCell(fmt.Sprintf(" %s ", "")).SetExpansion(2)
-	s.AddStatusItem("action_str", c)
-	c = tview.NewTableCell(fmt.Sprintf(" %s ", "")).SetExpansion(2)
-	s.AddStatusItem("fill", c)
-	c = tview.NewTableCell(fmt.Sprintf(" %s ", "")).SetExpansion(0)
-	s.AddStatusItem("color", c)
-	c = tview.NewTableCell(fmt.Sprintf("[black:blue:b] (%s) ", "untitled")).SetExpansion(0)
-	s.AddStatusItem("name", c)
+	s.AddStatusItem(NewStatusItem("name", "[black:blue:b] (%s) [-:-:-]", "untitled"))
+	s.AddStatusItem(NewStatusItem("action_str", " %s ", ""))
+	sidot := NewStatusItem("dots", " %s ", "")
+	sidot.SetExpansion(4).SetAlign(tview.AlignCenter)
+	sidot.UpdateItem("")
+	s.AddStatusItem(sidot)
+	sifill := NewStatusItem("fill", " %s ", "")
+	sifill.SetExpansion(3).SetAlign(tview.AlignCenter)
+	s.AddStatusItem(sifill)
+	s.AddStatusItem(NewStatusItem("color", " %s ", ""))
+	s.AddStatusItem(NewStatusItem("action", "[black:yellow:b]   %s [-:-:-]", "action"))
 	go statusUpdater(s)
 }
 
-func (s *StatusBar) AddStatusItem(label string, c *tview.TableCell) {
-	si := &StatusItem{
-		TableCell: c,
-		row:       0,
-		col:       int(s.elems),
-	}
-	s.statuses[label] = si
-	s.Table.SetCell(0, int(s.elems), s.statuses[label].TableCell)
-	s.elems = s.elems + 1
+func (s *StatusBar) AddStatusItem(si *StatusItem) {
+	s.statuses[si.name] = si
+	si.row = 0
+	si.col = len(s.statuses) - 1
+	s.Table.SetCell(0, si.col, s.statuses[si.name].TableCell)
+	// s.elems = s.elems + 1
 }
 
 // func (s *StatusBar) add(label string, updates <-chan *Status) *StatusBar {

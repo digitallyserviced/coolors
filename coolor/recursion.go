@@ -44,21 +44,21 @@ func (sq *Square) NewSquare(cp *CoolorPalette, x, y, size, count int, rsq int) *
 		p:     rsq,
 	}
 	nrsq.SetRect(x, y, size, size/2)
-	if count >= 0 && pRand(count) {
+	if count >= 0 && pRand(count, 0.5) {
 		hs := size / 2
 		// if pRand(count + size){
 		//   hs = size / 4
 		// }
-		if pRand(count) {
+		if pRand(count, 0.2) {
 			sq.items = append(sq.items, sq.NewSquare(cp, x, y, hs, count, nrsq.idx))
 		}
-		if pRand(count) {
+		if pRand(count, 0.4) {
 			sq.items = append(sq.items, sq.NewSquare(cp, x+hs, y, hs, count, nrsq.idx))
 		}
-		if pRand(count) {
+		if pRand(count, 0.6) {
 			sq.items = append(sq.items, sq.NewSquare(cp, x+hs, y+hs, hs, count, nrsq.idx))
 		}
-		if pRand(count) {
+		if pRand(count, 0.8) {
 			sq.items = append(sq.items, sq.NewSquare(cp, x, y+hs, hs, count, nrsq.idx))
 		}
 	}
@@ -66,9 +66,9 @@ func (sq *Square) NewSquare(cp *CoolorPalette, x, y, size, count int, rsq int) *
 	return nrsq
 }
 
-func pRand(count int) bool {
+func pRand(count int, pc float64) bool {
 	r := rand.Float64()
-	p := MapVal(float64(count), 0, float64(count-1), 0.5, 0)
+	p := MapVal(float64(count), 0, float64(count-1), pc, 0)
 	return r > p
 }
 
@@ -157,7 +157,7 @@ func (sq *Square) DrawItems(screen tcell.Screen) {
 	leftover := height - mh
 	extras := math.Ceil(float64(leftover))
 	dump.P(mh, leftover, extras)
-	sq.DrawBlock(NewIntCoolorColor(tcell.Color102.Hex()).Html(), screen, x, y, width, int(extras), -1)
+	sq.DrawBlock(NewIntCoolorColor(tcell.Color236.Hex()).Html(), screen, x, y+int(extras)-1, width, mh-(mh/2), -1)
 
 	// x, y, width, height := sq.cp.GetRect()
 	// DrawBlock(sq.color.Html(), screen, x, y, width, height, -1)
@@ -171,6 +171,9 @@ func (sq *Square) DrawItems(screen tcell.Screen) {
 					if v.p != v.idx-1 {
 						col = sq.cp.RandomColor().Html()
 					}
+					// if v.y > y-v.size+(mh-(mh/2)) {
+					// 	continue
+					// }
 					dump.P(fmt.Sprintf("%d %d %d %d %d %d %s", v.x, v.y+int(extras), v.size, v.p, v.idx, v.num, sq.color.TerminalPreview()))
 					if v.num == j {
 						sq.DrawBlock(col, screen, v.x, v.y+int(extras), v.size, v.size/2, v.idx)
@@ -179,7 +182,7 @@ func (sq *Square) DrawItems(screen tcell.Screen) {
 			}
 
 		}
-		sq.DrawBlock(NewIntCoolorColor(tcell.Color102.Hex()).Html(), screen, x, y+mh, width, int(extras)+1, -1)
+		// sq.DrawBlock(NewIntCoolorColor(tcell.Color236.Hex()).Html(), screen, x, y+mh, width, 1, -1)
 		// for i := len(sq.items) - 1; i > 0; i-- {
 		// 	v := sq.items[i]
 		// 	if v != nil {

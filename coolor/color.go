@@ -58,6 +58,7 @@ func NewStaticCenteredCoolorColor(col string) *CoolorColor {
 	cc.centered = true
 	return cc
 }
+
 func NewStaticCoolorColor(col string) *CoolorColor {
 	cc := NewDefaultCoolorColor()
 	cc.SetColorCss(col)
@@ -90,10 +91,12 @@ func (cc *CoolorColor) Unstatic() *CoolorColor {
 	cc.centered = false
 	return cc
 }
+
 func (cc *CoolorColor) GetCC() *CoolorColor {
 	ccn := NewStaticCoolorColor(cc.Html())
 	return ccn
 }
+
 func (cc *CoolorColor) Clone() *CoolorColor {
 	ccc := NewDefaultCoolorColor()
 	c := tcell.GetColor(cc.Html())
@@ -125,21 +128,22 @@ type HookDrawFunctions struct {
 	// After func(HookDrawInfo)(int, int, int, int)
 }
 
-type DrawFunction func(screen tcell.Screen, x int, y int, width int, height int) (int, int, int, int)
-type DrawFunctionChain []*DrawFunction
+type (
+	DrawFunction      func(screen tcell.Screen, x int, y int, width int, height int) (int, int, int, int)
+	DrawFunctionChain []*DrawFunction
+)
 
 func DrawFunctionDispatcher(p *tview.Primitive, dfc DrawFunctionChain) DrawFunction {
 	return func(screen tcell.Screen, x int, y int, width int, height int) (int, int, int, int) {
 		for _, v := range dfc {
 			if v != nil {
-
 			}
 		}
 		return x, y, width, height
 	}
 }
-func (cc *CoolorColor) DrawHook(df *DrawFunction) {
 
+func (cc *CoolorColor) DrawHook(df *DrawFunction) {
 }
 
 func (hdf *HookDrawFunctions) CoolorColorStatusText(p tview.Primitive, screen tcell.Screen, x int, y int, width int, height int) (int, int, int, int) {
@@ -172,7 +176,6 @@ func (hdf *HookDrawFunctions) CoolorColorStatusText(p tview.Primitive, screen tc
 }
 
 func CenteredStrikeText() {
-
 }
 
 func NewDefaultCoolorColor() *CoolorColor {
@@ -194,35 +197,6 @@ func NewDefaultCoolorColor() *CoolorColor {
 		handlers: make(map[string]EventHandlers),
 		infoline: "",
 	}
-	// len(ColorModNames) 🮋🮒🮑🮐🮆🮔🮕🮖🮗🮟🮞🮝🮜🮘🮙🮚🮱🮴🮽🮾🮿🯄
-	//                                      🬻 🬺 🬹 🬸 🬷 🬶
-	//
-	//             🬎🬎🬎🬆                       🬵 🬴 🬳 🬲 🬱 🬰
-	//
-	//             🬹🬹🬹🬱                       🬯 🬮 🬭 🬬 🬫 🬪
-	//
-	//                                    🬩 🬨 🬧 🬦 🬥 🬤
-	//
-	//             🬎🬎🬎🬬                    🬣 🬢 🬡 🬠 🬟 🬞
-	//                🮈 🮊 🮋 🮌
-	//             🬹🬹🬹🬻                    🬝 🬜 🬛 🬚 🬙 🬘
-	//
-	//             🬎🬎🬎🬬                    🬗 🬖 🬕 🬔 🬓 🬒
-	//                
-	//             🬹🬹🬹🬻                    🬑 🬐 🬏🬊🬎🬆 🬍 🬌
-	//
-	//                                     🬋 🬊 🬉 🬈 🬇 🬆
-	//
-	//                                     🬅 🬄 🬃 🬂 🬁 🬀
-	//                                    // 🬼 🬽 🬾 🬿 🭀 🭁 🭂 🭃 🭄 🭅 🭆 🭇 🭈 🭉 🭊 🭋 🭌 🭍 🭎 🭏 🭐 🭑 🭒 🭓 🭔 🭕 🭖 🭗 🭘 🭙 🭚 🭛 🭜 🭝 🭞 🭟 🭠 🭡 🭢 🭣 🭤 🭥 🭦 🭧
-	//🭨 🭩 🭪 🭫 🭬 🭭 🭮 🭯 🭰 🭱 🭲 🭳 🭴 🭵 🭶 🭷 🭸 🭹 🭺 🭻 🭼 🭽 🭾 🭿 🮀 🮁 🮂 🮃 🮄 🮅 🮆 🮇 🮈 🮉 🮊 🮋 🮌 🮍 🮎 🮏 🮐 🮑 🮒 🮔 🮕 🮖 🮗 🮘 🮙 🮚 🮛 🮜 🮝 🮞 🮟 🮠 🮡 🮢 🮣 🮤 🮥 🮦 🮧 🮨 🮩 🮪 🮫 🮬 🮭 🮮 🮯 🮰 🮱 🮲 🮳 🮴 🮵 🮶 🮷 🮸 🮹 🮺 🮻 🮼 🮽 🮾 🮿 🯀 🯊 🯰 🯱 🯲 🯳 🯴 🯵 🯶 🯷 🯸 🯹
-	// 🬼  🬽 🬾 🬿 🭀
-	// 🭌 🭍 🭎 🭏 🭐 🭑
-	// 🭗 🭘 🭙 🭚 🭛 🭜 🭝 🭞 🭟 🭠 🭡
-	//    🬼
-	// 🭌
-	// 🭡
-	// 🭜
 	box.SetDrawFunc(func(screen tcell.Screen, x int, y int, width int, height int) (int, int, int, int) {
 		centerY := y + height/2
 		lowerCenterY := centerY + height/3
@@ -250,12 +224,16 @@ func NewDefaultCoolorColor() *CoolorColor {
 				}
 			}
 			if cc.infoline != "" {
-				tview.Print(screen, cc.infoline, x+1, centerY, width-2, tview.AlignCenter, txtColor)
+				tview.Print(screen, cc.infoline, x+1, centerY, width-1, tview.AlignCenter, txtColor)
 			}
 		} else {
-			// for cx := x + 1; cx < x+width-1; cx++ {
-			// 	screen.SetContent(cx, lowerCenterY, tview.BoxDrawingsLightHorizontal, nil, tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(*cc.color))
-			// }
+			// cc.InRect(lowerCenterY +2)
+			if width-2 >= 8 && lowerCenterY+2 <= y+height-2 {
+				// for cx := x + 1; cx < x+width-1; cx++ {
+				tview.Print(screen, fmt.Sprintf("[#%06x:-:b]%s[-:-:-]", cc.GetFgColor().Hex(), strings.ToUpper(fmt.Sprintf("%06x",cc.color.Hex()))), x+1, lowerCenterY+2, width-2, tview.AlignCenter, txtColor)
+				// screen.SetContent(cx, lowerCenterY + 4, tview.BoxDrawingsLightHorizontal, nil, tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(*cc.color))
+				// }
+			}
 			// {{define "locked"}}{{- if locked -}}{{- end -}}{{- end -}}
 			// {{define "selected"}}{{- if selected -}}{{- end -}}{{- end -}}
 			status_tpl := MakeTemplate("color_status", `
@@ -441,25 +419,35 @@ func (cc *CoolorColor) SetSelected(s bool) {
 }
 
 func (cc *CoolorColor) GetFgColor() tcell.Color {
-	r, g, b := cc.color.RGB()
-	if (float64(r)*0.299 + float64(g)*0.587 + float64(b)*0.114) > 150 {
-		return tcell.ColorBlack
+	c, ok := MakeColor(cc)
+	// dump.P(cc.TerminalPreview())
+	if ok {
+		r, g, b := c.LinearRgb()
+		if (255*float64(r)*0.299 + 255*float64(g)*0.587 + 255*float64(b)*0.114) > 150 {
+			// if (255*float64(r)*0.2926 + 255*float64(g)*0.5152 + 255*float64(b)*0.1722) > 150 {
+			// if (float64(r)*0.2126 + float64(g)*0.7152 + float64(b)*0.0722) > 140 {
+			return tcell.ColorBlack
+		}
+		return tcell.ColorWhite
 	}
 	return tcell.ColorWhite
+	// r, g, b := cc.RGB
+	// if (float64(r)*0.299 + float64(g)*0.587 + float64(b)*0.114) > 150 {
 }
 
 func (cc *CoolorColor) Html() string {
-	return fmt.Sprintf("#%06x", cc.color.Hex())
+	return strings.ToUpper(fmt.Sprintf("#%06x", cc.color.Hex()))
 }
 
 func (cc *CoolorColor) TVPreview() string {
-	return fmt.Sprintf(
+	return strings.ToUpper(fmt.Sprintf(
 		"[#%06x:#%06x:-]#%06x[-:-:-]",
 		getFGColor(*cc.color).Hex(),
 		cc.color.Hex(),
 		cc.color.Hex(),
-	)
+	))
 }
+
 func (cc *CoolorColor) TerminalPreview() string {
 	r, g, b := cc.color.RGB()
 	br, bg, bb := getFGColor(*cc.color).RGB()
@@ -468,6 +456,7 @@ func (cc *CoolorColor) TerminalPreview() string {
 		r, g, b, br, bg, bb, cc.color.Hex(),
 	)
 }
+
 func (cc *CoolorColor) String() string {
 	r, g, b := cc.color.RGB()
 	br, bg, bb := getFGColor(*cc.color).RGB()
@@ -485,30 +474,36 @@ func (cc *CoolorColor) ToggleLocked() {
 }
 
 func (cc *CoolorColor) updateStyle() {
-	if cc.plain {
-		cc.Box.SetBorderPadding(0, 0, 0, 0)
-		cc.Box.SetBorder(false)
-		cc.Box.Blur()
-		return
-	}
-	if cc.selected || cc.centered {
-		inverse := getFGColor(*cc.color)
-		cc.Box.
-			SetBorder(true).
-			SetBorderAttributes(tcell.AttrBold).
-			SetBorderPadding(4, 0, 0, 0).
-			SetBorderColor(inverse).
-			SetTitleColor(inverse)
-		cc.Box.Focus(nil)
-	} else {
-		cc.Box.SetBorderPadding(0, 0, 0, 0)
-		cc.Box.SetBorder(false)
-		cc.Box.Blur()
-	}
+	// MainC.app.QueueUpdateDraw(func() {
+		if cc.plain {
+			cc.Box.SetBorderPadding(0, 0, 0, 0)
+			cc.Box.SetBorder(false)
+			cc.Box.Blur()
+			return
+		}
+		if cc.selected || cc.centered {
+			inverse := cc.GetFgColor()
+			cc.Box.
+				SetBorder(true).
+				SetBorderAttributes(tcell.AttrBold).
+				SetBorderPadding(0, 0, 0, 0).
+				SetBorderColor(inverse).
+				SetTitleColor(inverse)
+			cc.Box.Focus(nil)
+		} else {
+			cc.Box.SetBorderPadding(0, 0, 0, 0)
+			cc.Box.SetBorder(false)
+			cc.Box.Blur()
+		}
+	// })
 }
+
 func (cp *CoolorColor) Draw(screen tcell.Screen) {
-	cp.Box.DrawForSubclass(screen, cp.Box)
-	if cp.pallette == nil || cp.pallette.menu == nil || !cp.selected {
+	cp.Box.DrawForSubclass(screen, cp)
+	x, y, w, h := cp.Box.GetRect()
+	_, _, _, _ = x, y, w, h
+	// dump.P(x,y,w,h)
+	if cp.plain || cp.pallette == nil || cp.pallette.menu == nil || !cp.selected {
 		return
 	}
 	cx, cy, cw, ch := cp.GetInnerRect()
@@ -526,7 +521,9 @@ func (cp *CoolorColor) Draw(screen tcell.Screen) {
 	_, _, _, _ = mx, my, mw, mh
 	_, _, _, _ = imx, imy, imw, imh
 	centerX := cx + ((cw / 2) - (mw / 2))
-	centerY := cy + ((ch/2 + (ch / 3) - mh/2) - (mh / 2))
+	// centerY := cy + ((ch/2 + (ch / 3) - mh/2) - (mh / 2))
+	// centerY := cy + ((ch/2 + (ch / 2)) - (ch / 3))
+  centerY := y + ((mh / cp.pallette.menu.GetItemCount()))
 	cp.pallette.menu.SetRect(centerX, centerY, mw, mh)
 	cp.pallette.menu.Draw(screen)
 }

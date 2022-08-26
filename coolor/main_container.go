@@ -2,7 +2,6 @@ package coolor
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -10,7 +9,6 @@ import (
 	"github.com/digitallyserviced/coolors/tree"
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
-	"github.com/gookit/goutil/dump"
 	"github.com/gookit/goutil/structs"
 	// "github.com/rivo/tview"
 	// "github.com/josa42/term-finder/tree"
@@ -18,17 +16,21 @@ import (
 
 type MainContainer struct {
 	*tview.Flex
+	screen     *tcell.Screen
 	editor     *CoolorColorEditor
 	menu       *CoolorToolMenu
 	palette    *CoolorMainPalette
 	mixer      *CoolorBlendPalette
+	shades      *CoolorShadePalette
+	scratch    *PaletteFloater
+	info       *CoolorColorFloater
 	preview    *Square
 	fileviewer *CoolorFileView
 	pages      *tview.Pages
 	main       *tview.Flex
 	app        *tview.Application
 	options    *structs.MapDataStore
-	conf       *PaletteDataConfig
+	conf       *HistoryDataConfig
 }
 
 type CoolorFileView struct {
@@ -39,7 +41,7 @@ type CoolorFileView struct {
 }
 
 func setupLogging() func() error {
-	f, _ := os.OpenFile("dump", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	f, _ := os.OpenFile("dumps", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o666)
 	// f, _ := os.OpenFile(os.DevNull, os.O_RDWR|os.O_APPEND, 0666)
 
 	log.SetOutput(f)
@@ -78,16 +80,6 @@ func (mc *MainContainer) NewFileViewer() *CoolorFileView {
 
 	cfv.treeView.OnSelect(func(node *tree.FSNode) {
 		if !node.IsDir {
-			// app.Suspend(func() {
-			// 	editor := os.Getenv("EDITOR")
-			// 	if editor == "" {
-			// 		editor = "nvim"
-			// 	}
-			// 	cmd := exec.Command(editor, node.Path)
-			// 	cmd.Stdin = os.Stdin
-			// 	cmd.Stdout = os.Stdout
-			// 	cmd.Run()
-			// })
 		}
 	})
 
@@ -97,8 +89,8 @@ func (mc *MainContainer) NewFileViewer() *CoolorFileView {
 		}()
 	})
 
-	dir, _ := GetDataDir()
-	cfv.treeView.Load(dir)
+	configPath, _, _, _ := GetDataDirs()
+	cfv.treeView.Load(configPath)
 
 	MainC.app.SetAfterDrawFunc(func(screen tcell.Screen) {
 		var x func()
@@ -155,8 +147,9 @@ func NewMainContainer(app *tview.Application) *MainContainer {
 		main:       tview.NewFlex(),
 		app:        app,
 		options:    ActionOptions,
-		conf:       NewTempPaletteConfigData(),
+		conf:       NewPaletteHistoryFile(),
 	}
+
 	MainC.menu = NewCoolorColorMainMenu(app)
 	MainC.palette = CreateStartupPalette()
 	MainC.conf.AddPalette("random", MainC.palette)
@@ -168,12 +161,14 @@ func NewMainContainer(app *tview.Application) *MainContainer {
 	MainC.Init()
 	return MainC
 }
+
 func (mc *MainContainer) CloseConfig() {
 	mc.conf.PaletteFile.ref.Close()
 }
+
 func (mc *MainContainer) Init() {
 	mc.Flex.SetDirection(tview.FlexColumn)
-	mc.Flex.AddItem(mc.pages, 0, 100, false)
+	mc.Flex.AddItem(mc.pages, 0, 80, false)
 	mc.pages.AddPage("editor", mc.editor, true, false)
 	mc.pages.AddPage("fileviewer", mc.fileviewer, true, false)
 	mc.pages.AddPage("preview", mc.preview, true, true)
@@ -189,20 +184,68 @@ func (mc *MainContainer) InputHandler() func(event *tcell.EventKey, setFocus fun
 		ch := event.Rune()
 		kp := event.Key()
 		switch {
+		case ch == 'i':
+			cc, _ := mc.palette.GetSelected()
+			if mc.info == nil {
+				mc.info = NewCoolorColorFloater(cc)
+				mc.pages.AddPage("info", mc.info, true, false)
+				mc.pages.ShowPage("info")
+			} else {
+				name, page := mc.pages.GetFrontPage()
+				if name == "info" {
+					mc.pages.HidePage("info")
+					page.Blur()
+				} else {
+					mc.pages.ShowPage("info")
+					mc.app.SetFocus(mc.info.Flex)
+					mc.info.Color.UpdateColor(cc)
+				}
+      AppModel.helpbar.SetTable("info")
+			}
+		case ch == 'C':
+			if mc.scratch == nil {
+				p := NewCoolorPaletteWithColors(GenerateRandomColors(8))
+				cpc := NewScratchPaletteFloater(p.GetPalette())
+				mc.scratch = cpc
+				mc.pages.AddPage("scratch", mc.scratch, true, false)
+				mc.pages.ShowPage("scratch")
+			} else {
+				name, page := mc.pages.GetFrontPage()
+				if name == "scratch" {
+					mc.pages.HidePage("scratch")
+					page.Blur()
+				} else {
+					mc.pages.ShowPage("scratch")
+					mc.app.SetFocus(mc.scratch.Palette)
+				}
+      AppModel.helpbar.SetTable("scratch")
+			}
 		case ch == 'F':
 			mc.pages.SwitchToPage("fileviewer") // .HidePage("editor")
+      AppModel.helpbar.SetTable("fileviewer")
+		case ch == 'S':
+			mc.pages.SwitchToPage("shades") // .HidePage("editor")
+      AppModel.helpbar.SetTable("shades")
 		case ch == 'M':
 			mc.pages.SwitchToPage("mixer") // .HidePage("editor")
+      AppModel.helpbar.SetTable("mixer")
 		case ch == 'p':
 			mc.pages.SwitchToPage("palette") // .HidePage("editor")
+      AppModel.helpbar.SetTable("palette")
 		case ch == 'Y':
-			mc.pages.SwitchToPage("preview") //.HidePage("palette")
+			mc.pages.ShowPage("preview").SendToFront("preview") //.HidePage("palette")
+      AppModel.helpbar.SetTable("preview")
 			x, y, w, h := mc.pages.GetInnerRect()
 			_, _, _, _ = x, y, w, h
-			mc.preview.SetRect(x, y, w, h)
-			mc.preview.TopInit(7)
+			mc.preview.SetRect(x, y, w/2, h/2)
+			mc.preview.TopInit(8)
 		case ch == 'e':
 			mc.pages.SwitchToPage("editor") //.HidePage("palette")
+      AppModel.helpbar.SetTable("editor")
+		case kp == tcell.KeyEscape:
+			if mc.menu.Activated() != nil {
+				mc.menu.Activated().Cancel()
+			}
 		}
 
 		name, page := mc.pages.GetFrontPage()
@@ -210,33 +253,65 @@ func (mc *MainContainer) InputHandler() func(event *tcell.EventKey, setFocus fun
 			return
 		}
 		switch {
+		case name == "shades":
+			HandleVimNavigableHorizontal(mc.shades, ch, kp)
+			HandleCoolorSelectable(mc.shades, ch, kp)
+			// dump.P(fmt.Sprintf("%s horiz input handled", name))
 		case name == "mixer":
 			HandleVimNavigableHorizontal(mc.mixer, ch, kp)
 			HandleCoolorSelectable(mc.mixer, ch, kp)
-			fallthrough
+			// dump.P(fmt.Sprintf("%s horiz input handled", name))
 		case name == "palette":
 			HandleVimNavigableHorizontal(mc.palette, ch, kp)
 			HandleCoolorSelectable(mc.palette, ch, kp)
-			fallthrough
-		case name == "mixer" || name == "palette":
+			// dump.P(fmt.Sprintf("%s horiz input handled", name))
+		case name == "info":
+			HandleVimNavigableHorizontal(mc.info, ch, kp)
+			HandleVimNavigableVertical(mc.info, ch, kp)
+			// HandleCoolorSelectable(mc.info, ch, kp)
+		case name == "scratch":
+			HandleVimNavigableHorizontal(mc.scratch.Palette.Palette.Palette, ch, kp)
+			HandleCoolorSelectable(mc.scratch.Palette.Palette.Palette, ch, kp)
+		}
+
+		if name == "mixer" || name == "palette" || name == "shades" {
+			// dump.P(fmt.Sprintf("%s vertical input handled", name))
 			HandleVimNavigableVertical(MainC.menu, ch, kp)
 		}
 
-		// HandleVimNavigableVertical(MainC.menu, ch, kp)
-
-		dump.P(fmt.Sprintf("%s input handled", name))
 		if handler := page.InputHandler(); handler != nil {
 			handler(event, setFocus)
 		}
 	})
 }
+
 func (cfv *CoolorFileView) InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
 	return cfv.treeView.InputHandler()
 }
+
 func (cfv *CoolorFileView) Focus(delegate func(p tview.Primitive)) {
 	cfv.treeView.Focus(delegate)
 }
 
+func (mc *MainContainer) NewShades(base *CoolorColor) {
+	if mc.pages.HasPage("shades") && mc.shades != nil {
+		// mc.mixer.UpdateColors(start, end)
+    mc.shades.UpdateColors(base)
+	} else {
+		mc.shades = BlankCoolorShadePalette(base, 8)
+		mc.shades.SetMenu(MainC.menu)
+		mc.pages.AddPage("shades", mc.shades, true, false)
+	}
+	// name, page := mc.pages.GetFrontPage()
+	// if page != nil {
+	// 	mc.pages.HidePage(name)
+	// }
+	mc.pages.SwitchToPage("shades") // .HidePage("editor")
+	// mc.pages.HidePage("palette")
+	mc.palette.Blur()
+	mc.palette.ColorContainer.Blur()
+	mc.app.SetFocus(mc.shades)
+}
 func (mc *MainContainer) NewMixer(start, end *CoolorColor) {
 	if mc.pages.HasPage("mixer") && mc.mixer != nil {
 		mc.mixer.UpdateColors(start, end)
@@ -252,7 +327,7 @@ func (mc *MainContainer) NewMixer(start, end *CoolorColor) {
 	mc.pages.SwitchToPage("mixer") // .HidePage("editor")
 	mc.pages.HidePage("palette")
 	mc.palette.Blur()
-	mc.palette.Flex.Blur()
+	mc.palette.ColorContainer.Blur()
 	mc.app.SetFocus(mc.mixer)
 }
 

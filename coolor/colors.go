@@ -5,11 +5,16 @@ import (
 	"fmt"
 	"image/color"
 	"math"
+
+	"github.com/gdamore/tcell/v2"
 )
 
 // A color is stored internally using sRGB (standard RGB) values in the range 0-1
 type Color struct {
 	R, G, B float64
+}
+func (col Color) Tcell() (tcell.Color) {
+  return tcell.GetColor(col.Hex())
 }
 
 // Implement the Go color.Color interface.
@@ -26,6 +31,11 @@ func (col Color) GetCC() *CoolorColor {
 	cc := NewStaticCoolorColor(col.Hex())
 	// cc.SetColorCss(col.Hex())
 	return cc
+}
+
+func MakeColorFromTcell(col tcell.Color) (Color) {
+  h, _ := Hex(fmt.Sprintf("#%06x", col.Hex()))
+  return h
 }
 
 // Constructs a colorful.Color from something implementing color.Color
@@ -48,6 +58,10 @@ func MakeColor(col color.Color) (Color, bool) {
 	return Color{float64(r) / 65535.0, float64(g) / 65535.0, float64(b) / 65535.0}, true
 }
 
+func RGB255(r,g,b uint8) Color {
+  return Color{float64(r) / 255.0, float64(g) / 255.0, float64(b) / 255.0}
+}
+
 // Might come in handy sometimes to reduce boilerplate code.
 func (col Color) RGB255() (r, g, b uint8) {
 	r = uint8(col.R*255.0 + 0.5)
@@ -57,12 +71,12 @@ func (col Color) RGB255() (r, g, b uint8) {
 }
 
 // Used to simplify HSLuv testing.
-func (col Color) values() (float64, float64, float64) {
+func (col Color) Values() (float64, float64, float64) {
 	return col.R, col.G, col.B
 }
 
 // This is the tolerance used when comparing colors using AlmostEqualRgb.
-const Delta = 1.0 / 255.0
+const Delta = 70.0 / 255.0
 
 // This is the default reference white point.
 var D65 = [3]float64{0.95047, 1.00000, 1.08883}
