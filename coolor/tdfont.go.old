@@ -1,0 +1,376 @@
+package main
+
+import (
+	"bytes"
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"io"
+	"math"
+	"os"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/ghostiam/binstruct"
+	"golang.org/x/text/encoding/charmap"
+)
+
+type TheDrawFontHeader struct {
+}
+
+type TheDrawFontMetaData struct {
+	Hdr           string   `bin:"len:24"`
+	Namelen       uint8    `bin:"len:1"`
+	FontName      string   `bin:"len:12"`
+	_             byte     `bin:"len:4"`
+	FontType      uint8    `bin:"len:1"` //outl block color
+	FontSpacing   uint8    `bin:"len:1"`
+	FontBlockSize uint16   `bin:"len:2"`
+	CharList      []uint16 `bin:"len:94,[len:2]"`
+	FontMaxHeight uint8    `bin:"-"`
+	FontMaxWidth  uint8    `bin:"-"`
+}
+
+type TheDrawFontColoring struct {
+	BgFg uint8 `bin:"len:1,ParseColor"`
+	Bg   uint8 `bin:"-"`
+	Fg   uint8 `bin:"-"`
+}
+
+type TheDrawFontCell struct {
+	Char      byte                `bin:"len:1"`
+	Character string              `bin:"-"`
+	Coloring  TheDrawFontColoring `bin:"-"`
+}
+
+type TheDrawFontCharacter struct {
+	MaxWidth  uint8             `bin:"len:1"`
+	MaxHeight uint8             `bin:"len:1"`
+	Content   []TheDrawFontCell `bin:"NullTerminatedString"`
+}
+
+type TheDrawFont struct {
+	MetaData TheDrawFontMetaData    // `bin:"len:233"`
+	Glyphs   []TheDrawFontCharacter `bin:"ReadCharacters"` // `bin:"len:fontBlockSize"` //
+}
+
+type TheDrawFontString struct {
+	Text    string
+	Font    *TheDrawFont
+	Chars   []*TheDrawFontCharacter
+	Output  strings.Builder
+	Options *TheDrawFontStringOptions
+}
+
+type TheDrawFontStringOptions struct {
+	Justify, Width, Padding    uint8
+	LineWidth, Height, Spacing uint8
+	Colors                     []uint8
+}
+
+func (tdfc *TheDrawFontColoring) ParseColor(col uint8) error {
+	//    byteColor = oBin.ReadByte
+	// byteBackColor = CByte(Math.Floor(CDbl(byteColor) / 16))
+	// byteForeColor = CByte(byteColor Mod 16)
+	// fmt.Printf("%d", col)
+
+	tdfc.BgFg = col
+	fgcol := col & 0x0f
+	bgcol := (col & 0xf0) >> 4
+	tdfc.Bg = bgcol
+	tdfc.Fg = fgcol
+	// tdfc.Bg = uint8(math.Floor(float64(col / 16)))
+	// tdfc.Fg = uint8(col % 16)
+	return nil
+}
+
+func (tdfs *TheDrawFontString) PrintString(s string) {
+	chars := make([]*TheDrawFontCharacter, len(s))
+	tdfs.Text = s
+	tdfs.Options.LineWidth = tdfs.GetPadding()
+	tdfs.Options.Height = tdfs.Font.MetaData.FontMaxHeight
+	for _, char := range s {
+		var glyph *TheDrawFontCharacter
+		if g, ok := tdfs.Font.HasChar(char); !ok {
+			continue
+		} else {
+			glyph = g
+			chars = append(chars, g)
+		}
+		tdfs.Options.LineWidth = tdfs.Options.LineWidth + glyph.MaxWidth + tdfs.Options.Spacing
+	}
+	tdfs.Chars = chars
+
+	for i := 0; i < int(tdfs.Font.MetaData.FontMaxHeight); i++ {
+		tdfs.PrintRow(i)
+	}
+	fmt.Print(tdfs.Output.String())
+}
+
+// func (tdfc *TheDrawFontCharacter) PrintString() {
+// 	if tdfc == nil || tdfc.Content == nil {
+// 		return
+// 	}
+// 	tdfc.Draw()
+// }
+
+func (tdfc *TheDrawFontCharacter) GetFor(row, col uint8) (string, string) {
+	pos := (tdfc.MaxWidth*row + col)
+	if len(tdfc.Content)-1 < int(pos) {
+		return "", " "
+	}
+	fgcol := tdfc.Content[pos].Coloring.Fg
+	bgcol := tdfc.Content[pos].Coloring.Bg
+	// coloring := fmt.Sprintf("\x1b[%d;%dm", fgcolors[(fgcol+1)%16], bgcolors[(bgcol+1)%16])
+	coloring := fmt.Sprintf("\x1b[%d;%dm", fgcolors[fgcol], bgcolors[bgcol])
+	// coloring := fmt.Sprintf("%d;%dm", fgcol, bgcol)
+	return coloring, tdfc.Content[pos].Character
+}
+
+func (tdfs *TheDrawFontString) PrintRow(row int) {
+	for i := 0; i < int(tdfs.Options.Padding); i++ {
+		tdfs.Output.WriteString(" ")
+	}
+
+	for ci, v := range tdfs.Chars {
+		if v == nil {
+			continue
+		}
+		lastcolor := ""
+		for col := 0; col < int(v.MaxWidth); col++ {
+			coloring, char := v.GetFor(uint8(row), uint8(col))
+			if lastcolor == coloring && col != 0 {
+				coloring = ""
+			}
+			tdfs.Output.WriteString(fmt.Sprintf("%s%s", coloring, char))
+			lastcolor = coloring
+		}
+		tdfs.Output.WriteString("\x1b[0m")
+		if ci == len(tdfs.Chars)-1 {
+			continue
+		}
+		for s := 0; s < int(tdfs.Options.Spacing); s++ {
+			tdfs.Output.WriteString(" ")
+		}
+	}
+	tdfs.Output.WriteRune('\n')
+}
+
+func (d *TheDrawFontCharacter) Draw() {
+	var o strings.Builder
+
+	row, col := 0, 0
+
+	for i := 0; i < int(d.MaxHeight)*int(d.MaxWidth); i++ {
+		fgcol := d.Content[i].Coloring.Fg
+		bgcol := d.Content[i].Coloring.Fg
+
+		if bgcol > 7 || bgcol < 0 {
+			bgcol = 1
+		}
+		if fgcol > 15 || fgcol < 0 {
+			fgcol = 1
+		}
+		coloring := fmt.Sprintf("\x1b[%d;%dm", fgcolors[fgcol], bgcolors[bgcol])
+		o.WriteString(fmt.Sprintf("%s%s%s", coloring, d.Content[i].Character, "\x1b[0m"))
+		if math.Mod(float64(i), float64(d.MaxWidth)) == 0 {
+			row = row + 1
+			col = 0
+			o.WriteRune('\n')
+		}
+		col = col + 1
+	}
+	fmt.Print(o.String())
+
+}
+func (tdfs *TheDrawFontString) LoadFont(s string) {
+	fontname := fmt.Sprintf("./%s.tdf", s)
+	file, err := os.Open(fontname)
+	if err != nil {
+		panic(err)
+	}
+	// var fonthdr TheDrawFontMetaData
+	var font TheDrawFont
+	decoder := binstruct.NewDecoder(file, binary.LittleEndian)
+	// decoder.SetDebug(true)
+	err = decoder.Decode(&font)
+	if err != nil {
+		panic(err)
+	}
+
+	tdfs.Font = &font
+
+}
+
+// func (tdfs *TheDrawFontString) PrintRow() {
+//
+// }
+
+var (
+	fgcolors = []uint8{30, 34, 32, 36, 31, 35, 33, 37, 90, 94, 92, 96, 91, 95, 93, 97}
+	bgcolors = []uint8{40, 44, 42, 46, 41, 45, 43, 47, 40, 44, 42, 46, 41, 45, 43, 47}
+)
+
+func (d *TheDrawFontCharacter) NullTerminatedString(r binstruct.Reader) error {
+	d.Content = make([]TheDrawFontCell, d.MaxWidth*d.MaxHeight)
+
+	row, col := 0, 0
+
+	for i := 0; i < int(d.MaxHeight)*int(d.MaxWidth); i++ {
+		cell := TheDrawFontCell{
+			Char:      byte(' '),
+			Character: fmt.Sprintf("%s", " "),
+			Coloring: TheDrawFontColoring{
+				BgFg: 0,
+				Bg:   0,
+				Fg:   0,
+			},
+		}
+		d.Content[i] = cell
+	}
+
+	for {
+		readByte, err := r.ReadByte()
+		if errors.Is(err, io.EOF) {
+			panic(err)
+		}
+		if err != nil {
+			panic(err)
+		}
+		pos := row*int(d.MaxWidth) + col
+		switch {
+		case bytes.Equal([]byte{readByte}, []byte{0x00}):
+			return nil
+		case bytes.Equal([]byte{readByte}, []byte{0x0d}):
+			row = row + 1
+			col = 0
+			continue
+		default:
+			if readByte < 0x20 {
+				readByte = uint8(' ')
+			}
+			d.Content[pos].Char = readByte
+			d.Content[pos].Character = fmt.Sprintf("%c", d.Content[pos].FixEncoding(readByte))
+			// d.Content[pos].Character = string(bytes.Runes([]byte{readByte}))
+			color, err := r.ReadByte()
+			if err != nil {
+				panic(err)
+			}
+			// d.Content[pos].Coloring.BgFg = color
+			d.Content[pos].Coloring.ParseColor(color)
+		}
+		col = col + 1
+	}
+}
+
+func (tdfc *TheDrawFontCell) GetCharacter(readByte byte, second bool) {
+
+}
+
+func (tdfmd *TheDrawFont) ReadCharacters(r binstruct.Reader) error {
+	if tdfmd.MetaData.FontType != 2 {
+		return fmt.Errorf("Only supporting colored fonts currently... %s not supported", tdfmd.MetaData.FontName)
+	}
+	tdfmd.Glyphs = make([]TheDrawFontCharacter, 94)
+	for i := 0; i < 94; i++ {
+		offset := uint16(0)
+		if num := tdfmd.MetaData.CharList[i]; num == 65535 {
+			continue
+		} else {
+			offset = num
+		}
+		r.Seek(233+int64(offset), io.SeekStart)
+		var tfc TheDrawFontCharacter
+		err := r.Unmarshal(&tfc)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				panic(err)
+			}
+			panic(err)
+		}
+
+		if tdfmd.MetaData.FontMaxWidth < tfc.MaxWidth {
+			tdfmd.MetaData.FontMaxWidth = tfc.MaxWidth
+		}
+		if tdfmd.MetaData.FontMaxHeight < tfc.MaxHeight {
+			tdfmd.MetaData.FontMaxHeight = tfc.MaxHeight
+		}
+		tdfmd.Glyphs[i] = tfc
+	}
+	return nil
+}
+
+var (
+	lock       = sync.Mutex{}
+	lastChange = time.Now()
+)
+
+func main() {
+	tdfs := NewTheDrawFontString("mindstax")
+	tdfs.PrintString("SHIT")
+	return
+}
+
+func (tdf *TheDrawFont) HasChar(char rune) (*TheDrawFontCharacter, bool) {
+	charOrd := int(char) - 33
+	charOffset := tdf.MetaData.CharList[charOrd]
+	return &tdf.Glyphs[charOrd+32], charOffset != 65535
+}
+func (tdfc *TheDrawFontCell) FixEncoding(b byte) rune {
+	return charmap.CodePage437.DecodeByte(b)
+}
+
+func NewTheDrawFontStringOptions(font *TheDrawFont) *TheDrawFontStringOptions {
+	tdfso := &TheDrawFontStringOptions{
+		Justify:   0,
+		Width:     80,
+		Padding:   0,
+		LineWidth: 0,
+		Height:    font.MetaData.FontMaxHeight,
+		Spacing:   font.MetaData.FontSpacing,
+		Colors:    []uint8{},
+	}
+	return tdfso
+}
+
+func NewTheDrawFontString(font string) *TheDrawFontString {
+
+	tdfs := &TheDrawFontString{
+		// Text: text,
+		// Chars:  []*TheDrawFontCharacter{},
+		Output: strings.Builder{},
+	}
+
+	tdfs.LoadFont(font)
+	tdfs.Options = NewTheDrawFontStringOptions(tdfs.Font)
+	// tdfs.PrintString(text)
+
+	return tdfs
+}
+
+func (tdfs *TheDrawFontString) GetPadding() uint8 {
+	if tdfs.Options.Justify == 0 {
+		return 0
+	}
+
+	return 0
+}
+
+// func (tdf *TheDrawFont) PrintString(s string) []*TheDrawFontCharacter {
+// 	chars := make([]*TheDrawFontCharacter, len(s))
+// 	for _, char := range s {
+
+// 		if char, ok := tdf.HasChar(char); !ok {
+// 			continue
+// 		} else {
+// 			chars = append(chars, char)
+// 		}
+// 	}
+//
+// 	for i := 0; i < int(tdf.MetaData.FontMaxHeight); i++ {
+// 		tdf.PrintRow(chars, i)
+// 	}
+//
+// 	return chars
+// }

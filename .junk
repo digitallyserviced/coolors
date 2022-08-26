@@ -1,0 +1,342 @@
+// func NewConfigFile(path string, pdc *PaletteDataConfig) *koanf.Koanf {
+// 	k := koanf.New(".")
+// 	pdc.LoadConfigFromFile(path)
+// 	return k
+// }
+
+// func (pdc *PaletteDataConfig) NewTempPalette(name string, tmp bool, f *os.File) {
+// 	si, err := f.Stat()
+// 	if err != nil {
+// 		fmt.Println(err)
+// 	}
+// 	c := NewTempConfigWithFile(name, f)
+// }
+
+// func ConfigSave(c *config.Config) {
+// 	md := &CoolorPaletteData{}
+// 	c.Structure("metadata", md)
+// }
+//
+
+	// err = pdc.Set("metadata.palettes", palettes, true)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	return 0, err
+	// }
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	return 0, err
+	// }
+	// f.Sync()
+	// defer f.Close()
+// func NewTempPaletteConfig() *PaletteDataConfig {
+// 	var err error
+// 	var f *os.File
+// 	f, err = TempPalettesFile(name)
+// 	if err != nil {
+// 		fmt.Println(err)
+// 		return nil
+// 	}
+// 	return NewPaletteConfigData(name, true, f)
+// }
+
+// func GetPaletteDataFromConfig(s string) *PaletteData {
+// 	p, err := LoadConfigFromFile(s)
+// 	// c := LoadTempPalette(s)
+// 	if err != nil {
+// 		log.Fatalf("error loading config from file: %v", err)
+// 		// return NewCoolorPaletteWithColors(GenerateRandomColors(5))
+// 	}
+// 	dump.P(p)
+// 	// palettes, ok := c.Strings("metadata.palettes")
+// 	// dump.P(palettes)
+// 	// if !ok {
+// 	// 	return NewCoolorPaletteWithColors(GenerateRandomColors(5))
+// 	// }
+// 	// colors := make([]tcell.Color, 0)
+// 	// for _, p := range palettes {
+// 	// 	d, _ := c.StringMap(p)
+// 	// 	for n, dv := range d {
+// 	// 		dump.P(n, dv, fmt.Sprintf("%s %s", n, dv))
+// 	// 		colors = append(colors, tcell.GetColor(dv))
+// 	// 	}
+// 	// }
+// 	cp := NewCoolorPaletteWithColors(colors)
+// 	return NewPaletteData(cp)
+// 	// return NewCoolorPaletteWithColors(colors)
+// }
+
+// func NewPaletteData(cp *CoolorMainPalette) *PaletteDataConfig {
+// 	if cp == nil {
+// 		return nil
+// 	}
+//
+// 	f, err := TempPalettesFile(cp.name)
+// 	if err != nil {
+// 		log.Fatalf("error making temp palette file: %v", err)
+// 	}
+//
+// 	pdc := NewPaletteConfigData()
+// 	pdc.AddPalette(cp.name, cp)
+//
+// 	return pdc
+// }
+
+package coolor
+
+import (
+	"fmt"
+	"io/fs"
+	"os"
+	"regexp"
+	"strings"
+	"time"
+
+	"github.com/adrg/xdg"
+	"github.com/gookit/config"
+	"github.com/gookit/config/toml"
+	"github.com/gookit/goutil/dump"
+	"github.com/gookit/goutil/errorx"
+	"github.com/gookit/goutil/fsutil"
+)
+
+type PaletteMetadata struct {
+	created     time.Time
+	name        string
+	paletteType string
+}
+
+type PaletteColors struct {
+	colors map[string]string
+}
+
+type PaletteData struct {
+	*PaletteMetadata
+	*PaletteColors
+}
+
+type PaletteFile struct {
+	tmp  bool
+	path string
+	name string
+}
+
+type PalettesMetadata struct {
+	created  time.Time
+	name     string
+	palettes []string `json:"palettes"`
+}
+
+type PalettesData struct {
+	*PalettesMetadata `json:"metadata"`
+	palettesData      map[string]PaletteData `json:"palettes"`
+}
+
+type PaletteDataConfig struct {
+	*PaletteFile
+	*config.Config
+	*PalettesData
+}
+
+func NewPaletteMetadata() *PaletteMetadata {
+	pmd := &PaletteMetadata{
+		created:     time.Time{},
+		name:        "default",
+		paletteType: "default",
+	}
+
+	return pmd
+}
+
+func NewPalettesData() *PalettesData {
+	pmd := &PalettesData{
+		PalettesMetadata: NewPalettesMetadata(),
+		palettesData:     map[string]PaletteData{},
+	}
+
+	return pmd
+}
+
+func (pd *PalettesData) AddPalette(p Palette)  {
+	
+}
+
+func NewPaletteData() *PaletteData {
+	pmd := &PaletteData{
+		PaletteMetadata: NewPaletteMetadata(),
+		PaletteColors:   NewPaletteColors(),
+	}
+
+	return pmd
+}
+
+func NewPalettesMetadata() *PalettesMetadata {
+	pmd := &PalettesMetadata{
+		created:  time.Time{},
+		name:     "default",
+		palettes: []string{},
+	}
+
+	return pmd
+}
+
+func NewPaletteColors() *PaletteColors {
+	return &PaletteColors{
+		colors: make(map[string]string),
+	}
+}
+
+func NewPaletteConfig() *PaletteDataConfig {
+	pc := &PaletteDataConfig{
+		PaletteFile:  &PaletteFile{},
+		Config:       &config.Config{},
+		PalettesData: NewPalettesData(),
+	}
+	nowh := fmt.Sprintf("palette_%x", pc.created.Unix())
+	pdc.data["default"] = *pc
+	return pdc
+}
+
+var paletteIdx int
+
+func (pdc *PaletteDataConfig) SetPalette(name string, p Palette) (n int64, err error) {
+	if paletteIdx == 0 {
+		paletteIdx = 1
+	} else {
+		paletteIdx += 1
+	}
+	name = fmt.Sprintf("%s_%d", name, paletteIdx)
+	cp := p.GetPalette()
+	if cp == nil {
+		return -1, errorx.Errorf("Unable to save %d %s to %s", cp.GetItemCount(), name, pdc.PaletteFile.path)
+	}
+	flat := ToFlatList(cp)
+	pd := &PaletteData{
+		created: time.Now(),
+		name:    name,
+		colors:  flat,
+	}
+	pdc.data[name] = *pd
+	f, err := TempPalettesFile()
+	if err != nil {
+		fmt.Println(err)
+		return 0, err
+	}
+	dump.P(pdc.data)
+	pdc.SetEncoder("toml", toml.Encoder)
+	for x, v := range flat {
+		k := fmt.Sprintf("%s.%s", name, x)
+		pdc.Set(k, v, true)
+	}
+	if err != nil {
+		fmt.Println(err)
+		return 0, err
+	}
+	n, err = pdc.Config.DumpTo(f, "toml")
+	if err != nil {
+		fmt.Println(err)
+		return 0, err
+	}
+	f.Sync()
+	defer f.Close()
+	return 1, nil
+}
+
+func ToFlatList(cp *CoolorPalette) map[string]string {
+	outcols := make(map[string]string)
+	for i, v := range cp.colors {
+		k := fmt.Sprintf("color%d", i)
+		outcols[k] = v.Html()
+	}
+	dump.P(outcols)
+	return outcols
+}
+
+var APPNAME string = "coolor"
+
+func GetDataDir() string {
+	path := strings.Join([]string{xdg.DataHome, "coolor", "temp_palettes"}, "/")
+	if !fsutil.PathExists(path) {
+		err := fsutil.Mkdir(path, fs.ModePerm)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
+	return path
+}
+func TempPalettesFile() (*os.File, error) {
+	path := GetDataDir()
+	fmt.Println(fmt.Sprintf("%s", path))
+	f, err := fsutil.TempFile(path, "palette_*.toml")
+	if err != nil {
+		panic(err)
+	}
+	// fmt.Println(f.Name())
+	return f, err
+}
+
+const (
+	cssInteger       = "[-\\+]?\\d+%?"
+	cssNumber        = "[-\\+]?\\d*\\.\\d+%?"
+	cssUnit          = "(?:" + cssNumber + ")|(?:" + cssInteger + ")"
+	permissiveMatch3 = "[\\s|\\(]+(" + cssUnit + ")[,|\\s]+(" + cssUnit + ")[,|\\s]+(" + cssUnit + ")\\s*\\)?"
+	permissiveMatch4 = "[\\s|\\(]+(" + cssUnit + ")[,|\\s]+(" + cssUnit + ")[,|\\s]+(" + cssUnit + ")[,|\\s]+(" + cssUnit + ")\\s*\\)?"
+	rgb              = "rgb" + permissiveMatch3
+	rgba             = "RGBA" + permissiveMatch4
+	hsl              = "hsl" + permissiveMatch3
+	hsla             = "hsla" + permissiveMatch4
+	hsv              = "hsv" + permissiveMatch3
+	hsva             = "hsva" + permissiveMatch4
+	// hex3             = `#?([0-9a-fA-F]{1})([0-9a-fA-F]{1})([0-9a-fA-F]{1})`
+	// hex6             = `#?([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})`
+	// hex4             = `#?([0-9a-fA-F]{1})([0-9a-fA-F]{1})([0-9a-fA-F]{1})([0-9a-fA-F]{1})`
+	// hex8             = `#?([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})`
+	hex3 = `(#[0-9a-fA-F]{3})\b`
+	hex6 = `(#[0-9a-fA-F]{6})\b`
+)
+
+var (
+	colorRegs = []string{rgb, rgba, hsl, hsla, hsv, hsva, hex3, hex6} //
+)
+
+func Colorizer(s string) string {
+	for _, v := range colorRegs {
+		CheckForReg(v, s)
+	}
+	return ""
+}
+
+func GetPaletteFromConfig(s string) *CoolorMainPalette {
+	c := LoadTempPalette(s)
+	d := c.Data()
+	for n, dv := range d {
+		dump.P(n, dv, fmt.Sprintf("%s %s", n, dv))
+	}
+	return NewCoolorPaletteWithColors(GenerateRandomColors(5))
+}
+
+func LoadTempPalette(s string) *config.Config {
+	// c := config.LoadExists(s)
+
+	c := config.New(fsutil.Name(s))
+	err := c.LoadExists(s)
+	if err != nil {
+		return nil
+	}
+	return c
+}
+
+func CheckForReg(reg string, c string) {
+	if match := regexp.MustCompile(reg).FindAllStringSubmatch(c, -1); match != nil {
+		colors := make([]string, 0)
+		for _, c := range match {
+			if len(c) == 2 {
+				colors = append(colors, c[1])
+			}
+		}
+	}
+	// regexp.MustCompile(reg).FindAllSubmatch()
+	if matchIdxs := regexp.MustCompile(reg).FindAllStringSubmatchIndex(c, -1); matchIdxs != nil {
+		dump.P(matchIdxs)
+	}
+}
