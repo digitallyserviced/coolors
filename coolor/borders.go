@@ -39,12 +39,12 @@ var OrigBorders = struct {
 	BottomT: tview.BoxDrawingsLightUpAndHorizontal,
 	Cross:   tview.BoxDrawingsLightVerticalAndHorizontal,
 
-	HorizontalFocus:  tview.BoxDrawingsDoubleHorizontal,
-	VerticalFocus:    tview.BoxDrawingsDoubleVertical,
-	TopLeftFocus:     tview.BoxDrawingsDoubleDownAndRight,
-	TopRightFocus:    tview.BoxDrawingsDoubleDownAndLeft,
-	BottomLeftFocus:  tview.BoxDrawingsDoubleUpAndRight,
-	BottomRightFocus: tview.BoxDrawingsDoubleUpAndLeft,
+	HorizontalFocus:  tview.BoxDrawingsHeavyHorizontal,
+	VerticalFocus:    tview.BoxDrawingsHeavyVertical,
+	TopLeftFocus:     tview.BoxDrawingsHeavyDownAndRight,
+	TopRightFocus:    tview.BoxDrawingsHeavyDownAndLeft,
+	BottomLeftFocus:  tview.BoxDrawingsHeavyUpAndRight,
+	BottomRightFocus: tview.BoxDrawingsHeavyUpAndLeft,
 }
 
 var MyBorderStyle = struct {

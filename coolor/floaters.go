@@ -1,17 +1,20 @@
 package coolor
 
 import (
+	// "container/list"
 	"fmt"
 	"math"
 	"strconv"
 
 	// "strings"
 
+	"github.com/digitallyserviced/coolors/theme"
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
 
 	// "github.com/gdamore/tcell/v2"
 	"github.com/gookit/color"
+	"github.com/gookit/goutil/dump"
 )
 
 type CoolorColorInfo struct {
@@ -29,10 +32,65 @@ type CoolorColorDetails struct {
 	selected  string
 }
 
-type CoolorColorFloater struct {
+type RootFloatContainer struct {
+	Item tview.Primitive
 	*tview.Flex
-	Color *CoolorColorInfo
-	Items []*tview.Primitive
+	Rows          *tview.Flex
+	Container     *tview.Flex
+	cancel        func()
+	finish        func()
+	escapeCapture tcell.Key
+	captureInput  bool
+}
+
+type Floater interface {
+	GetRoot() *RootFloatContainer
+}
+
+type (
+	ListSelectedHandler func(idx int, i interface{}, lis []ListItem)
+	ListChangedHandler  func(idx int, selected bool, i interface{}, lis []ListItem)
+)
+//
+// type ListItemSelected interface {
+// 	Selected(idx int, i interface{}, lis []ListItem)
+// 	Changed(idx int, selected bool, i interface{}, lis []ListItem)
+// }
+//
+// type ListItemText interface {
+// 	GetMainText() string
+// 	GetSecondaryText() string
+// 	GetShortcut() rune
+// }
+//
+// type ListStyles struct {
+// 	main, sec, short, sel string
+// }
+//
+// type ListItem interface {
+// 	ListItemText
+// 	ListItemSelected
+// }
+
+type CoolorColorFloater struct {
+  *tview.Flex
+  Color *CoolorColorInfo
+  Items []*tview.Primitive
+}
+
+type ListFloater struct {
+	Header *tview.TextView
+	Footer *tview.TextView
+	*RootFloatContainer
+	*Lister
+	// listItems []ListItem
+}
+
+type ListStyle interface {
+	GetMainTextStyle() tcell.Style
+	GetSecondaryTextStyle() tcell.Style
+	GetShortcutStyle() tcell.Style
+	GetSelectedStyle() tcell.Style
 }
 
 // GetSelected implements CoolorSelectable
@@ -44,7 +102,7 @@ func (*CoolorColorFloater) GetSelected() (*CoolorColor, int) {
 func (*CoolorColorFloater) NavSelection(int) {
 }
 
-func NewCoolorColorFloater(ncc *CoolorColor) *CoolorColorFloater {
+func NewCoolorColorInfoFloater(ncc *CoolorColor) *CoolorColorFloater {
 	cc := ncc.Clone()
 	cc.SetStatic(true)
 	cc.SetPlain(true)
@@ -59,21 +117,417 @@ func NewCoolorColorFloater(ncc *CoolorColor) *CoolorColorFloater {
 	centerFlex.AddItem(spf.Color.Flex, 13, 0, true)
 	centerFlex.AddItem(nil, 0, 1, false)
 
-	spf.Flex.SetDirection(tview.FlexColumn)
-	spf.Flex.AddItem(nil, 0, 2, false)
-	spf.Flex.AddItem(centerFlex, 0, 5, true)
-	spf.Flex.AddItem(nil, 0, 2, false)
+	spf.SetDirection(tview.FlexColumn)
+	spf.AddItem(nil, 0, 2, false)
+	spf.AddItem(centerFlex, 0, 5, true)
+	spf.AddItem(nil, 0, 2, false)
 	return spf
 }
 
-//
-var keyLabel []rune
-
-func init() {
-	keyLabel = []rune{'⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'}
-	// ¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾ⁿ⁰₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎ₐₑₒₓₔₕₖₗₘₙₚₛₜﴞ ﵆ ﵃ ﵄
+func (f *RootFloatContainer) SetFinish(fin func()) *RootFloatContainer {
+	f.finish = fin
+	return f
 }
 
+func (f *RootFloatContainer) SetCancel(c func()) *RootFloatContainer {
+	f.cancel = c
+	return f
+}
+
+func (f *RootFloatContainer) GetRoot() *RootFloatContainer {
+	return f
+}
+
+func (f *ListFloater) GetRoot() *RootFloatContainer {
+	return f.RootFloatContainer
+}
+
+func NewListStyle() ListStyles {
+	lis := ListStyles{
+		main:  "",
+		sec:   "",
+		short: "",
+		sel:   "",
+	}
+
+	return lis
+}
+
+func (f ListStyles) GetSelectedStyle() tcell.Style {
+	if f.sel != "" {
+		return *theme.GetTheme().Get(f.sel)
+	}
+	if theme.GetTheme().Get("list_sel") != nil {
+		return *theme.GetTheme().Get("list_sel")
+	}
+	return tcell.StyleDefault.Foreground(tview.Styles.SecondaryTextColor)
+}
+
+func (f ListStyles) GetShortcutStyle() tcell.Style {
+	if f.short != "" {
+		return *theme.GetTheme().Get(f.short)
+	}
+	if theme.GetTheme().Get("list_short") != nil {
+		return *theme.GetTheme().Get("list_short")
+	}
+	return tcell.StyleDefault.Foreground(tview.Styles.SecondaryTextColor)
+}
+
+func (f ListStyles) GetSecondaryTextStyle() tcell.Style {
+	if f.sec != "" {
+		return *theme.GetTheme().Get(f.sec)
+	}
+	if theme.GetTheme().Get("list_second") != nil {
+		return *theme.GetTheme().Get("list_second")
+	}
+	return tcell.StyleDefault.Foreground(tcell.ColorBlue)
+}
+
+func (f ListStyles) GetMainTextStyle() tcell.Style {
+	if f.main != "" {
+		return *theme.GetTheme().Get(f.main)
+	}
+	if theme.GetTheme().Get("list_main") != nil {
+		return *theme.GetTheme().Get("list_main")
+	}
+	return tcell.StyleDefault.Foreground(tcell.ColorGreen)
+}
+
+func (f *ListFloater) Selected() {
+}
+//
+// func (f *Lister) SetItemLister(il func() []ListItem) {
+// 	f.itemsLister = il
+// }
+//
+// func (f *Lister) UpdateListItems(li []ListItem) {
+// 	f.listItems = li
+// }
+//
+// func (f *Lister) UpdateView() {
+// 	if f.itemsLister != nil {
+// 		f.items = f.itemsLister()
+// 	}
+// 	f.SetBorder(false)
+// 	f.SetBorderPadding(0, 0, 0, 0)
+// 	f.Clear()
+// 	curr := f.GetCurrentItem()
+// 	for _, v := range f.items {
+// 		main := v.GetMainText()
+// 		sec := v.GetSecondaryText()
+//     short 
+// 		short := v.GetShortcut()
+// 		selecting := func(lis ListItem) func() {
+// 			return func() {
+// 			}
+// 		}
+// 		f.AddItem(main, sec, short, selecting(*v))
+// 	}
+// 	f.SetCurrentItem(curr)
+//   // f.SetHandlers()
+// }
+//
+func (f *ListFloater) UpdateView() {
+	f.Container.SetBorder(true)
+	f.Container.SetDirection(tview.FlexRow)
+	f.Container.Clear()
+	f.Container.AddItem(f.Header, 1, 0, false)
+	// f.Container.AddItem(f.List, 0, 6, true)
+
+	// f.Lister.UpdateView()
+
+	f.GetRoot().UpdateView()
+	f.Container.AddItem(f.Footer, 1, 0, false)
+}
+// type ListItems struct {
+//   name  string
+//   items []ListItem
+// }
+
+// func NewListItems(name string) ListItems {
+//   lis := &ListItems{
+//     items: make([]ListItem, 0),
+//     name:  name,
+//   }
+//
+//   return *lis
+// }
+// func (lis *ListItems) GetItemCount() int {
+// 	return len(lis.items)
+// }
+//
+// func (lis *ListItems) GetItem(idx int) ListItem {
+// 	if len(lis.items) > idx && idx > 0 {
+// 		return lis.items[idx]
+// 	}
+// 	return nil
+// }
+//
+// func (lis *ListItems) AddItem(li ListItem) {
+// 	lis.items = append(lis.items, li)
+// }
+//
+// func (lis *ListItems) GetListItems() []ListItem {
+// 	lits := make([]ListItem, 0)
+// 	lits = append(lits, lis.items...)
+// 	return lits
+// }
+
+// type Lister struct {
+// 	*tview.List
+// 	*ListerHandler
+// 	itemsLister func() []ListItem
+// 	listItems   []ListItem
+// }
+//
+// type ListerSelectedHandler struct {
+// 	selected func(idx int, i interface{}, lis []ListItem)
+// }
+//
+// type ListerChangedHandler struct {
+// 	changed  func(idx int, selected bool, i interface{}, lis []ListItem)
+// }
+//
+// type ListerHandler struct {
+//   *ListerChangedHandler
+//   *ListerSelectedHandler
+// }
+//
+// // Changed implements ListItemSelected
+// func (lh *ListerHandler) Changed() func(idx int, selected bool, i interface{}, lis []ListItem) {
+//   return lh.changed
+// }
+//
+// // Selected implements ListItemSelected
+// func (lh *ListerHandler) Selected() func(idx int, i interface{}, lis []ListItem) {
+//   return lh.selected
+// }
+//
+// func (l *ListerHandler) SetChangedFunc(handler func(idx int, selected bool, i interface{}, lis []ListItem)) {
+// 	l.changed = handler
+// }
+//
+// func (l *ListerHandler) SetSelectedFunc(handler func(idx int, i interface{}, lis []ListItem)) {
+// 	l.selected = handler
+// }
+//
+// func NewLister(li []ListItem) *Lister {
+// 	list := &Lister{
+// 		List:          tview.NewList(),
+// 		ListerHandler: NewListerHandler(),
+// 		itemsLister:   nil,
+// 		listItems:     li,
+// 	}
+//
+//
+// 	return list
+// }
+//
+// func (list *Lister) SetHandlers() {
+// 	list.List.SetChangedFunc(func(index int, s1, s2 string, r rune) {
+//     if list == nil || list.List == nil {
+//       return
+//     }
+//     if len(list.listItems) == 0 {
+//       return
+//     }
+// 		if index < 0 {
+// 			index = len(list.listItems) + index
+// 		}
+// 		if index >= len(list.listItems) {
+// 			index = len(list.listItems) - 1
+// 		}
+// 		if index < 0 {
+// 			index = 0
+// 		}
+//
+// 		item := list.listItems[index]
+//     sel := list.GetCurrentItem() == index
+// 		item.Changed(index, sel, item, list.listItems)
+//     list.changed(index, sel, item, list.listItems)
+// 	})
+//
+// 	list.List.SetSelectedFunc(func(index int, s1, s2 string, r rune) {
+//     if list == nil || list.List == nil {
+//       return
+//     }
+//     if len(list.listItems) == 0 {
+//       return
+//     }
+// 		if index < 0 {
+// 			index = len(list.listItems) + index
+// 		}
+// 		if index >= len(list.listItems) {
+// 			index = len(list.listItems) - 1
+// 		}
+// 		if index < 0 {
+// 			index = 0
+// 		}
+//
+// 		item := list.listItems[index]
+// 		item.Selected(index, item, list.listItems)
+//     list.selected(index, item, list.listItems)
+// 	})
+// }
+//
+// func NewListerHandler() *ListerHandler {
+// 	lh := &ListerHandler{
+// 		ListerChangedHandler:  &ListerChangedHandler{
+// 			changed: func(idx int, selected bool, i interface{}, lis []ListItem) {
+// 			},
+// 		},
+// 		ListerSelectedHandler: &ListerSelectedHandler{
+// 			selected: func(idx int, i interface{}, lis []ListItem) {
+// 			},
+// 		},
+// 	}
+//
+// 	return lh
+// }
+
+func NewSelectionFloater(name string, il func() []*ListItem,sel func(lis ListItem, hdr *tview.TextView, ftr *tview.TextView), chg func(lis ListItem, hdr *tview.TextView, ftr *tview.TextView)) *ListFloater {
+	ler := NewLister()
+	ler.SetItemLister(il)
+
+  ler.UpdateListItems()
+	f := &ListFloater{
+		Header:             tview.NewTextView(),
+		Footer:             tview.NewTextView(),
+		RootFloatContainer: NewFloater(ler),
+		Lister:             ler,
+	}
+  ler.SetHandlers(func(idx int, i interface{}, lis []*ListItem) {
+    sel(*lis[idx], f.Header, f.Footer)
+  },func(idx int, selected bool, i interface{}, lis []*ListItem) {
+    chg(*lis[idx], f.Header, f.Footer)
+  })
+
+  ler.SetBorderPadding(1, 1, 1, 1)
+
+
+	f.Header.SetDynamicColors(true)
+	f.Header.SetTextAlign(tview.AlignCenter).SetText(fmt.Sprintf("[yellow]%s[-]", name))
+	f.Header.SetBackgroundColor(theme.GetTheme().SidebarBackground).SetBorderColor(theme.GetTheme().SidebarBackground)
+
+	f.Footer.SetDynamicColors(true)
+	f.Footer.SetTextAlign(tview.AlignCenter).SetText(fmt.Sprintf("[yellow]%s[-]", name))
+	f.Footer.SetBackgroundColor(theme.GetTheme().SidebarBackground).SetBorderColor(theme.GetTheme().SidebarBackground)
+
+	f.UpdateView()
+
+	return f
+}
+
+func NewSizedFloater(nw, nh int, prop int) *RootFloatContainer {
+	if nw == 0 && nh == 0 && prop == 1 {
+		nw = 14
+		nh = 10
+		prop = 16
+	}
+
+	f := &RootFloatContainer{
+		Flex:          tview.NewFlex(),
+		Rows:          tview.NewFlex(),
+		Container:     tview.NewFlex(),
+		Item:          nil,
+		captureInput:  true,
+		escapeCapture: tcell.KeyEscape,
+		cancel: func() {
+		},
+		finish: func() {
+		},
+	}
+
+	f.SetDirection(tview.FlexColumn)
+	f.Rows.SetDirection(tview.FlexRow)
+	f.Container.SetBorder(true)
+	f.Container.SetDirection(tview.FlexRow)
+
+	nwp := math.Abs(float64(nw)) / 100.0
+	nhp := math.Abs(float64(nh)) / 100.0
+	w, h := AppModel.scr.Size()
+	rat := float64(float64(float64(h)/float64(w))) * 1.2
+	padw := (prop - nw) / 2
+	padh := (prop - nh) / 2
+	pw, ph := 0, 0
+	fw, fh := 0, 0
+
+	if prop == 0 {
+		if nw < 0 {
+			nw = int(nwp * float64(w))
+		}
+		if nh == 0 {
+			nh = int(float64(nw) * rat)
+		}
+		if nh < 0 {
+			nh = int(nhp * float64(h))
+		}
+		if nw == 0 {
+			nw = int(float64(nh) * rat)
+		}
+		padw = (w - nw) / 2
+		padh = (h - nh) / 2
+		fw = nw
+		fh = nh
+
+		dump.P(nw, nh, nwp, nhp, prop, w, h, rat, padw, padh, pw, ph, fw, fh)
+
+		f.AddItem(nil, padw, 0, false)
+		f.AddItem(f.Rows, fw, 0, true)
+		f.AddItem(nil, padw, 0, false)
+
+		f.Rows.AddItem(nil, padh, 0, false)
+		f.Rows.AddItem(f.Container, fh, 0, true)
+		f.Rows.AddItem(nil, padh, 0, false)
+	}
+
+	if prop > 1 {
+		fw = 0
+		fh = 0
+		pw = prop - nw
+		ph = prop - nh
+
+		f.AddItem(nil, 0, padw, false)
+		f.AddItem(f.Rows, 0, pw, true)
+		f.AddItem(nil, 0, padw, false)
+
+		f.Rows.AddItem(nil, 0, padh, false)
+		f.Rows.AddItem(f.Container, 0, ph, true)
+		f.Rows.AddItem(nil, 0, padh, false)
+	}
+
+	return f
+}
+
+func NewFloater(i tview.Primitive) *RootFloatContainer {
+	f := NewSizedFloater(40, 16, 0)
+	f.Item = i
+	f.UpdateView()
+	return f
+}
+
+func (f *RootFloatContainer) InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
+	return f.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
+		handler := f.Item.InputHandler()
+		handler(event, setFocus)
+		if event.Key() == tcell.KeyEscape {
+			if f.cancel != nil {
+				f.cancel()
+			}
+			name, _ := MainC.pages.GetFrontPage()
+			MainC.pages.HidePage(name)
+		}
+		// if f.captureInput {
+		//   event = nil
+		// }
+	})
+}
+
+func (f *RootFloatContainer) UpdateView() {
+	f.Container.AddItem(f.Item, 0, 6, true)
+}
+
+//
 func NewInfoTextView(text string, bg bool) *tview.TextView {
 	infoTextView := tview.NewTextView()
 	infoTextView.SetWrap(false)
@@ -82,8 +536,8 @@ func NewInfoTextView(text string, bg bool) *tview.TextView {
 	infoTextView.SetRegions(true)
 	infoTextView.SetBorder(true)
 	if bg {
-		infoTextView.SetBorderColor(theme.SidebarBackground)
-		infoTextView.SetBorderColor(theme.SidebarLines)
+		infoTextView.SetBorderColor(theme.GetTheme().SidebarBackground)
+		infoTextView.SetBorderColor(theme.GetTheme().SidebarLines)
 	} else {
 		infoTextView.SetBorder(true)
 	}
@@ -98,46 +552,46 @@ func (cci *CoolorColorInfo) UpdateColor(ncc *CoolorColor) {
 	fcc.SetStatic(true)
 	fcc.SetPlain(true)
 	cci.CoolorColor = fcc
-  cci.color = fcc.color
-  cci.UpdateView()
+	cci.color = fcc.color
+	cci.UpdateView()
 }
 
-func (cci *CoolorColorInfo) UpdateView()  {
-  MainC.app.QueueUpdateDraw(func() {
-	cci.Flex.SetBorder(true)
-	newFrame := tview.NewFrame(cci.CoolorColor)
-	newFrame.SetBorder(true).SetBorderPadding(0, 0, 0, 0)
-	newFrame.SetBorders(0, 0, 1, 1, 1, 1)
-	newFrame.SetBorderColor(tview.Styles.PrimitiveBackgroundColor)
-	cci.Frame = newFrame
-	topbar := tview.NewTextView()
-	topbar.SetBorderPadding(0, 0, 0, 0)
-	topbar.SetTextAlign(tview.AlignCenter)
-	topbar.ScrollTo(0, 0)
-	topbar.SetDynamicColors(true)
-	ccci := NewCoolorColorClusterInfo(cci.Clone())
-	ccci.FindClusters()
-	ccci.Sort()
-	topbar.SetText(tview.TranslateANSI(color.Render(fmt.Sprintf("%s", ccci.String()))))
+func (cci *CoolorColorInfo) UpdateView() {
+	MainC.app.QueueUpdateDraw(func() {
+		newFrame := tview.NewFrame(cci.CoolorColor)
+		newFrame.SetBorder(true).SetBorderPadding(0, 0, 0, 0)
+		newFrame.SetBorders(0, 0, 1, 1, 1, 1)
+		newFrame.SetBorderColor(tview.Styles.PrimitiveBackgroundColor)
+		cci.Frame = newFrame
+		topbar := tview.NewTextView()
+		topbar.SetBorderPadding(0, 0, 0, 0)
+		topbar.SetTextAlign(tview.AlignCenter)
+		topbar.ScrollTo(0, 0)
+		topbar.SetDynamicColors(true)
+		ccci := NewCoolorColorClusterInfo(cci.Clone())
+		ccci.FindClusters()
+		ccci.Sort()
+		topbar.SetText(tview.TranslateANSI(color.Render(ccci.String())))
 
-	cci.Flex.Clear()
-	cci.Flex.SetDirection(tview.FlexColumn)
-	cci.Flex.AddItem(cci.Frame, 0, 1, false)
-	if cci.gridView == nil {
-		cci.gridView = tview.NewGrid()
-	} else {
-		cci.gridView.Clear()
-	}
-	cci.Flex.AddItem(cci.gridView, 0, 5, true)
-	cci.gridView.SetBackgroundColor(theme.ContentBackground)
-	topbar.SetBorderPadding(0, 0, 0, 0)
-	topbar.SetBackgroundColor(theme.SidebarBackground)
-	cci.gridView.SetRows(1)
-	cci.gridView.AddItem(topbar, 0, 0, 1, 4, 0, 0, false)
-	cci.ColorInfoTable()
-	cci.ColorInfoRows()
-	cci.gridView.SetOffset(0, 0)
-  })
+		cci.Clear()
+		cci.Flex.SetBorder(true)
+		cci.SetDirection(tview.FlexColumn)
+		cci.AddItem(cci.Frame, 0, 1, false)
+		if cci.gridView == nil {
+			cci.gridView = tview.NewGrid()
+		} else {
+			cci.gridView.Clear()
+		}
+		cci.AddItem(cci.gridView, 0, 5, true)
+		cci.gridView.SetBackgroundColor(theme.GetTheme().ContentBackground)
+		topbar.SetBorderPadding(0, 0, 0, 0)
+		topbar.SetBackgroundColor(theme.GetTheme().SidebarBackground)
+		cci.gridView.SetRows(1)
+		cci.gridView.AddItem(topbar, 0, 0, 1, 4, 0, 0, false)
+		cci.ColorInfoTable()
+		cci.ColorInfoRows()
+		cci.gridView.SetOffset(0, 0)
+	})
 }
 
 func (cci *CoolorColorInfo) ColorInfoTable() {
@@ -162,21 +616,23 @@ func (cci *CoolorColorInfo) ColorInfoTable() {
 	cci.details.AddCssValue("L*a*b", fmt.Sprintf("[yellow:-:b] L: %0.2f a: %0.2f b: %0.2f) [-:-:-]", ciel, ciea, cieb))
 }
 
-var primaryCssValues []string = []string{"hex", "rgb", "srgb", "hsl", "hsv", "LuvLCh", "XYZ", "xyY", "L*a*b"}
-var selectableCssValues []string
+var (
+	primaryCssValues    []string = []string{"hex", "rgb", "srgb", "hsl", "hsv", "LuvLCh", "XYZ", "xyY", "L*a*b"}
+	selectableCssValues []string
+)
 
 func (cci *CoolorColorInfo) ColorInfoRows() {
 	count := 0
 	baseRow := 2
 	// valueSpan := 3
-	rowSizes := make([]int, 0)
-	rowSizes = append(rowSizes, 1)
-	rowSizes = append(rowSizes, 1)
-  selectableCssValues = make([]string, 0)
+	// rowSizes := make([]int, 0)
+	// rowSizes = append(rowSizes, 1)
+	// rowSizes = append(rowSizes, 1)
+	selectableCssValues = make([]string, 0)
 	for _, cv := range primaryCssValues {
 		ci, ok := cci.details.cssValues[cv]
 		if !ok {
-			panic(fmt.Errorf("No color info type named %s", cv))
+			panic(fmt.Errorf("no color info type named %s", cv))
 		}
 		row := math.Floor(float64(count) / 4)
 		col := count % 4
@@ -184,20 +640,18 @@ func (cci *CoolorColorInfo) ColorInfoRows() {
 		labelCol := 0
 		valueCol := 1
 		if cci.details.selected == cv {
-		label := fmt.Sprintf("[green:-:b] %s[-:-:-]", cv)
+			label := fmt.Sprintf("[green:-:b] %s[-:-:-]", cv)
 			labelView := NewInfoTextView(label, true)
 			valueView := NewInfoTextView(value, false)
 			cci.gridView.AddItem(labelView, 1, labelCol, 1, 1, 1, 1, false)
 			cci.gridView.AddItem(valueView, 1, valueCol, 1, 3, 1, 1, false)
 			continue
 		} else {
-  selectableCssValues = append(selectableCssValues, cv)
-      label := fmt.Sprintf("[green:-:b] %s[-:-:-][red:-:-]%c[-:-:-]", cv, keyLabel[count%(len(keyLabel)-1)])
+			selectableCssValues = append(selectableCssValues, cv)
+			label := fmt.Sprintf("[green:-:b] %s[-:-:-][red:-:-]%c[-:-:-]", cv, keyLabel[count%(len(keyLabel)-1)])
 			if col != 0 {
 				labelCol = col*1 + labelCol
-				valueCol = col*1 + valueCol
-			} else {
-				rowSizes = append(rowSizes, 3)
+				// valueCol = col*1 + valueCol
 			}
 			labelView := NewInfoTextView(label, true)
 			cci.gridView.AddItem(labelView, baseRow+int(row), labelCol, 1, 1, 1, 1, false)
@@ -246,10 +700,10 @@ func NewScratchPaletteFloater(cp *CoolorPalette) *PaletteFloater {
 		Palette: NewCoolorPaletteContainer(cp),
 	}
 
-	spf.Flex.SetDirection(tview.FlexRow)
-	spf.Flex.AddItem(nil, 0, 2, false)
-	spf.Flex.AddItem(spf.Palette, 0, 4, true)
-	spf.Flex.AddItem(nil, 0, 2, false)
+	spf.SetDirection(tview.FlexRow)
+	spf.AddItem(nil, 0, 2, false)
+	spf.AddItem(spf.Palette, 0, 4, true)
+	spf.AddItem(nil, 0, 2, false)
 	return spf
 }
 
@@ -262,30 +716,31 @@ func NewCoolorPaletteContainer(cp *CoolorPalette) *CoolorPaletteContainer {
 		Frame:   tview.NewFrame(pt),
 		Palette: pt,
 	}
-	cpc.Frame.SetBorders(1, 1, 0, 0, 0, 0)
-	cpc.Frame.SetTitle("")
-	cpc.Frame.SetBorder(true).SetBorderPadding(0, 0, 1, 1).SetBorderColor(GetTheme().TopbarBorder)
+	cpc.SetBorders(1, 1, 0, 0, 0, 0)
+	cpc.SetTitle("")
+	cpc.Frame.SetBorder(true).SetBorderPadding(0, 0, 1, 1).SetBorderColor(theme.GetTheme().TopbarBorder)
 	return cpc
 }
 
 func (ccf *CoolorColorFloater) InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
-	return ccf.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
-    ch := event.Rune()
-    // kp := event.Key()
+	return ccf.WrapInputHandler(func(event *tcell.EventKey, _ func(p tview.Primitive)) {
+		ch := event.Rune()
+		// kp := event.Key()
 
-    num, err := strconv.ParseInt(fmt.Sprintf("%c", ch), 10, 8)
-    if err != nil {
-      return
-    }
-    if num >= 0 && int(num) < len(selectableCssValues) {
-      name := selectableCssValues[num]
-      ccf.Color.details.selected = name
-      ccf.Color.UpdateView()
-    }
-    // re , _ := regexp.Compile("[0-9]")
-    // if re.MatchString(fmt.Sprintf("%c", ch)) {
-    //
-    // }
-  })
+		num, err := strconv.ParseInt(fmt.Sprintf("%c", ch), 10, 8)
+		if err != nil {
+			return
+		}
+		if num >= 0 && int(num) < len(selectableCssValues) {
+			name := selectableCssValues[num]
+			ccf.Color.details.selected = name
+			ccf.Color.UpdateView()
+		}
+		// re , _ := regexp.Compile("[0-9]")
+		// if re.MatchString(fmt.Sprintf("%c", ch)) {
+		//
+		// }
+	})
 }
+
 // vim: ts=2 sw=2 et ft=go

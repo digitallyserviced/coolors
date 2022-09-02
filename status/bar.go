@@ -3,11 +3,18 @@ package status
 import (
 	"fmt"
 	"sync"
-	// "time"
+	"time"
 
 	// "time"
 
+	// "time"
+
+	// "github.com/digitallyserviced/coolors/coolor"
+	// "github.com/digitallyserviced/coolors/coolor"
+	"github.com/digitallyserviced/coolors/theme"
 	"github.com/digitallyserviced/tview"
+	"github.com/gdamore/tcell/v2"
+	// "github.com/gdamore/tcell/v2"
 	// "github.com/gdamore/tcell/v2"
 	// "github.com/gookit/goutil/dump"
 )
@@ -25,6 +32,7 @@ const (
 type StatusUpdate struct {
 	elem    string
 	content string
+	timeOut time.Duration
 }
 
 var updateCh chan *StatusUpdate
@@ -33,10 +41,23 @@ func init() {
 	updateCh = make(chan *StatusUpdate)
 }
 
-func NewStatusUpdate(elem, content string) {
+func NewStatusUpdateWithTimeout(elem, content string, to time.Duration) {
 	if updateCh != nil {
 		updateCh <- &StatusUpdate{
-			elem: elem, content: content,
+			elem: elem, content: content, timeOut: to,
+		}
+	} else {
+		updateCh = make(chan *StatusUpdate)
+	}
+}
+
+func NewStatusUpdate(elem, content string) {
+	// if elem == "action_str" {
+	//   NewStatusUpdateWithTimeout(elem, content, time.Second * )
+	// }
+	if updateCh != nil {
+		updateCh <- &StatusUpdate{
+			elem: elem, content: content, timeOut: time.Second * 0,
 		}
 	} else {
 		updateCh = make(chan *StatusUpdate)
@@ -47,12 +68,17 @@ type Status struct {
 	Severity Severity
 	Message  string
 }
+
 type StatusItem struct {
 	name, format string
 	*tview.TableCell
-	row, col int
-	l        sync.Mutex
+	w, row, col int
+	updates     chan *StatusUpdate
+	l           sync.Mutex
+	bar         *StatusBar
+	positioner  func(s string, n int) string
 }
+
 type StatusBar struct {
 	*tview.Table
 	statuses     map[string]*StatusItem
@@ -77,54 +103,155 @@ func NewStatusBar(app *tview.Application) *StatusBar {
 
 func statusUpdater(s *StatusBar) {
 	// ticker := time.NewTicker(100 * time.Millisecond)
-	for {
-		select {
-		case status := <-updateCh:
-				s.app.QueueUpdateDraw(func() {
-					s.UpdateCell(*status)
-				})
-		}
+	for status := range updateCh {
+		s.statuses[status.elem].updates <- status
 	}
 }
 
 func (s *StatusBar) UpdateCell(status StatusUpdate) {
-	s.statuses[status.elem].TableCell.SetText(status.content)
-	s.statuses[status.elem].TableCell.SetExpansion(s.statuses[status.elem].TableCell.Expansion)
-	s.Table.SetCell(s.statuses[status.elem].row, s.statuses[status.elem].col, s.statuses[status.elem].TableCell)
+	s.statuses[status.elem].SetText(status.content)
+	// s.statuses[status.elem].TableCell.SetExpansion(s.statuses[status.elem].TableCell.Expansion)
+	s.SetCell(s.statuses[status.elem].row, s.statuses[status.elem].col, s.statuses[status.elem].TableCell)
+}
+
+func (si *StatusItem) SetStyle(sty tcell.Style) {
+	fg, bg, attr := sty.Decompose()
+	si.SetBackgroundColor(bg)
+	si.SetTextColor(fg)
+	si.SetAttributes(attr)
+}
+
+func (si *StatusItem) SetPositioner(w int, pos func(s string, n int) string) {
+	si.w = w
+	si.positioner = pos
+}
+
+func (si *StatusItem) Position(txt string) string {
+	return si.positioner(txt, (si.w - len(txt)))
 }
 
 func (si *StatusItem) UpdateItem(txt string) {
-	si.SetText(fmt.Sprintf(si.format, txt))
+		txt = fmt.Sprintf(si.format, txt)
+	si.bar.app.QueueUpdate(func() {
+		si.SetText(txt)
+		si.SetMaxWidth(si.w + len(txt))
+	})
+  si.bar.app.Draw()
 }
 
-func NewStatusItem(name, format, content string) *StatusItem {
+func NewStatusItem(name, format, content string, bar *StatusBar, done <-chan struct{}) *StatusItem {
 	tc := tview.NewTableCell(fmt.Sprintf(format, content))
-	tc.SetExpansion(1)
 	si := &StatusItem{
 		name:      name,
 		format:    format,
 		TableCell: tc,
+		w:         8,
 		row:       0,
 		col:       0,
+		updates:   make(chan *StatusUpdate),
 		l:         sync.Mutex{},
+		bar:       bar,
 	}
+	si.positioner = func(s string, n int) string {
+		return theme.Jcenter(s, n)
+	}
+
+	go func() {
+		done := make(chan struct{})
+		defer close(done)
+
+		debouncedChan := debounce(50*time.Millisecond, 200*time.Millisecond, si.updates)
+	Done:
+		for {
+			select {
+			case <-done:
+				break Done
+			case event := <-debouncedChan:
+				if event == nil {
+					break
+				}
+				si.UpdateItem(event.content)
+        if event.timeOut.Milliseconds() != 0 {
+          go func() {
+            time.AfterFunc(event.timeOut, func() {
+              updateCh <- &StatusUpdate{
+                elem:    event.elem,
+                content: "",
+              }
+            })
+          }()
+        }
+			}
+		}
+	}()
+
 	return si
 }
 
+func debounce(min time.Duration, max time.Duration, input chan *StatusUpdate) chan *StatusUpdate {
+	output := make(chan *StatusUpdate)
+
+	go func() {
+		var (
+			buffer   *StatusUpdate
+			ok       bool
+			minTimer <-chan time.Time
+			maxTimer <-chan time.Time
+		)
+
+		// Start debouncing
+		for {
+			select {
+			case buffer, ok = <-input:
+				if !ok {
+					return
+				}
+				minTimer = time.After(min)
+				if maxTimer == nil {
+					maxTimer = time.After(max)
+				}
+			case <-minTimer:
+				minTimer, maxTimer = nil, nil
+				output <- buffer
+			case <-maxTimer:
+				minTimer, maxTimer = nil, nil
+				output <- buffer
+			}
+		}
+	}()
+
+	return output
+}
+
 func (s *StatusBar) Init() {
-	s.Table.SetBorder(false)
-	s.Table.SetBorderPadding(0, 0, 0, 0)
-	s.AddStatusItem(NewStatusItem("name", "[black:blue:b] (%s) [-:-:-]", "untitled"))
-	s.AddStatusItem(NewStatusItem("action_str", " %s ", ""))
-	sidot := NewStatusItem("dots", " %s ", "")
-	sidot.SetExpansion(4).SetAlign(tview.AlignCenter)
+	done := make(chan struct{})
+	s.SetSeparator(' ')
+	pn := NewStatusItem("name", " ( %s ) ", "untitled", s, done)
+	sy := theme.GetTheme().Get("palette_name")
+	fmt.Printf("%v", sy)
+	pn.SetStyle(*sy)
+	pn.SetAlign(tview.AlignCenter)
+	s.AddStatusItem(pn)
+	s.AddStatusItem(NewStatusItem("fill1", " %s ", "", s, done))
+  tag := NewStatusItem("tag", "%s", " SHIT ", s, done)
+  tag.SetAlign(tview.AlignCenter)
+// tag.SetExpansion(1)
+	s.AddStatusItem(tag)
+	action := NewStatusItem("action", "   %s ", "action", s, done)
+	action.SetStyle(*theme.GetTheme().Get("action"))
+	s.AddStatusItem(action)
+	s.AddStatusItem(NewStatusItem("action_str", " %s ", "", s, done))
+	sifill := NewStatusItem("fill", " %s ", "", s, done)
+	sifill.SetExpansion(2).SetAlign(tview.AlignCenter)
+	s.AddStatusItem(sifill)
+	sifill2 := NewStatusItem("fill2", " %s ", "", s, done)
+	sifill2.SetExpansion(2).SetAlign(tview.AlignCenter)
+	s.AddStatusItem(sifill2)
+	sidot := NewStatusItem("dots", " %s ", "", s, done)
+	sidot.SetAlign(tview.AlignRight)
 	sidot.UpdateItem("")
 	s.AddStatusItem(sidot)
-	sifill := NewStatusItem("fill", " %s ", "")
-	sifill.SetExpansion(3).SetAlign(tview.AlignCenter)
-	s.AddStatusItem(sifill)
-	s.AddStatusItem(NewStatusItem("color", " %s ", ""))
-	s.AddStatusItem(NewStatusItem("action", "[black:yellow:b]   %s [-:-:-]", "action"))
+	s.AddStatusItem(NewStatusItem("color", " %s ", "", s, done))
 	go statusUpdater(s)
 }
 
@@ -132,7 +259,7 @@ func (s *StatusBar) AddStatusItem(si *StatusItem) {
 	s.statuses[si.name] = si
 	si.row = 0
 	si.col = len(s.statuses) - 1
-	s.Table.SetCell(0, si.col, s.statuses[si.name].TableCell)
+	s.SetCell(0, si.col, s.statuses[si.name].TableCell)
 	// s.elems = s.elems + 1
 }
 

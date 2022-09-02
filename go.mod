@@ -16,18 +16,25 @@ require (
 
 require (
 	github.com/BurntSushi/toml v1.2.0 // indirect
+	github.com/antonholmquist/jason v1.0.0 // indirect
+	github.com/bsiegert/ranges v0.0.0-20111221115336-19303dc7aa63 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
+	github.com/gizak/termui v0.0.0-20181228210747-b136f68f55f1 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
+	github.com/mitchellh/go-wordwrap v1.0.0 // indirect
 	github.com/mitchellh/mapstructure v1.4.1 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
+	github.com/nsf/termbox-go v0.0.0-20180613055208-5c94acc5e6eb // indirect
 	github.com/pelletier/go-toml v1.7.0 // indirect
+	github.com/pyk/byten v0.0.0-20140925233358-f847a130bf6d // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
 
 require (
+	github.com/divan/expvarmon v0.0.0-20190204123027-8bf297f0fa5d
 	github.com/gdamore/encoding v1.0.0 // indirect
-	github.com/gookit/color v1.5.1 // indirect
+	github.com/gookit/color v1.5.1
 	github.com/knadh/koanf v1.4.2
 	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/mazznoer/csscolorparser v0.1.2 // indirect

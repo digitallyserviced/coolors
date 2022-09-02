@@ -9,71 +9,33 @@ import (
 
 // listItem represents one item in a List.
 type listItem struct {
-	MainText      string // The main text of the list item.
-	SecondaryText string // A secondary text to be shown underneath the main text.
-	Shortcut      rune   // The key to select the list item directly, 0 if there is no shortcut.
-	Selected      func() // The optional function which is called when the item is selected.
+	Selected      func()
+	MainText      string
+	SecondaryText string
+	Shortcut      rune
 }
 
 // List displays rows of items, each of which can be selected.
 //
 // See https://github.com/rivo/tview/wiki/List for an example.
 type List struct {
-	*Box
-
-	// The items of the list.
-	items []*listItem
-
-	// The index of the currently selected item.
-	currentItem int
-
-	// Whether or not to show the secondary item texts.
-	showSecondaryText bool
-
-	// The item main text style.
-	mainTextStyle tcell.Style
-
-	// The item secondary text style.
+	selectedStyle      tcell.Style
+	mainTextStyle      tcell.Style
 	secondaryTextStyle tcell.Style
-
-	// The item shortcut text style.
-	shortcutStyle tcell.Style
-
-	// The style for selected items.
-	selectedStyle tcell.Style
-
-	// If true, the selection is only shown when the list has focus.
-	selectedFocusOnly bool
-
-	// If true, the entire row is highlighted when selected.
+	shortcutStyle      tcell.Style
+	selected           func(index int, mainText, secondaryText string, shortcut rune)
+	changed            func(index int, mainText, secondaryText string, shortcut rune)
+	*Box
+	done              func()
+	items             []*listItem
+	currentItem       int
+	itemOffset        int
+	horizontalOffset  int
+	wrapAround        bool
+	overflowing       bool
+	showSecondaryText bool
 	highlightFullLine bool
-
-	// Whether or not navigating the list will wrap around.
-	wrapAround bool
-
-	// The number of list items skipped at the top before the first item is
-	// drawn.
-	itemOffset int
-
-	// The number of cells skipped on the left side of an item text. Shortcuts
-	// are not affected.
-	horizontalOffset int
-
-	// Set to true if a currently visible item flows over the right border of
-	// the box. This is set by the Draw() function. It determines the behaviour
-	// of the right arrow key.
-	overflowing bool
-
-	// An optional function which is called when the user has navigated to a list
-	// item.
-	changed func(index int, mainText, secondaryText string, shortcut rune)
-
-	// An optional function which is called when a list item was selected. This
-	// function will be called even if the list item defines its own callback.
-	selected func(index int, mainText, secondaryText string, shortcut rune)
-
-	// An optional function which is called when the user presses the Escape key.
-	done func()
+	selectedFocusOnly bool
 }
 
 // NewList returns a new form.
@@ -450,7 +412,7 @@ func (l *List) Clear() *List {
 
 // Draw draws this primitive onto the screen.
 func (l *List) Draw(screen tcell.Screen) {
-	l.Box.DrawForSubclass(screen, l)
+	l.DrawForSubclass(screen, l)
 
 	// Determine the dimensions.
 	x, y, width, height := l.GetInnerRect()

@@ -23,14 +23,12 @@ type NavBarColors struct {
 // NavBar implements navigation bar with multiple buttons. Buttons can be added one by one, each one having
 // their own callbacks. In addition, optional DoneFunc is called with label of the selected button.
 type NavBar struct {
-	grid      *tview.Grid
-	buttons   []*tview.Button
-	btnKeys   []tcell.Key
-	btnLabels []string
-	doneFunc  func(label string)
-	colors    *NavBarColors
-
-	// Which button is active
+	grid           *tview.Grid
+	doneFunc       func(label string)
+	colors         *NavBarColors
+	buttons        []*tview.Button
+	btnKeys        []tcell.Key
+	btnLabels      []string
 	btnActiveIndex int
 	hasFocus       bool
 	visible        bool

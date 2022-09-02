@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"time"
 
+	"github.com/digitallyserviced/coolors/status"
 	"github.com/gookit/goutil/dump"
 	"github.com/samber/lo"
 	// "github.com/lucasb-eyer/go-colorful"
@@ -15,16 +17,16 @@ type CoolColorMod struct {
 	// *colorful.Color
 }
 type ColorModifier struct {
-	name       string
 	ChannelMod *ChannelMod
 	*ChannelModOptions
+	name string
 }
 
 type ColorModAction struct {
-	Function string
-	Action   ColorModFunction
-	Argument float64
 	Result   CoolColor
+	Action   ColorModFunction
+	Function string
+	Argument float64
 }
 
 type ColorModActions []*ColorModAction
@@ -48,12 +50,12 @@ type ColorModder interface {
 }
 
 type ColorMod struct {
-	last    *ColorModAction
-	history ColorModActions
-	orig    *CoolorColor
-	current CoolorColor
-	ring    CoolorColors
+	last *ColorModAction
+	orig *CoolorColor
 	*ColorModifier
+	current CoolorColor
+	history ColorModActions
+	ring    CoolorColors
 }
 
 type ColorModFunction func(float64) *ColorModAction
@@ -67,7 +69,7 @@ var ColorModActionStrings = map[string]string{
 }
 
 func (ccm *CoolColorMod) GetCC() *CoolorColor {
-	return ccm.GetCC()
+	return ccm.CoolorColor.GetCC()
 }
 
 func (cma *ColorModAction) Summary() string {
@@ -75,10 +77,10 @@ func (cma *ColorModAction) Summary() string {
 }
 
 func (cma *ColorModAction) String() string {
-	return fmt.Sprintf("%s", ColorModActionStrings[cma.Function])
+	return ColorModActionStrings[cma.Function]
 }
 func (cmlog ColorModActions) String() string {
-	summActions := lo.Map(cmlog, func(x *ColorModAction, n int) string {
+	summActions := lo.Map(cmlog, func(x *ColorModAction, _ int) string {
 		if x != nil {
 			return x.Summary()
 		}
@@ -102,6 +104,7 @@ func (cm *ColorMod) Log(action *ColorModAction) **ColorModAction {
 	cm.history = lo.Subset(cm.history, -19, 19)
 	cm.history = append(cm.history, action)
 	cm.last = action
+  status.NewStatusUpdateWithTimeout("action_str", action.Summary(), 3 * time.Second)
 	dump.P(cm.history.String())
 	return &cm.last
 }
@@ -147,9 +150,9 @@ func NewChannelMod(mod *ChannelModOptions, chm ChannelModifier) *ColorMod {
 	cm.last = NewColorModAction("nop", cm.Set, 0.0, nil)
 	cm.orig = cc
 	cm.current = *cc.Clone()
-	cm.ColorModifier.name = mod.name
-	cm.ColorModifier.ChannelMod = chm(mod)
-	cm.ColorModifier.ChannelModOptions = mod
+	cm.name = mod.name
+	cm.ChannelMod = chm(mod)
+	cm.ChannelModOptions = mod
 	cm.updateState(true)
 	return cm
 }
@@ -226,10 +229,8 @@ func (cm *ColorMod) GetChannelValue(cc CoolColor) float64 {
 }
 
 func clamped(val, min, max float64) (float64, bool) {
-	clampd := false
-	if val > max {
-		clampd = true
-	}
+	clampd := val > max
+	
 	if val < min {
 		clampd = true
 	}

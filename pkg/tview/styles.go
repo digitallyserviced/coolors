@@ -21,7 +21,8 @@ type Theme struct {
 // background and some basic colors: black, white, yellow, green, cyan, and
 // blue.
 var Styles = Theme{
-	PrimitiveBackgroundColor:    tcell.ColorBlack,
+	// PrimitiveBackgroundColor:    tcell.GetColor("#101010").TrueColor(),
+	PrimitiveBackgroundColor:    tcell.Color234.TrueColor(),
 	ContrastBackgroundColor:     tcell.ColorBlue,
 	MoreContrastBackgroundColor: tcell.ColorGreen,
 	BorderColor:                 tcell.ColorWhite,

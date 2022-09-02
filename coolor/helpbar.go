@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/digitallyserviced/coolors/theme"
 	"github.com/digitallyserviced/tview"
 	"github.com/gookit/color"
 	"github.com/gookit/goutil/maputil"
@@ -26,11 +27,11 @@ func NewHelpBar(app *tview.Application) *HelpBar {
 }
 
 type shortcut struct {
-	key  rune
 	mods string
 	icon string
 	name string
 	desc string
+	key  rune
 }
 
 func NewShortcut(key rune, icon, name, desc string) *shortcut {
@@ -99,7 +100,7 @@ func init() {
 	table[editTable] = editKeys
 	// keys = append(keys, NewShortcut('<spc>', "", "random", " randomize colors"))
 	// keys = append(keys, NewShortcut('e', "", "edit", " edit color"))
-	theme := GetTheme()
+	theme := theme.GetTheme()
 	_ = theme
 }
 

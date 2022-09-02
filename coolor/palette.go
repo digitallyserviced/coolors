@@ -18,18 +18,18 @@ import (
 
 type CoolorColors []*CoolorColor
 
-
 type CoolorPalette struct {
 	ColorContainer *tview.Flex
 	*tview.Flex
-	colors             CoolorColors
-	paddles            []*PalettePaddle
-	colSize, maxColors int
-	selectedIdx        int
-	l                  *sync.RWMutex
-	handlers           map[string]EventHandlers
-	menu               *CoolorToolMenu
-	ptype              string
+	handlers    map[string]EventHandlers
+	menu        *CoolorToolMenu
+	l           *sync.RWMutex
+	ptype       string
+	colors      CoolorColors
+	paddles     []*PalettePaddle
+	maxColors   int
+	selectedIdx int
+	colSize     int
 }
 
 type CoolorMainPalette struct {
@@ -39,7 +39,7 @@ type CoolorMainPalette struct {
 
 type CoolorShadePalette struct {
 	*CoolorPalette
-	base *CoolorColor
+	base       *CoolorColor
 	increments float64
 }
 
@@ -47,31 +47,33 @@ func BlankCoolorShadePalette(base *CoolorColor, increments float64) *CoolorShade
 	cp := &CoolorPalette{
 		ColorContainer: tview.NewFlex(),
 		Flex:           tview.NewFlex(),
-		colors:         CoolorColors{},
+		colors:         make(CoolorColors, 0),
 		paddles:        NewPaddles(),
 		colSize:        12,
 		maxColors:      8,
 		selectedIdx:    0,
 		l:              &sync.RWMutex{},
 		handlers:       make(map[string]EventHandlers),
-		menu:           &CoolorToolMenu{},
-		ptype:          "shade",
+		// menu:           &CoolorToolMenu{},
+		ptype: "shade",
 	}
 
+	cp.AddCoolorColor(base)
 	cp.ColorContainer.SetDirection(tview.FlexColumn)
-	cp.Flex.SetDirection(tview.FlexColumn)
-	cp.Flex.AddItem(cp.paddles[0], 4, 0, false)
-	cp.Flex.AddItem(cp.ColorContainer, 80, 0, true)
-	cp.Flex.AddItem(cp.paddles[1], 4, 0, false)
+	cp.SetDirection(tview.FlexColumn)
+	cp.AddItem(cp.paddles[0], 4, 0, false)
+	cp.AddItem(cp.ColorContainer, 80, 0, true)
+	cp.AddItem(cp.paddles[1], 4, 0, false)
 	cbp := &CoolorShadePalette{
 		CoolorPalette: cp,
 		base:          base,
 		increments:    increments,
 	}
-	cbp.Init()
+	go cbp.Init()
 
 	return cbp
 }
+
 type CoolorBlendPalette struct {
 	*CoolorPalette
 	start, end *CoolorColor
@@ -94,10 +96,10 @@ func BlankCoolorBlendPalette(start, end *CoolorColor, increments float64) *Coolo
 	}
 
 	cp.ColorContainer.SetDirection(tview.FlexColumn)
-	cp.Flex.SetDirection(tview.FlexColumn)
-	cp.Flex.AddItem(cp.paddles[0], 4, 0, false)
-	cp.Flex.AddItem(cp.ColorContainer, 80, 0, true)
-	cp.Flex.AddItem(cp.paddles[1], 4, 0, false)
+	cp.SetDirection(tview.FlexColumn)
+	cp.AddItem(cp.paddles[0], 4, 0, false)
+	cp.AddItem(cp.ColorContainer, 80, 0, true)
+	cp.AddItem(cp.paddles[1], 4, 0, false)
 	cbp := &CoolorBlendPalette{
 		CoolorPalette: cp,
 		start:         start,
@@ -139,9 +141,10 @@ func (ccs *CoolorPalette) Len() int {
 }
 
 func (cbp *CoolorShadePalette) UpdateColors(base *CoolorColor) {
-  cbp.base = base
+	cbp.base = base
 	cbp.Init()
 }
+
 func (cbp *CoolorBlendPalette) UpdateColors(start, end *CoolorColor) {
 	cbp.start = start
 	cbp.end = end
@@ -151,27 +154,24 @@ func (cbp *CoolorBlendPalette) UpdateColors(start, end *CoolorColor) {
 func (cbp *CoolorShadePalette) Init() {
 	cbp.ColorContainer.Clear()
 	base, _ := MakeColor(cbp.base)
-	// tcol, _ := Hex("#be1685")
-  done := make(chan struct{})
-  defer close(done)
+	done := make(chan struct{})
+	// cbp.colors = make(CoolorColors, 0)
+	defer close(done)
 	colors := RandomShadesStream(base, 0.15)
-  colors.Status.SetProgressHandler(NewProgressHandler(func(u uint32) {
+	colors.Status.SetProgressHandler(NewProgressHandler(func(u uint32) {
 		status.NewStatusUpdate("action", fmt.Sprintf("Found Shades (%d / %d)", u, colors.Status.GetItr()))
-    // dump.P(u,colors.Status.Itr)
-  },func(i uint32) {
+	}, func(i uint32) {
 		status.NewStatusUpdate("action_str", fmt.Sprintf("Iterating Shades (%d)", i))
-  }))
-	cbp.colors = make(CoolorColors, 0)
-  colors.Run(done)
-  for _, v := range TakeNColors(done, colors.OutColors, int(cbp.increments)) {
+	}))
+	colors.Run(done)
+	for _, v := range TakeNColors(done, colors.OutColors, int(cbp.increments)) {
 		newcc := NewStaticCoolorColor(v.Hex())
-		cbp.CoolorPalette.AddCoolorColor(newcc)
-  }
-  cbp.GetPalette().Sort()
-
-	MainC.conf.AddPalette("shades", cbp)
+		cbp.AddCoolorColor(newcc)
+	}
 	cbp.SetSelected(0)
+	cbp.UpdateSize()
 }
+
 func (cbp *CoolorBlendPalette) Init() {
 	cbp.ColorContainer.Clear()
 	cbp.colors = make(CoolorColors, 0)
@@ -181,11 +181,10 @@ func (cbp *CoolorBlendPalette) Init() {
 	for i := 0; i <= int(cbp.increments); i++ {
 		newc := start.BlendLuv(end, float64(i)*float64(incrSizes))
 		newcc := NewStaticCoolorColor(newc.Hex())
-		cbp.CoolorPalette.AddCoolorColor(newcc)
+		cbp.AddCoolorColor(newcc)
 	}
 
 	MainC.conf.AddPalette("blend", cbp)
-	// cbp.SetSelected(0)
 }
 
 func NewPaddles() []*PalettePaddle {
@@ -210,10 +209,12 @@ func BlankCoolorPalette() *CoolorPalette {
 		ptype: "regular",
 	}
 	cp.ColorContainer.SetDirection(tview.FlexColumn)
-	cp.Flex.SetDirection(tview.FlexColumn)
-	cp.Flex.AddItem(cp.paddles[0], 4, 0, false)
-	cp.Flex.AddItem(cp.ColorContainer, 80, 0, true)
-	cp.Flex.AddItem(cp.paddles[1], 4, 0, false)
+	cp.SetDirection(tview.FlexColumn)
+  cp.SetBorder(true).SetBorderPadding(1, 1, 0,0)
+  cp.SetTitle("[black:purple:b] Palette [-:-:-]")
+	cp.AddItem(cp.paddles[0], 4, 0, false)
+	cp.AddItem(cp.ColorContainer, 80, 0, true)
+	cp.AddItem(cp.paddles[1], 4, 0, false)
 	return cp
 }
 
@@ -290,6 +291,9 @@ func (cp *CoolorPalette) GetColorAt(idx int) *CoolorColor {
 func (cp *CoolorPalette) SetMenu(menu *CoolorToolMenu) {
 	cp.menu = menu
 	cc, _ := cp.GetSelected()
+	if cc == nil {
+		return
+	}
 	cp.menu.UpdateColor(cc.color)
 }
 
@@ -329,6 +333,11 @@ func (cp *CoolorPalette) GetSelected() (*CoolorColor, int) {
 	if cp.selectedIdx < 0 {
 		cp.selectedIdx = len(cp.colors) - 1
 	}
+
+	if len(cp.colors) == 0 {
+		return nil, -1
+	}
+
 	if cp.colors[cp.selectedIdx] != nil {
 		return cp.colors[cp.selectedIdx], cp.selectedIdx
 	}
@@ -413,11 +422,11 @@ func (cc *CoolorPalette) SpawnSelectionEvent(c *CoolorColor, idx int) bool {
 		}
 		for _, v := range cc.handlers["selected"] {
 			if v != nil {
-				eh, ok := v.(tcell.EventHandler)
-				if !ok {
-					panic(ok)
-				}
-				eh.HandleEvent(ev)
+				// eh, ok := v.(tcell.EventHandler)
+				// if !ok {
+				// 	panic(ok)
+				// }
+				v.HandleEvent(ev)
 			}
 		}
 	}
@@ -427,10 +436,12 @@ func (cc *CoolorPalette) SpawnSelectionEvent(c *CoolorColor, idx int) bool {
 var PaddleMinWidth int = 4
 
 func (cp *CoolorPalette) UpdateSize() {
+	cp.colSize = 12
 	MainC.app.QueueUpdateDraw(func() {
-		x, y, w, h := cp.Flex.GetInnerRect()
+		x, y, w, h := cp.GetInnerRect()
 		_, _, _, _ = x, y, w, h
-		x, y, w, h = cp.Flex.GetRect()
+		_, _, w, _ = cp.GetRect()
+    w-=4
 		cp.maxColors = (w - (PaddleMinWidth * 2)) / cp.colSize
 		if len(cp.colors) < cp.maxColors {
 			cp.colSize = (w - (PaddleMinWidth * 2)) / len(cp.colors)
@@ -444,10 +455,10 @@ func (cp *CoolorPalette) UpdateSize() {
 			right += 1
 		}
 		contW := cp.maxColors * cp.colSize
-		cp.Flex.Clear()
-		cp.Flex.AddItem(cp.paddles[0], left, 0, false)
-		cp.Flex.AddItem(cp.ColorContainer, contW, 0, true)
-		cp.Flex.AddItem(cp.paddles[1], right, 0, false)
+		cp.Clear()
+		cp.AddItem(cp.paddles[0], left, 0, false)
+		cp.AddItem(cp.ColorContainer, contW, 0, true)
+		cp.AddItem(cp.paddles[1], right, 0, false)
 	})
 }
 
@@ -478,31 +489,27 @@ func (cp *CoolorPalette) ClearSelected() {
 }
 
 func (cp *CoolorPalette) SetSelected(idx int) error {
-	// sel, _ := cp.GetSelected()
-	// sel.SetSelected(false)
-  MainC.app.QueueUpdateDraw(func() {
-	cp.ClearSelected()
-	if idx < 0 {
-		idx = len(cp.colors) - 1
-	}
-	if idx > len(cp.colors)-1 {
-		idx = 0
-	}
-	if idx < len(cp.colors) {
-		// cp.l.Lock()
-		cp.selectedIdx = idx
-		cp.colors[cp.selectedIdx].SetSelected(true)
-		cp.menu.UpdateColor(cp.colors[cp.selectedIdx].color)
-		// cp.l.Unlock()
-		cp.ResetViews()
-		cp.SpawnSelectionEvent(cp.colors[cp.selectedIdx], cp.selectedIdx)
-	}
-  })
+	MainC.app.QueueUpdateDraw(func() {
+		cp.ClearSelected()
+		if idx < 0 {
+			idx = len(cp.colors) - 1
+		}
+		if idx > len(cp.colors)-1 {
+			idx = 0
+		}
+		if idx < len(cp.colors) {
+			cp.selectedIdx = idx
+			cp.colors[cp.selectedIdx].SetSelected(true)
+			cp.menu.UpdateColor(cp.colors[cp.selectedIdx].color)
+			cp.ResetViews()
+			cp.SpawnSelectionEvent(cp.colors[cp.selectedIdx], cp.selectedIdx)
+		}
+	})
 
 	if idx < len(cp.colors) && idx >= 0 {
-    return nil
-  }
-	return fmt.Errorf("No valid color at idx: %d", idx)
+		return nil
+	}
+	return fmt.Errorf("no valid color at idx: %d", idx)
 }
 
 func (cp *CoolorPalette) Each(f func(*CoolorColor, int)) {
@@ -516,10 +523,6 @@ func (cp *CoolorPalette) Plainify(s bool) {
 		cc.SetStatic(s)
 		cc.SetPlain(s)
 	})
-	// for _, v := range cp.colors {
-	// 	v.SetStatic(s)
-	// 	v.SetPlain(s)
-	// }
 }
 
 func (cp *CoolorPalette) Staticize(s bool) {
@@ -551,16 +554,16 @@ func (cp *CoolorMainPalette) InputHandler() func(event *tcell.EventKey, setFocus
 		ch := event.Rune()
 		kp := event.Key()
 		_ = kp
-		switch {
-		case ch == '*':
+		switch ch {
+		case '*':
 			cp.Randomize()
-		case ch == '+': // Add a color
+		case '+': // Add a color
 			cp.AddRandomCoolorColor()
 			cp.UpdateSize()
-		case ch == '=':
+		case '=':
 			cp.GetPalette().Sort()
 			cp.UpdateSize()
-		case ch == 'd':
+		case 'd':
 			color, _ := cp.GetSelected()
 			cp.AddCoolorColor(color.Clone())
 			cp.UpdateSize()

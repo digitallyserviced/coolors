@@ -13,8 +13,8 @@ import (
 
 type CoolorColorCluster struct {
 	name      string
-	leadColor Color
 	colors    []*Color
+	leadColor Color
 }
 
 type CoolorColorDistanceInfo struct {
@@ -42,10 +42,11 @@ func NewCoolorColorClusterInfo(cc *CoolorColor) *CoolorColorClusterInfo {
 	}
 	return ccci
 }
+
 type ClusterPalettes []*CoolorColorCluster
 
 var (
-    maxClusters int = 8
+	maxClusters         int = 8
 	ClusterPaletteTypes map[string]ClusterPalettes
 	CoolorClusterColors ClusterPalettes
 	baseAnsi            = []string{"#000000", "#c51e14", "#1dc121", "#c7c329", "#0a2fc4", "#c839c5", "#20c5c6", "#c7c7c7"}
@@ -66,28 +67,28 @@ func init() {
 	// CoolorClusterColors = getCoolorClusterColors()
 	CoolorClusterColors = getNamedAnsiColors()
 	// CoolorClusterColors = getBaseAnsiClusterColors()
-	colors := GenerateRandomColors(16)
-	colors = append(colors, tcell.GetColor("#7b7b7b"))
+	// colors := GenerateRandomColors(16)
+	// colors = append(colors, tcell.GetColor("#7b7b7b"))
 	// found := make([]Color, 0)
-	for _, v := range colors {
-		ccci := NewCoolorColorClusterInfo(NewIntCoolorColor(v.Hex()))
-		ccci.FindClusters()
-		ccci.Sort()
-		// fmt.Println(ccci.String())
-		minDistance := 0.0
-		minDistanceIndex := -1
-		for itc, tcol := range CoolorClusterColors {
-			vcol := MakeColorFromTcell(v)
-			if minDistance == 0.0 || minDistance > tcol.leadColor.DistanceLuv(vcol) {
-				minDistanceIndex = itc
-				minDistance = tcol.leadColor.DistanceLuv(vcol)
-			}
-		}
-		if minDistanceIndex != -1 {
-			// cc := MakeColorFromTcell(v)
-			// ClusterColors[minDistanceIndex].colors = append(ClusterColors[minDistanceIndex].colors, &cc)
-		}
-	}
+	// for _, v := range colors {
+	// 	ccci := NewCoolorColorClusterInfo(NewIntCoolorColor(v.Hex()))
+	// 	ccci.FindClusters()
+	// 	ccci.Sort()
+	// 	// fmt.Println(ccci.String())
+	// 	minDistance := 0.0
+	// 	minDistanceIndex := -1
+	// 	for itc, tcol := range CoolorClusterColors {
+	// 		vcol := MakeColorFromTcell(v)
+	// 		if minDistance == 0.0 || minDistance > tcol.leadColor.DistanceLuv(vcol) {
+	// 			minDistanceIndex = itc
+	// 			minDistance = tcol.leadColor.DistanceLuv(vcol)
+	// 		}
+	// 	}
+	// 	if minDistanceIndex != -1 {
+	// 		// cc := MakeColorFromTcell(v)
+	// 		// ClusterColors[minDistanceIndex].colors = append(ClusterColors[minDistanceIndex].colors, &cc)
+	// 	}
+	// }
 	// for _, tcol := range ClusterColors {
 	// 	colorss := lo.Map[*Color, string](tcol.colors, func(c *Color, i int) string {
 	// 		return c.GetCC().TerminalPreview()
@@ -114,7 +115,7 @@ func (cci *CoolorColorClusterInfo) String() string {
 	main := cci.clusters[0].cluster.name
 	second := cci.clusters[1].cluster.name
 	turd := cci.clusters[2].cluster.name
-	return fmt.Sprintf("%s [yellow:-:-]%s %s %s[-:-:-]", cci.color.TerminalPreview(), fmt.Sprintf(suff2, turd), fmt.Sprintf(suff, second), main)
+	return fmt.Sprintf("%s [yellow:-:-]%s %s %s[-:-:-]", cci.color.TVPreview(), fmt.Sprintf(suff2, turd), fmt.Sprintf(suff, second), main)
 }
 
 func (cci *CoolorColorClusterInfo) Sort() {
@@ -134,9 +135,9 @@ func (cci *CoolorColorClusterInfo) Len() int {
 }
 
 func (cci *CoolorColorClusterInfo) GenerateNeighbors(count int, maxDistance float64) {
-  for {
-    
-  }
+	// for {
+	//
+	// }
 }
 
 func (cci *CoolorColorClusterInfo) FindClusters() {
@@ -153,9 +154,9 @@ func (cci *CoolorColorClusterInfo) FindClusters() {
 			minDistance = distance
 		}
 		cci.clusters = append(cci.clusters, ccdi)
-    if len(cci.clusters) > maxClusters {
-      break
-    }
+		if len(cci.clusters) > maxClusters {
+			break
+		}
 	}
 	if minDistanceIndex != -1 {
 		cc := vcol
@@ -163,28 +164,27 @@ func (cci *CoolorColorClusterInfo) FindClusters() {
 	}
 }
 
-var (
-  usefulColorNames []string = []string{"black", "green", "navy", "purple", "red", "lime", "yellow", "blue", "fuchsia", "aqua", "white", "azure", "chocolate", "crimson", "gold", "hotpink", "indigo", "lavender", "orange", "pink", "plum", "tomato", "turquoise", "violet", "grey", "darkgrey",}
-)
+var usefulColorNames []string = []string{"black", "green", "navy", "purple", "red", "lime", "yellow", "blue", "fuchsia", "aqua", "white", "azure", "chocolate", "crimson", "gold", "hotpink", "indigo", "lavender", "orange", "pink", "plum", "tomato", "turquoise", "violet", "grey", "darkgrey"}
 
 func getNamedAnsiColors() ClusterPalettes {
-  cps := make(ClusterPalettes, 0)
-  for _, name  := range usefulColorNames {
-    tcol := tcell.ColorNames[name]
-    col := MakeColorFromTcell(tcol)
-    cps = append(cps, NewClusterFromCss(name, col.Hex()))
-  }
+	cps := make(ClusterPalettes, 0)
+	for _, name := range usefulColorNames {
+		tcol := tcell.ColorNames[name]
+		col := MakeColorFromTcell(tcol)
+		cps = append(cps, NewClusterFromCss(name, col.Hex()))
+	}
 	return cps
 }
+
 func getBaseAnsiClusterColors() ClusterPalettes {
-  cps := make(ClusterPalettes, 0)
-  for i, c  := range baseAnsiNames {
-    cps = append(cps, NewClusterFromCss(c, baseAnsi[i]))
-  }
-  for i, c  := range baseAnsiNames {
-    name := fmt.Sprintf("%s %s", brightAnsiPrefix, c)
-    cps = append(cps, NewClusterFromCss(name, baseBrightAnsi[i]))
-  }
+	cps := make(ClusterPalettes, 0)
+	for i, c := range baseAnsiNames {
+		cps = append(cps, NewClusterFromCss(c, baseAnsi[i]))
+	}
+	for i, c := range baseAnsiNames {
+		name := fmt.Sprintf("%s %s", brightAnsiPrefix, c)
+		cps = append(cps, NewClusterFromCss(name, baseBrightAnsi[i]))
+	}
 	return cps
 }
 
@@ -215,9 +215,9 @@ func getCoolorClusterColors() ClusterPalettes {
 
 func NewClusterFromCss(s, css string) *CoolorColorCluster {
 	col, err := Hex(css)
-  if err != nil {
-    return nil
-  }
+	if err != nil {
+		return nil
+	}
 	ccc := &CoolorColorCluster{
 		name:      s,
 		leadColor: col,
@@ -226,6 +226,7 @@ func NewClusterFromCss(s, css string) *CoolorColorCluster {
 
 	return ccc
 }
+
 func NewCluster(s string, i1, i2, i3 uint8) *CoolorColorCluster {
 	col := RGB255(i1, i2, i3)
 	ccc := &CoolorColorCluster{
@@ -237,101 +238,8 @@ func NewCluster(s string, i1, i2, i3 uint8) *CoolorColorCluster {
 	return ccc
 }
 
-// func ClusterCoolorPalette(cp *CoolorPalette)
-
-/*
-// import "github.com/digitallyserviced/coolors/color"
-
-/*
-
-function colorDistance(color1, color2) {
-  const x =
-    Math.pow(color1[0] - color2[0], 2) +
-    Math.pow(color1[1] - color2[1], 2) +
-    Math.pow(color1[2] - color2[2], 2);
-  return Math.sqrt(x);
-}
-*/
-
-// if tcol.leadColor.AlmostEqualRgb(vcol) {
-// 	// found = append(found, vcol)
-// 	// tcol.colors = append(tcol.colors, &vcol)
-// }
-// fmt.Printf("%v %f %s %s\n", v.leadColor.AlmostEqualRgb(tcol), v.leadColor.DistanceRgb(tcol), v.leadColor.GetCC().TerminalPreview(), tcol.GetCC().TerminalPreview())
-// c, err := Hex(fmt.Sprintf("#%s",v.leadColor.Hex()))
-// if err != nil {
-//   panic(err)
-// }
-// col, ok := MakeColor(c)
-// if !ok {
-//   panic(fmt.Errorf("%v not a color", col))
-// }
-
-// if tcol.leadColor.AlmostEqualRgb(vcol) {
-// found = append(found, vcol)
-// tcol.colors = append(tcol.colors, &vcol)
-// }
-// fmt.Printf("%v %f %s %s\n", v.leadColor.AlmostEqualRgb(tcol), v.leadColor.DistanceRgb(tcol), v.leadColor.GetCC().TerminalPreview(), tcol.GetCC().TerminalPreview())
-// foundcc := lo.Uniq[string](lo.Map[Color, string](found, func(c Color, i int) string {
-//   return c.GetCC().TerminalPreview()
-// }))
-// fmt.Println(fmt.Sprintf("%s %v", tcol.name, strings.Join(foundcc, " ")))
-/*
-
-function oneDimensionSorting(colors, dim) {
-  return colors
-    .sort((colorA, colorB) => {
-      if (colorA.hsl[dim] < colorB.hsl[dim]) {
-        return -1;
-      } else if (colorA.hsl[dim] > colorB.hsl[dim]) {
-        return 1;
-      } else {
-        return 0;
-      }
-    });
+func rgbToYIQ(r, g, b uint) float64 {
+	return float64((r*299)+(g*587)+(b*114)) / 1000.0
 }
 
-function sortWithClusters(colorsToSort) {
-  const mappedColors = colorsToSort
-    .map((color) => {
-      const isRgba = color.includes('rgba');
-      if (isRgba) {
-        return blendRgbaWithWhite(color);
-      } else {
-        return color;
-      }
-    })
-    .map(colorUtil.color);
-
-  mappedColors.forEach((color) => {
-    let minDistance;
-    let minDistanceClusterIndex;
-
-    clusters.forEach((cluster, clusterIndex) => {
-      const colorRgbArr = [color.rgb.r, color.rgb.g, color.rgb.b];
-      const distance = colorDistance(colorRgbArr, cluster.leadColor);
-      if (typeof minDistance === 'undefined' || minDistance > distance) {
-        minDistance = distance;
-        minDistanceClusterIndex = clusterIndex;
-      }
-    });
-
-    clusters[minDistanceClusterIndex].colors.push(color);
-  });
-
-  clusters.forEach((cluster) => {
-    const dim = ['white', 'grey', 'black'].includes(cluster.name) ? 'l' : 's';
-    cluster.colors = oneDimensionSorting(cluster.colors, dim)
-  });
-
-  return clusters;
-}
-
-const sortedClusters = sortWithClusters(colors);
-const sortedColors = sortedClusters.reduce((acc, curr) => {
-  const colors = curr.colors.map((color) => color.hex);
-  return [...acc, ...colors];
-}, []);
-renderColors(sortedColors, '#sorted');
-*/
 // vim: ts=2 sw=2 et ft=go

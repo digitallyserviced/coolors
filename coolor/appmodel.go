@@ -40,8 +40,8 @@ func StartApp() {
 	AppModel.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		ch := event.Rune()
 		// kp := event.Key()
-		switch {
-		case ch == 'Q':
+		switch ch {
+		case 'Q':
 			AppModel.app.Stop()
 			return nil
 		}

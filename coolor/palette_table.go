@@ -25,7 +25,7 @@ func NewPaletteTableCell(cc *CoolorColor) *PaletteTableCell {
 		Box:   MakeBoxItem("", cc.Html()),
 		Color: cc,
 	}
-	ptc.Box.SetBackgroundColor(*cc.color)
+	ptc.SetBackgroundColor(*cc.color)
 	// ptc.TableCell.SetAlign(tview.AlignCenter).SetTransparency(false)
 	return ptc
 }
@@ -42,10 +42,10 @@ func NewPaletteTable(cp *CoolorPalette) *PaletteTable {
 func (pt *PaletteTable) Draw(s tcell.Screen) {
 	pt.Clear()
 	pt.SetDirection(tview.FlexColumn)
-	x, y, w, h := pt.Flex.GetInnerRect()
+	x, y, w, h := pt.GetInnerRect()
 	_, _, _, _ = x, y, w, h
-	pt.Palette.Each(func(cc *CoolorColor, i int) {
-		pt.Flex.AddItem(NewPaletteTableCell(cc), 0, 1, false)
+	pt.Palette.Each(func(cc *CoolorColor, _ int) {
+		pt.AddItem(NewPaletteTableCell(cc), 0, 1, false)
 	})
 	pt.Flex.Draw(s)
 }

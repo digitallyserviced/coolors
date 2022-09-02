@@ -27,16 +27,16 @@ import (
 
 type PaletteMetaData struct {
 	Created  time.Time `koanf:"created"`
-	Version  uint64    `koanf:"version"`
 	Name     string    `koanf:"name"`
 	Palettes []string  `koanf:"palettes"`
+	Version  uint64    `koanf:"version"`
 }
 
 type PaletteData struct {
 	Name   string   `koanf:"name"`
 	Names  []string `koanf:"names"`
-	Hash   uint64   `koanf:"hash"`
 	Colors []string `koanf:"colors"`
+	Hash   uint64   `koanf:"hash"`
 }
 
 func (pd PaletteData) GetPalette() *CoolorPalette {
@@ -63,16 +63,16 @@ type WezPaletteData struct {
 }
 
 type CoolorPaletteData struct {
-	Metadata PaletteMetaData `koanf:"metadata"`
 	Palettes []PaletteData   `koanf:"palettes"`
+	Metadata PaletteMetaData `koanf:"metadata"`
 }
 
 type PaletteFile struct {
-	tmp     bool
-	version uint64
+	ref     *os.File
 	path    string
 	name    string
-	ref     *os.File
+	version uint64
+	tmp     bool
 }
 
 type HistoryDataConfig struct {
@@ -93,9 +93,9 @@ func (pdc *HistoryDataConfig) GetPalettes() []string {
 	return make([]string, 0)
 }
 
-func TupleToEntry(item lo.Tuple2[string, string], i int) lo.Entry[string, string] {
-	var a string = item.A
-	var b string = item.B
+func TupleToEntry(item lo.Tuple2[string, string], _ int) lo.Entry[string, string] {
+	var a  = item.A
+	var b  = item.B
 	var e lo.Entry[string, string]
 	e.Key = a
 	e.Value = b
@@ -152,23 +152,23 @@ func (pdc *HistoryDataConfig) Save() {
 	// 	panic(err)
 	// }
 	//
-	b, err := pdc.Koanf.Marshal(toml.Parser())
+	b, err := pdc.Marshal(toml.Parser())
 	// dump.P(b)
 	if err != nil {
 		panic(err)
 	}
-	f, err := fsutil.QuickOpenFile(pdc.PaletteFile.path)
+	f, err := fsutil.QuickOpenFile(pdc.path)
 	if err != nil {
 		panic(err)
 	}
-	pdc.PaletteFile.ref = f
-	pdc.PaletteFile.ref.Truncate(0)
-	_, err = pdc.PaletteFile.ref.Write(b)
+	pdc.ref = f
+	pdc.ref.Truncate(0)
+	_, err = pdc.ref.Write(b)
 	if err != nil {
 		panic(err)
 	}
-	pdc.PaletteFile.ref.Close()
-	pdc.PaletteFile.ref = nil
+	pdc.ref.Close()
+	pdc.ref = nil
 }
 
 func (pdc *HistoryDataConfig) SetConfigData(k *koanf.Koanf) {
@@ -181,9 +181,9 @@ func (pdc *HistoryDataConfig) SetConfigData(k *koanf.Koanf) {
 	if pdc.Koanf == nil {
 		pdc.Koanf = k
 	}
-	pdc.Koanf.Delete("")
+	pdc.Delete("")
 	pdc.data.Metadata.Version = pdc.version
-	err := pdc.Koanf.Load(structs.Provider(*pdc.data, "koanf"), nil)
+	err := pdc.Load(structs.Provider(*pdc.data, "koanf"), nil)
 	if err != nil {
 		// dump.P(err)
 		panic(err)
@@ -247,24 +247,12 @@ func (pdc *HistoryDataConfig) Dirty() bool {
 
 func (pdc *HistoryDataConfig) Status() int {
   return 1
-	if pdc.Dirty() {
-		kv := pdc.GetFileVersion()
-		if pdc.version > kv {
-			return 1
-		} else if pdc.version < kv {
-			return -1
-		} else {
-			return 0
-		}
-	}
-	return 0
+	
+	
 }
 
 func (pdc *HistoryDataConfig) NeedsSave() bool {
-	if pdc.Status() >= 0 {
-		return true
-	}
-	return false
+	return pdc.Status() >= 0 
 }
 
 func (pdc *HistoryDataConfig) GetFileVersion() uint64 {
@@ -293,7 +281,7 @@ func (pdc *HistoryDataConfig) BumpVersion() {
 func (pdc *HistoryDataConfig) AddPalette(name string, p Palette) {
 	cp := p.GetPalette()
 	if cp == nil {
-		panic(errorx.Errorf("Unable to save %d %s to %s", cp.GetItemCount(), name, pdc.PaletteFile.path))
+		panic(errorx.Errorf("Unable to save %d %s to %s", cp.GetItemCount(), name, pdc.path))
 	}
 	name = fmt.Sprintf("%s.%d", name, len(pdc.data.Metadata.Palettes))
 	flat := cp.ToMap()
@@ -407,7 +395,7 @@ func (pdc *HistoryDataConfig) LoadConfigFromFile(path string, overwrite bool) er
 // }
 
 func Colorizer(s string) string {
-	for _, v := range colorRegs {
+	for _, v := range colorRegexes {
 		CheckForReg(v, s)
 	}
 	return ""

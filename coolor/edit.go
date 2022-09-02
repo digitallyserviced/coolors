@@ -18,6 +18,14 @@ const (
 	SecondNearestNeighbor int = 1
 	LastNearestNeighbors  int = 1
 )
+var (
+	ColorModNames = []string{"Hue", "Chroma", "Light"}
+	ColorMods     = map[string]*ColorMod{
+		"Hue":    HueMod,
+		"Chroma": SatMod,
+		"Light":  LightMod,
+	}
+)
 
 type CoolorColorEdit struct {
 	original *CoolorColor
@@ -72,7 +80,7 @@ func NewGradStrip(cm *ColorMod, cces *CoolorColorEditorStrips) *GradStrip {
 		centeredColors: []string{},
 		gradOffsets:    []float64{},
 		previewGrad:    []string{},
-		frame:          &tview.Frame{},
+		// frame:          &tview.Frame{},
 		strip:          tview.NewFlex(),
 		gauge:          tview.NewFlex(),
 		container:      tview.NewFlex(),
@@ -80,7 +88,7 @@ func NewGradStrip(cm *ColorMod, cces *CoolorColorEditorStrips) *GradStrip {
 		cces:           cces,
 		cm:             cm,
 	}
-	gs.Flex.SetDirection(tview.FlexRow)
+	gs.SetDirection(tview.FlexRow)
 	gs.container.SetDirection(tview.FlexColumn)
 	gs.gauge.SetDirection(tview.FlexRow)
 	gs.strip.SetDirection(tview.FlexRow)
@@ -88,7 +96,9 @@ func NewGradStrip(cm *ColorMod, cces *CoolorColorEditorStrips) *GradStrip {
 	gs.strip.SetBorderPadding(0, 0, 0, 0)
 	gs.strip.Clear()
 	gs.frame = tview.NewFrame(gs.container)
-	gs.Flex.AddItem(gs.frame, 0, 10, false)
+  gs.frame.SetBorders(0, 0, 1, 0, 0, 0)
+  gs.frame.SetBorderPadding(0, 0, 0, 0)
+	gs.AddItem(gs.frame, 0, 10, false)
 	gs.container.AddItem(gs.gauge, 0, 1, false)
 	gs.container.AddItem(gs.strip, 0, 10, false)
 	// spc, settxt := MakeCenterLineSpacer(gs.Flex)
@@ -161,12 +171,9 @@ func (gs *GradStrip) MakeSelections() {
 	gc := gs.strip.GetItemCount()
 	for c, v := range gs.centeredColors {
 		size := gs.sizes[c]
-		if !gs.validGrad[c] {
-			// dump.P(v)
-		}
 		if gc != len(gs.centeredColors) {
 			if size == SelectedSize {
-				gs.centeredGrad[c].SetInfoLine(fmt.Sprintf(" "), gs.validGrad[c])
+				gs.centeredGrad[c].SetInfoLine(" ", gs.validGrad[c])
 			} else {
 				gs.centeredGrad[c].SetInfoLine(fmt.Sprintf(" % 6.2f ", gs.gradOffsets[c]), gs.validGrad[c])
 			}
@@ -245,14 +252,6 @@ type CoolorColorEditorStrips struct {
 	colorMods map[string]*GradStrip
 }
 
-var (
-	ColorModNames = []string{"Hue", "Chroma", "Light"}
-	ColorMods     = map[string]*ColorMod{
-		"Hue":    HueMod,
-		"Chroma": SatMod,
-		"Light":  LightMod,
-	}
-)
 
 func (ccep *CoolorColorEditorStrips) updateState() {
 	ccep.forColorMods(func(c *GradStrip, n string) {
@@ -287,7 +286,7 @@ func (ccep *CoolorColorEditorStrips) UpdateColor(cc *CoolorColor) {
 }
 
 func (ccep *GradStrip) Lerp(startc, endc CoolColor) *colorgrad.GradientBuilder {
-	start, ok := colorful.MakeColor(startc.GetCC())
+	start, _ := colorful.MakeColor(startc.GetCC())
 	end, ok := colorful.MakeColor(endc.GetCC())
 	_ = ok
 	cg := colorgrad.NewGradient().Colors(
@@ -301,7 +300,7 @@ func NewEditorStrip(cce *CoolorColorEditor) *CoolorColorEditorStrips {
 		cce: cce,
 	}
 	ccep.Flex = tview.NewFlex() // .SetFullScreen(true)
-	ccep.Flex.SetDirection(tview.FlexColumn)
+	ccep.SetDirection(tview.FlexColumn)
 	ccep.Clear()
 	ccep.colorMods = make(map[string]*GradStrip, len(ColorMods))
 	col, _ := ccep.cce.palette.GetSelected()
@@ -311,7 +310,7 @@ func NewEditorStrip(cce *CoolorColorEditor) *CoolorColorEditorStrips {
 		ccep.colorMods[i] = NewGradStrip(v, ccep)
 	}
 	ccep.forColorMods(func(c *GradStrip, n string) {
-		ccep.Flex.AddItem(c, 0, 8, true)
+		ccep.AddItem(c, 0, 8, true)
 	})
 	BlankSpace(ccep.Flex)
 	ccep.UpdateColor(col)
@@ -335,9 +334,9 @@ func (ccep *CoolorColorEditorStrips) updateColorMods() {
 	ccep.forColorMods(func(c *GradStrip, n string) {
 		c.SetBorder(false)
 		c.SetBorderPadding(0, 0, 0, 0)
-		c.Flex.Clear()
+		c.Clear()
 		MakeSpace(c.Flex, "", "#000000", 0, 1)
-		x, y, w, h := c.Flex.GetInnerRect()
+		x, y, w, h := c.GetInnerRect()
 		_, _, _ = x, y, w
 		c.height = h
 		c.cm.SetSize(float64(h))
@@ -427,7 +426,7 @@ func (cce *CoolorColorEditor) String() string {
 	// cce.previews.forColoMods(func(c *GradStrip, n string) {
 	// 	is = fmt.Sprintf("%s %s ", is, c.cm.String())
 	// })
-	is = fmt.Sprintf("%s %s", col.String(), is)
+	is = fmt.Sprintf("%s %s", col.TVPreview(), is)
 	return tview.TranslateANSI(is)
 	// return tview.TranslateANSI(is)
 }
@@ -450,8 +449,8 @@ func (cce *CoolorColorEditor) Init() {
 	cce.Flex = tview.NewFlex().SetDirection(tview.FlexRow)
 	cce.Flex.SetBorder(false).SetBorderPadding(0, 0, 0, 0)
 	cce.palette.AddEventHandler("selected", cce)
-	cce.Flex.Clear()
-	cce.Flex.AddItem(cce.previews, 0, 1, false)
+	cce.Clear()
+	cce.AddItem(cce.previews, 0, 1, false)
 	cce.updateState()
 }
 
@@ -481,7 +480,7 @@ func (cce *CoolorColorEditor) GetSelectedVimNav() VimNav {
 }
 
 func (cce *CoolorColorEditor) InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
-	return cce.Flex.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
+	return cce.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
 		ch := event.Rune()
 		kp := event.Key()
 		if kp == tcell.KeyEnter || kp == tcell.KeyEscape {
@@ -520,9 +519,9 @@ func (cce *CoolorColorEditor) InputHandler() func(event *tcell.EventKey, setFocu
 }
 
 func (cce *CoolorColorEditor) HandleEvent(e tcell.Event) bool {
-	switch e.(type) {
+	switch e := e.(type) {
 	case *SelectionEvent:
-		se := e.(*SelectionEvent)
+		se := e
 		// cce.previews.gs.cm.SetColor(se.color)
 		cce.previews.UpdateColor(se.color)
 		// cce.previews

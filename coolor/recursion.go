@@ -139,7 +139,7 @@ func (sq *Square) DrawBlock(fg string, screen tcell.Screen, bx int, by int, bwid
 			} // c := fullBlock
 			if idx%2 == 0 {
 				c = '⬤'
-				screen.SetContent(x, y, c, nil, tcell.Style.Background(tcell.StyleDefault, fgcol).Foreground(getFGColor(fgcol)))
+				screen.SetContent(x, y, c, nil, tcell.Style.Background(tcell.StyleDefault, fgcol).Foreground(tcell.Color(NewIntCoolorColor(fgcol.Hex()).GetFgColor().Hex())))
 			} else {
 				screen.SetContent(x, y, c, nil, tcell.Style.Foreground(tcell.StyleDefault, fgcol))
 			}

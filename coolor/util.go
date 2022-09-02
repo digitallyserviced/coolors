@@ -3,7 +3,9 @@ package coolor
 import (
 	"context"
 	"fmt"
+	"log"
 	"math/rand"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -21,9 +23,9 @@ import (
 type (
 	Severity int
 	Status   struct {
-		Severity Severity
-		Message  string
-	}
+	Message  string
+	Severity Severity
+}
 )
 
 const (
@@ -34,6 +36,104 @@ const (
 	Alert
 )
 
+const (
+	cssInteger       = "[-\\+]?\\d+%?"
+	cssNumber        = "[-\\+]?\\d*\\.\\d+%?"
+	cssUnit          = "(?:" + cssNumber + ")|(?:" + cssInteger + ")"
+	permissiveMatch3 = "[\\s|\\(]+(" + cssUnit + ")[,|\\s]+(" + cssUnit + ")[,|\\s]+(" + cssUnit + ")\\s*\\)?"
+	permissiveMatch4 = "[\\s|\\(]+(" + cssUnit + ")[,|\\s]+(" + cssUnit + ")[,|\\s]+(" + cssUnit + ")[,|\\s]+(" + cssUnit + ")\\s*\\)?"
+	rgb              = "rgb" + permissiveMatch3
+	rgba             = "RGBA" + permissiveMatch4
+	hsl              = "hsl" + permissiveMatch3
+	hsla             = "hsla" + permissiveMatch4
+	hsv              = "hsv" + permissiveMatch3
+	hsva             = "hsva" + permissiveMatch4
+	// hex3             = `#?([0-9a-fA-F]{1})([0-9a-fA-F]{1})([0-9a-fA-F]{1})`
+	// hex6             = `#?([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})`
+	// hex4             = `#?([0-9a-fA-F]{1})([0-9a-fA-F]{1})([0-9a-fA-F]{1})([0-9a-fA-F]{1})`
+	// hex8             = `#?([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})`
+	hex3 = `(#[0-9a-fA-F]{3})\b`
+	hex6 = `(#[0-9a-fA-F]{6})\b`
+	// 0;#090300;1;#db2d20;2;#01a252;3;#fded02;4;#01a0e4;5;#a16a94;6;#b5e4f4;7;#a5a2a2;8;#5c5855;9;#e8bbd0;10;#3a3432;11;#4a4543;12;#807d7c;13;#d6d5d4;14;#cdab53;15;#f7f7f7
+	// printf "\033]10;#4a4543;#f7f7f7;#4a4543\007"
+	// printf "\033]17;#a5a2a2\007"
+	// printf "\033]19;#4a4543\007"
+	// printf "\033]5;0;#4a4543\007"
+	set4BitDynamicColors string = "\033]4;%s\007"
+	dynamicColorIndex    string = "%d;%s"
+	setTextFgBgCursor    string = "\033]10;%s\007"
+	setBgColor           string = "\033]17;%s\007"
+	setSelectionFgColor  string = "\033]19;%s\007"
+	setDynamicColorBold  string = "\033]5;%d;%s\007"
+)
+
+var colorRegexes = []string{rgb, rgba, hsl, hsla, hsv, hsva, hex3, hex6} //
+type PalettePaddle struct {
+	*tview.Box
+	icon, iconActive string
+	status           string
+}
+
+type Navigable interface {
+	NavSelection(int)
+}
+
+type Activatable interface {
+	ActivateSelected()
+}
+
+type Selectable interface {
+	GetSelected() int
+}
+
+type CoolorSelectable interface {
+	GetSelected() (*CoolorColor, int)
+}
+type VimNavSelectable interface {
+	GetSelectedVimNav() VimNav
+}
+
+type VimNav interface {
+	Navigable
+}
+
+type ColorCount uint32
+
+type ColorStreamProgress struct {
+	ProgressHandler ColorStreamProgressHandler
+	Valid           uint32
+	Itr             uint32
+}
+type ColorStream struct {
+	OutColors <-chan interface{}
+	Start     chan struct{}
+	Status    *ColorStreamProgress
+	Cancel    context.CancelFunc
+	Generator func() interface{}
+	Validator func(interface{}) bool
+	Context   context.Context
+}
+
+type FunctionalProgressHandler struct {
+	v func(uint32)
+	i func(uint32)
+}
+
+type ColorStreamIterationProgressHandler interface {
+	OnItr(uint32)
+}
+type ColorStreamValidProgressHandler interface {
+	OnValid(uint32)
+}
+type ColorStreamProgressHandler interface {
+	ColorStreamIterationProgressHandler
+	ColorStreamValidProgressHandler
+}
+type NilProgressHandler struct{}
+
+func (NilProgressHandler) OnItr(i uint32)   {}
+func (NilProgressHandler) OnValid(v uint32) {}
+
 func GenerateRandomColors(count int) []tcell.Color {
 	tcols := make([]tcell.Color, count)
 	for i := range tcols {
@@ -42,74 +142,18 @@ func GenerateRandomColors(count int) []tcell.Color {
 	return tcols
 }
 
-// func generateColorWithinDistance(tcol Color, maxDistance float64, cs *ColorStream) {
-// 	count := 0
-// 	for {
-// 		if cs.Cancel == nil || cs.OutColors == nil {
-// 			return
-// 		}
-// 		select {
-// 		case <-cs.Context.Done():
-// 			return
-// 		default:
-// 			count += 1
-// 			col := genRandomSeededColor(cs)
-// 			if col != nil {
-// 				cs.OutColors <- col
-// 			}
-// 		}
-// 		time.Sleep(2 * time.Millisecond)
-// 	}
-// }
+func setupLogging() func() error {
+	f, _ := os.OpenFile("dumps", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o666)
+	// f, _ := os.OpenFile(os.DevNull, os.O_RDWR|os.O_APPEND, 0666)
+
+	log.SetOutput(f)
+
+	return f.Close
+}
 
 func init() {
 	rand.Seed(time.Now().UnixMilli())
 }
-
-// func DrainColorStream(colors *ColorStream, count int, status func(s string)) []*Color {
-// 	// defer ShutdownStream(colors)
-//   originalCount := count
-//   defer func(){
-// 			status(fmt.Sprintf("Generated %d colors from %d iterations", originalCount, colors.Count))
-//   }()
-// 	colors.Start <- struct{}{}
-// 	outColors := make([]*Color, 0)
-// 	for {
-//     if colors.OutColors == nil || colors.Status == nil || colors.generatedColors == nil {
-//       return outColors
-//     }
-// 		select {
-// 		case <-colors.Context.Done():
-//       return outColors
-// 		case color, ok := <-colors.OutColors:
-// 			if !ok {
-//         return outColors
-// 			}
-// 			outColors = append(outColors, color)
-// 			if color != nil {
-// 				count--
-// 			}
-// 		case stat, ok := <-colors.Status:
-// 			if !ok {
-// 				// colors.Cancel()
-//         return outColors
-// 			}
-// 			status(stat)
-// 		default:
-// 			time.Sleep(5 * time.Millisecond)
-// 		}
-//
-// 		if count == 0 {
-//       return outColors
-// 		}
-// 	}
-// }
-
-// func genRandomSeededColor(cs *ColorStream) *Color {
-// 	rand.Seed(time.Now().UnixNano())
-// 	tcol2 := MakeColorFromTcell(randomColor())
-// 	return &tcol2
-// }
 func genRandomSeededColor() interface{} {
 	rand.Seed(time.Now().UnixNano())
 	tcol2 := MakeColorFromTcell(randomColor())
@@ -117,20 +161,7 @@ func genRandomSeededColor() interface{} {
 }
 
 func checkColorDistance(tcol, tcol2 Color, distance float64) bool {
-	if tcol2.DistanceCIEDE2000(tcol) <= distance {
-		return true
-	}
-	return false
-}
-
-type ColorStream struct {
-	OutColors       <-chan interface{}
-	Start           chan struct{}
-	Status          *ColorStreamProgress
-	Cancel          context.CancelFunc
-	Generator       func() interface{}
-	Validator       func(interface{}) bool
-	Context         context.Context
+	return tcol2.DistanceCIEDE2000(tcol) <= distance
 }
 
 func takeN(done <-chan struct{}, valueStream <-chan interface{}, num int) <-chan interface{} {
@@ -148,65 +179,38 @@ func takeN(done <-chan struct{}, valueStream <-chan interface{}, num int) <-chan
 	return takeStream
 }
 
-type ColorCount uint32
-type ColorStreamIterationProgressHandler interface {
-  OnItr(uint32)
-}
-type ColorStreamValidProgressHandler interface {
-  OnValid(uint32)
-}
-type ColorStreamProgressHandler interface {
-  ColorStreamIterationProgressHandler
-  ColorStreamValidProgressHandler
-}
-type NilProgressHandler struct {}
-func (NilProgressHandler) OnItr(i uint32) {}
-func (NilProgressHandler) OnValid(v uint32) {}
-
-
 func NewNilProgressHandler() ColorStreamProgressHandler {
-  nph := &NilProgressHandler{}
-  return nph
-}
-type FunctionalProgressHandler struct {
-	v func(uint32)
-  i func(uint32)
+	nph := &NilProgressHandler{}
+	return nph
 }
 
 func (fph FunctionalProgressHandler) OnItr(i uint32) {
-  fph.i(i)
+	fph.i(i)
 }
+
 func (fph FunctionalProgressHandler) OnValid(v uint32) {
-  fph.v(v)
+	fph.v(v)
 }
 
 func NewProgressHandler(v func(uint32), i func(uint32)) *FunctionalProgressHandler {
-  nph := &FunctionalProgressHandler{
-  	v: v,
-  	i: i,
-  }
-  return nph
+	nph := &FunctionalProgressHandler{
+		v: v,
+		i: i,
+	}
+	return nph
 }
-
-type ColorStreamProgress struct {
-	Valid, Itr uint32
-  ProgressHandler ColorStreamProgressHandler
-	// onValid    func(v uint32)
-	// onItr      func(i uint32)
-}
-
 
 func NewColorStreamProgress() *ColorStreamProgress {
 	csp := &ColorStreamProgress{
-		Valid:   0,
-		Itr:     0,
-    ProgressHandler: NewNilProgressHandler(),
+		Valid:           0,
+		Itr:             0,
+		ProgressHandler: NewNilProgressHandler(),
 	}
 	return csp
 }
 
 func (csp *ColorStreamProgress) SetProgressHandler(csph ColorStreamProgressHandler) {
-  csp.ProgressHandler = csph
+	csp.ProgressHandler = csph
 }
 
 func (csp *ColorStreamProgress) GetValid() uint32 {
@@ -218,13 +222,13 @@ func (csp *ColorStreamProgress) GetItr() uint32 {
 }
 
 func (csp *ColorStreamProgress) Itrd() {
-  res := atomic.AddUint32(&csp.Itr, 1)
-  csp.ProgressHandler.OnItr(res)
+	res := atomic.AddUint32(&csp.Itr, 1)
+	csp.ProgressHandler.OnItr(res)
 }
 
 func (csp *ColorStreamProgress) Validd() {
-  res := atomic.AddUint32(&csp.Itr, 1)
-  csp.ProgressHandler.OnValid(res)
+	res := atomic.AddUint32(&csp.Itr, 1)
+	csp.ProgressHandler.OnValid(res)
 }
 
 func takeFn(done <-chan struct{}, csp *ColorStreamProgress, valueStream <-chan interface{}, fn func(interface{}) bool) <-chan interface{} {
@@ -236,9 +240,12 @@ func takeFn(done <-chan struct{}, csp *ColorStreamProgress, valueStream <-chan i
 			case <-done:
 				return
 			case v := <-valueStream:
-        csp.Itrd()
+				csp.Itrd()
+        if v == nil {
+          continue
+        }
 				if fn(v) {
-          csp.Validd()
+					csp.Validd()
 					takeStream <- v
 				}
 			}
@@ -247,8 +254,9 @@ func takeFn(done <-chan struct{}, csp *ColorStreamProgress, valueStream <-chan i
 	return takeStream
 }
 
-func asStream(done <-chan struct{}, fn func() interface{}) <-chan interface{} {
+func asStream(done <-chan struct{}, fn func() interface{}, throttle time.Duration) <-chan interface{} {
 	s := make(chan interface{})
+	tttl := time.NewTicker(throttle)
 	go func() {
 		defer close(s)
 
@@ -257,6 +265,7 @@ func asStream(done <-chan struct{}, fn func() interface{}) <-chan interface{} {
 			case <-done:
 				return
 			case s <- fn():
+				<-tttl.C
 			}
 		}
 	}()
@@ -288,7 +297,7 @@ func (cs *ColorStream) Run(done <-chan struct{}) {
 	numRoutines := 4
 	generators := make([]<-chan interface{}, 0)
 	for i := 0; i < numRoutines; i++ {
-		generators = append(generators, takeFn(done, cs.Status, asStream(done, genRandomSeededColor), cs.Validator))
+		generators = append(generators, takeFn(done, cs.Status, asStream(done, genRandomSeededColor, time.Millisecond*10), cs.Validator))
 	}
 	cs.OutColors = fanIn(generators...)
 }
@@ -296,83 +305,14 @@ func (cs *ColorStream) Run(done <-chan struct{}) {
 func TakeNColors(done <-chan struct{}, valueStream <-chan interface{}, num int) []Color {
 	colors := make([]Color, 0)
 	for cv := range takeN(done, valueStream, num) {
+    if cv == nil {
+      continue
+    }
 		col := cv.(Color)
 		colors = append(colors, col)
 	}
 	return colors
 }
-
-// func (cs *ColorStream) Run() {
-//   defer func(){
-//     if err := recover(); err != nil {
-//       // fmt.Println(fmt.Errorf("%v", err))
-//     }
-//   }()
-// 	numRoutines := 4
-// 	go func() {
-//   defer close(cs.generatedColors)
-//   defer close(cs.OutColors)
-//   defer close(cs.Status)
-// 		<-cs.Start
-//     go func(){
-//       <-time.After(5 * time.Second)
-//       cs.Cancel()
-//     }()
-// 		go cs.Validate()
-// 		for i := 0; i < numRoutines; i++ {
-// 			go cs.Generate()
-// 		}
-// 		<-cs.Context.Done()
-// 	}()
-// }
-
-// func (cs *ColorStream) Validate() {
-//   defer func(){
-//     if err := recover(); err != nil {
-//       // fmt.Println(fmt.Errorf("%v", err))
-//     }
-//   }()
-// 	ticker := time.NewTicker(50 * time.Millisecond)
-//   defer ticker.Stop()
-// 	colorCount := 0
-// 	for {
-// 		select {
-// 		case <-cs.Context.Done():
-//       return
-// 		case color := <-cs.generatedColors:
-// 			cs.Count++
-// 			if cs.Validator(color, cs) {
-// 				colorCount++
-// 				cs.OutColors <- color
-// 			}
-// 		case <-ticker.C:
-//       select {
-//       case <-cs.Context.Done():
-//         return
-//       case cs.Status <- fmt.Sprintf("%d / %d", colorCount, cs.Count):
-//       }
-//
-// 		}
-// 	}
-// }
-
-// func (cs *ColorStream) Generate() {
-//   defer func(){
-//     if err := recover(); err != nil {
-//       // fmt.Println(fmt.Errorf("%v", err))
-//     }
-//   }()
-// 	for {
-// 		select {
-// 		case <-cs.Context.Done():
-//       return
-// 		// case cs.generatedColors <- cs.Generator():
-// 			// color := cs.Generator(cs)
-// 			// cs.generatedColors <- color
-// 		}
-// 			time.Sleep(5 * time.Millisecond)
-// 	}
-// }
 
 func StartColorStream(g func() interface{}, v func(interface{}) bool) *ColorStream {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -401,14 +341,29 @@ func StartColorStream(g func() interface{}, v func(interface{}) bool) *ColorStre
 
 	return cs
 }
+func genSimilarHslColor(tcol Color, f func(r,h,s,l float64) Color) interface{} {
+	rand.Seed(time.Now().UnixNano())
+  h,s,l := tcol.Hsl()
+  adjust := rand.Float64() * 360
+  return f(adjust, h,s,l)
+	// tcol2 := MakeColorFromTcell(randomColor())
+	// return tcol2
+}
+
+func checkHslColorDistance(tcol, tcol2 Color, distance float64) bool {
+	return tcol2.DistanceCIEDE2000(tcol) <= distance
+}
+
+
+func RandomHuesStream(tcol Color, maxDistance float64) *ColorStream { // , cs *ColorStream
+	cs := StartColorStream(genRandomSeededColor, func(c interface{}) bool {
+		return checkColorDistance(tcol, c.(Color), maxDistance)
+	})
+	return cs
+}
 
 func RandomShadesStream(tcol Color, maxDistance float64) *ColorStream { // , cs *ColorStream
 	cs := StartColorStream(genRandomSeededColor, func(c interface{}) bool {
-    defer func(){
-      if err := recover(); err != nil {
-        // fmt.Println("%v %v", c, err)
-      }
-    }()
 		return checkColorDistance(tcol, c.(Color), maxDistance)
 	})
 	return cs
@@ -447,6 +402,12 @@ func MakeRandomColor() *tcell.Color {
 func randRange(min int, max int) int {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	return r.Intn(max-min+1) + min
+}
+
+func RandomColor() Color {
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+  r,g,b := rng.Float64(), rng.Float64(), rng.Float64()
+	return Color{r, g, b}
 }
 
 func randomColor() tcell.Color {
@@ -512,12 +473,6 @@ func AddFlexItem(fl *tview.Flex, tp tview.Primitive, f, p int) {
 	fl.AddItem(tp, f, p, false)
 }
 
-type PalettePaddle struct {
-	*tview.Box
-	icon, iconActive string
-	status           string
-}
-
 func NewPalettePaddle(icon, iconActive string) *PalettePaddle {
 	nb := tview.NewBox()
 	pp := &PalettePaddle{
@@ -530,12 +485,13 @@ func NewPalettePaddle(icon, iconActive string) *PalettePaddle {
 	nb.SetDrawFunc(func(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
 		iconColor := tview.Styles.ContrastBackgroundColor
 		icon := pp.icon
-		if pp.status == "enabled" {
+		switch pp.status {
+		case "enabled":
 			iconColor = tview.Styles.ContrastBackgroundColor
 			icon = pp.iconActive
-		} else if pp.status == "disabled" {
+		case "disabled":
 			iconColor = tview.Styles.PrimitiveBackgroundColor
-		} else {
+		default:
 			iconColor = tview.Styles.MoreContrastBackgroundColor
 		}
 		centerX := x + (width / 2)
@@ -604,29 +560,6 @@ func MakeCenterLineSpacer(fl *tview.Flex) (*tview.Box, func(string)) {
 	}
 }
 
-type Navigable interface {
-	NavSelection(int)
-}
-
-type Activatable interface {
-	ActivateSelected()
-}
-
-type Selectable interface {
-	GetSelected() int
-}
-
-type CoolorSelectable interface {
-	GetSelected() (*CoolorColor, int)
-}
-type VimNavSelectable interface {
-	GetSelectedVimNav() VimNav
-}
-
-type VimNav interface {
-	Navigable
-}
-
 func HandleVimNavigableHorizontal(vm VimNav, ch rune, kp tcell.Key) {
 	switch {
 	case ch == 'h' || kp == tcell.KeyLeft:
@@ -639,9 +572,9 @@ func HandleVimNavigableHorizontal(vm VimNav, ch rune, kp tcell.Key) {
 func HandleVimNavigableVertical(vm VimNav, ch rune, kp tcell.Key) {
 	switch {
 	case ch == 'j' || kp == tcell.KeyDown:
-		vm.NavSelection(-1)
-	case ch == 'k' || kp == tcell.KeyUp:
 		vm.NavSelection(1)
+	case ch == 'k' || kp == tcell.KeyUp:
+		vm.NavSelection(-1)
 	}
 }
 
@@ -656,53 +589,17 @@ func HandleSelectable(s Selectable) int {
 // HandleVimNavSelectable
 func HandleCoolorSelectable(s CoolorSelectable, ch rune, kp tcell.Key) {
 	_ = kp
-	switch {
-	case kp == tcell.KeyEnter:
+	switch kp {
+	case tcell.KeyEnter:
 		cc, _ := s.GetSelected()
-    if cc == nil {
-      return
-    }
-    if MainC.menu == nil {
-      return
-    }
+		if cc == nil {
+			return
+		}
+		if MainC.menu == nil {
+			return
+		}
 		MainC.menu.ActivateSelected(cc)
 	}
 }
-
-const (
-	// 0;#090300;1;#db2d20;2;#01a252;3;#fded02;4;#01a0e4;5;#a16a94;6;#b5e4f4;7;#a5a2a2;8;#5c5855;9;#e8bbd0;10;#3a3432;11;#4a4543;12;#807d7c;13;#d6d5d4;14;#cdab53;15;#f7f7f7
-	set4BitDynamicColors string = "\033]4;%s\007"
-	dynamicColorIndex    string = "%d;%s"
-	// printf "\033]10;#4a4543;#f7f7f7;#4a4543\007"
-	setTextFgBgCursor string = "\033]10;%s\007"
-	// printf "\033]17;#a5a2a2\007"
-	setBgColor string = "\033]17;%s\007"
-	// printf "\033]19;#4a4543\007"
-	setSelectionFgColor string = "\033]19;%s\007"
-	// printf "\033]5;0;#4a4543\007"
-	setDynamicColorBold string = "\033]5;%d;%s\007"
-)
-
-const (
-	cssInteger       = "[-\\+]?\\d+%?"
-	cssNumber        = "[-\\+]?\\d*\\.\\d+%?"
-	cssUnit          = "(?:" + cssNumber + ")|(?:" + cssInteger + ")"
-	permissiveMatch3 = "[\\s|\\(]+(" + cssUnit + ")[,|\\s]+(" + cssUnit + ")[,|\\s]+(" + cssUnit + ")\\s*\\)?"
-	permissiveMatch4 = "[\\s|\\(]+(" + cssUnit + ")[,|\\s]+(" + cssUnit + ")[,|\\s]+(" + cssUnit + ")[,|\\s]+(" + cssUnit + ")\\s*\\)?"
-	rgb              = "rgb" + permissiveMatch3
-	rgba             = "RGBA" + permissiveMatch4
-	hsl              = "hsl" + permissiveMatch3
-	hsla             = "hsla" + permissiveMatch4
-	hsv              = "hsv" + permissiveMatch3
-	hsva             = "hsva" + permissiveMatch4
-	// hex3             = `#?([0-9a-fA-F]{1})([0-9a-fA-F]{1})([0-9a-fA-F]{1})`
-	// hex6             = `#?([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})`
-	// hex4             = `#?([0-9a-fA-F]{1})([0-9a-fA-F]{1})([0-9a-fA-F]{1})([0-9a-fA-F]{1})`
-	// hex8             = `#?([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})`
-	hex3 = `(#[0-9a-fA-F]{3})\b`
-	hex6 = `(#[0-9a-fA-F]{6})\b`
-)
-
-var colorRegs = []string{rgb, rgba, hsl, hsla, hsv, hsva, hex3, hex6} //
 
 // vim: ts=2 sw=2 et ft=go

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/digitallyserviced/coolors/theme"
 	"github.com/digitallyserviced/coolors/tree"
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
@@ -19,7 +20,7 @@ import (
 var _ tview.Primitive = &PaletteFileView{}
 
 type PaletteFileView struct {
-	theme       *Theme
+	theme       *theme.Theme
 	view        *tview.Grid
 	topbarView  *tview.TextView
 	infoView    *tview.TextView
@@ -33,11 +34,11 @@ type ColorsView struct {
 }
 
 func (cv *ColorsView) Draw(screen tcell.Screen) {
-	x, y, w, h := cv.Grid.GetRect()
+	x, y, w, h := cv.GetRect()
   _,_,_,_ = x,w,y,h
-	x, y, w, h = cv.Grid.GetInnerRect()
+	x, y, w, h = cv.GetInnerRect()
   dump.P(x,y,w,h)
-	cv.Grid.SetGap(0, 2)
+	cv.SetGap(0, 2)
 	rows := make([]int, 0)
 	for i, v := range cv.palettes {
 		p := v.GetPalette()
@@ -47,11 +48,11 @@ func (cv *ColorsView) Draw(screen tcell.Screen) {
 		f.SetTitle("")
 		f.SetBorder(true).SetBorderPadding(0, 0, 2, 2).SetBorderColor(tree.GetTheme().TopbarBorder)
 		f.SetBorders(0, 0, 0, 0, 2, 2)
-		cv.Grid.AddItem(f, i, 0, 1, 1, 0, 0, false)
+		cv.AddItem(f, i, 0, 1, 1, 0, 0, false)
 		rows = append(rows, 4)
 	}
-	cv.Grid.SetRows(rows...)
-	cv.Box.DrawForSubclass(screen, cv)
+	cv.SetRows(rows...)
+	cv.DrawForSubclass(screen, cv)
 	cv.Grid.Draw(screen)
 }
 
@@ -93,7 +94,7 @@ func formatSize(b int64) string {
 		float64(b)/float64(div), "kMGTPE"[exp])
 }
 
-func NewPaletteFileView(theme *Theme) *PaletteFileView {
+func NewPaletteFileView(theme *theme.Theme) *PaletteFileView {
 	view := tview.NewGrid()
 	view.SetRows(3, 5, 0)
 
