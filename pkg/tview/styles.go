@@ -22,7 +22,7 @@ type Theme struct {
 // blue.
 var Styles = Theme{
 	// PrimitiveBackgroundColor:    tcell.GetColor("#101010").TrueColor(),
-	PrimitiveBackgroundColor:    tcell.Color234.TrueColor(),
+	PrimitiveBackgroundColor:    tcell.Color234,
 	ContrastBackgroundColor:     tcell.ColorBlue,
 	MoreContrastBackgroundColor: tcell.ColorGreen,
 	BorderColor:                 tcell.ColorWhite,

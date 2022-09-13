@@ -1,31 +1,27 @@
 package coolor
 
 import (
-	"context"
 	"fmt"
-	"log"
 	"math/rand"
 	"os"
-	"strings"
-	"sync"
-	"sync/atomic"
-	"text/template"
+	"os/signal"
+	"regexp"
+	"strconv"
+	"syscall"
 	"time"
 
-	// "github.com/digitallyserviced/coolors/status"
-	// "github.com/digitallyserviced/coolors/status"
-	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
 	"github.com/gookit/goutil/dump"
-	"github.com/samber/lo"
+	"github.com/gookit/goutil/errorx"
+	msgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 type (
 	Severity int
 	Status   struct {
-	Message  string
-	Severity Severity
-}
+		Message  string
+		Severity Severity
+	}
 )
 
 const (
@@ -67,539 +63,319 @@ const (
 	setDynamicColorBold  string = "\033]5;%d;%s\007"
 )
 
-var colorRegexes = []string{rgb, rgba, hsl, hsla, hsv, hsva, hex3, hex6} //
-type PalettePaddle struct {
-	*tview.Box
-	icon, iconActive string
-	status           string
+type ColorRepParserFunc func(cr *ColorRep) *Color
+
+// Color representations hsl(n,n,n), #7bafcd, rgba(0.6,0.6,0.6,255)
+// assume only need at most 4 value to make it in the color model/space
+type ColorRep struct {
+	parseRegex     *regexp.Regexp
+	scanFormat     string
+	v1, v2, v3, v4 float64
+	parseFunc      ColorRepParserFunc
 }
 
-type Navigable interface {
-	NavSelection(int)
-}
-
-type Activatable interface {
-	ActivateSelected()
-}
-
-type Selectable interface {
-	GetSelected() int
-}
-
-type CoolorSelectable interface {
-	GetSelected() (*CoolorColor, int)
-}
-type VimNavSelectable interface {
-	GetSelectedVimNav() VimNav
-}
-
-type VimNav interface {
-	Navigable
-}
-
-type ColorCount uint32
-
-type ColorStreamProgress struct {
-	ProgressHandler ColorStreamProgressHandler
-	Valid           uint32
-	Itr             uint32
-}
-type ColorStream struct {
-	OutColors <-chan interface{}
-	Start     chan struct{}
-	Status    *ColorStreamProgress
-	Cancel    context.CancelFunc
-	Generator func() interface{}
-	Validator func(interface{}) bool
-	Context   context.Context
-}
-
-type FunctionalProgressHandler struct {
-	v func(uint32)
-	i func(uint32)
-}
-
-type ColorStreamIterationProgressHandler interface {
-	OnItr(uint32)
-}
-type ColorStreamValidProgressHandler interface {
-	OnValid(uint32)
-}
-type ColorStreamProgressHandler interface {
-	ColorStreamIterationProgressHandler
-	ColorStreamValidProgressHandler
-}
-type NilProgressHandler struct{}
-
-func (NilProgressHandler) OnItr(i uint32)   {}
-func (NilProgressHandler) OnValid(v uint32) {}
-
-func GenerateRandomColors(count int) []tcell.Color {
-	tcols := make([]tcell.Color, count)
-	for i := range tcols {
-		tcols[i] = *MakeRandomColor()
-	}
-	return tcols
-}
-
-func setupLogging() func() error {
-	f, _ := os.OpenFile("dumps", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o666)
-	// f, _ := os.OpenFile(os.DevNull, os.O_RDWR|os.O_APPEND, 0666)
-
-	log.SetOutput(f)
-
-	return f.Close
-}
+// var CssHex6 ColorRep
+var (
+	CssHex6 *ColorRep
+)
 
 func init() {
-	rand.Seed(time.Now().UnixMilli())
+	CssHex6 = NewColorRep(hex6, "%s", func(cr *ColorRep) *Color {
+		return &Color{cr.v1 / 255.0, cr.v2 / 255.0, cr.v3 / 255.0}
+	})
 }
-func genRandomSeededColor() interface{} {
+
+func (cr *ColorRep) ParseSingle(s string) *Color {
+	n, err := fmt.Sscanf(s, cr.scanFormat, &cr.v1, cr.v2, cr.v3, cr.v4)
+	if err != nil {
+		panic(err)
+	}
+	if n > 0 {
+		return cr.parseFunc(cr)
+	}
+	return nil
+}
+
+func (cr *ColorRep) Matches(s string) bool {
+	found := cr.parseRegex.Match([]byte(s))
+	dump.P(s, found)
+	return found
+}
+
+func NewColorRep(regex, scanFormat string, p ColorRepParserFunc) *ColorRep {
+	rx := regexp.MustCompile(regex)
+	cr := &ColorRep{
+		parseRegex: rx,
+		scanFormat: scanFormat,
+		v1:         0,
+		v2:         0,
+		v3:         0,
+		v4:         0,
+		parseFunc:  p,
+	}
+	return cr
+}
+
+
+
+func StringColorizer(s string) (string, *CoolorColorsPalette) {
+	for _, v := range []*ColorRep{CssHex6} {
+		if v.Matches(s) {
+			content, cols := v.FindAndColorize(s)
+			if cols.Len() > 0 {
+				return content, cols
+			}
+		}
+	}
+	return "", nil
+}
+
+func (cr *ColorRep) FindAndColorize(sc string) (string, *CoolorColorsPalette) {
+	cols := NewCoolorColorsPalette()
+	newsc := cr.parseRegex.ReplaceAllStringFunc(sc, func(s string) string {
+		col := NewCoolorColor(s)
+		cols.AddCoolorColor(col)
+		return col.TVPreview()
+	})
+	return newsc, cols
+	// if matchIdxs := cr.parseRegex.FindAllStringSubmatchIndex(sc, -1); len(matchIdxs) > 0 {
+	// 	for _, c := range matchIdxs {
+	//      var cuint int32 = 0
+	//      str := sc[c[0]:c[1]]
+	//      // fmt.Printf("%q", str)
+	//      // n, err := fmt.Sscanf(strings.TrimSpace(str), "%s", &cuint)
+	//      // if err != nil || n == 0{
+	//      //   panic(fmt.Errorf("%v %v %v %v", c, n, err, str))
+	//      // }
+	//      // tcol := tcell.NewHexColor(cuint)
+	//      // str = NewIntCoolorColor(cuint).TVPreview()
+	//      newsc =
+	// 		if len(c) == 2 {
+	// 			colors = append(colors, str)
+	// 		}
+	// 	}
+	//    dump.P(sc)
+	//    return colors
+	// }
+	// if match := cr.parseRegex.FindAllStringSubmatch(sc, -1); match != nil {
+	// 	colors := make([]string, 0)
+	// 	for _, c := range match {
+	// 		if len(c) == 2 {
+	// 			colors = append(colors, c[1])
+	// 		}
+	//      dump.P(c)
+	// 	}
+	//    return colors
+	// }
+	// regexp.MustCompile(reg).FindAllSubmatch()
+}
+
+var colorRegexes = []string{rgb, rgba, hsl, hsla, hsv, hsva, hex3, hex6} //
+func genSimilarHslColor(
+	tcol Color,
+	f func(r, h, s, l float64) Color,
+) interface{} {
 	rand.Seed(time.Now().UnixNano())
-	tcol2 := MakeColorFromTcell(randomColor())
-	return tcol2
-}
-
-func checkColorDistance(tcol, tcol2 Color, distance float64) bool {
-	return tcol2.DistanceCIEDE2000(tcol) <= distance
-}
-
-func takeN(done <-chan struct{}, valueStream <-chan interface{}, num int) <-chan interface{} {
-	takeStream := make(chan interface{})
-	go func() {
-		defer close(takeStream)
-		for i := 0; i < num; i++ {
-			select {
-			case <-done:
-				return
-			case takeStream <- <-valueStream:
-			}
-		}
-	}()
-	return takeStream
-}
-
-func NewNilProgressHandler() ColorStreamProgressHandler {
-	nph := &NilProgressHandler{}
-	return nph
-}
-
-func (fph FunctionalProgressHandler) OnItr(i uint32) {
-	fph.i(i)
-}
-
-func (fph FunctionalProgressHandler) OnValid(v uint32) {
-	fph.v(v)
-}
-
-func NewProgressHandler(v func(uint32), i func(uint32)) *FunctionalProgressHandler {
-	nph := &FunctionalProgressHandler{
-		v: v,
-		i: i,
-	}
-	return nph
-}
-
-func NewColorStreamProgress() *ColorStreamProgress {
-	csp := &ColorStreamProgress{
-		Valid:           0,
-		Itr:             0,
-		ProgressHandler: NewNilProgressHandler(),
-	}
-	return csp
-}
-
-func (csp *ColorStreamProgress) SetProgressHandler(csph ColorStreamProgressHandler) {
-	csp.ProgressHandler = csph
-}
-
-func (csp *ColorStreamProgress) GetValid() uint32 {
-	return atomic.LoadUint32(&csp.Valid)
-}
-
-func (csp *ColorStreamProgress) GetItr() uint32 {
-	return atomic.LoadUint32(&csp.Itr)
-}
-
-func (csp *ColorStreamProgress) Itrd() {
-	res := atomic.AddUint32(&csp.Itr, 1)
-	csp.ProgressHandler.OnItr(res)
-}
-
-func (csp *ColorStreamProgress) Validd() {
-	res := atomic.AddUint32(&csp.Itr, 1)
-	csp.ProgressHandler.OnValid(res)
-}
-
-func takeFn(done <-chan struct{}, csp *ColorStreamProgress, valueStream <-chan interface{}, fn func(interface{}) bool) <-chan interface{} {
-	takeStream := make(chan interface{})
-	go func() {
-		defer close(takeStream)
-		for {
-			select {
-			case <-done:
-				return
-			case v := <-valueStream:
-				csp.Itrd()
-        if v == nil {
-          continue
-        }
-				if fn(v) {
-					csp.Validd()
-					takeStream <- v
-				}
-			}
-		}
-	}()
-	return takeStream
-}
-
-func asStream(done <-chan struct{}, fn func() interface{}, throttle time.Duration) <-chan interface{} {
-	s := make(chan interface{})
-	tttl := time.NewTicker(throttle)
-	go func() {
-		defer close(s)
-
-		for {
-			select {
-			case <-done:
-				return
-			case s <- fn():
-				<-tttl.C
-			}
-		}
-	}()
-	return s
-}
-
-func fanIn(chans ...<-chan interface{}) <-chan interface{} {
-	out := make(chan interface{})
-	go func() {
-		var wg sync.WaitGroup
-		wg.Add(len(chans))
-
-		for _, c := range chans {
-			go func(c <-chan interface{}) {
-				for v := range c {
-					out <- v
-				}
-				wg.Done()
-			}(c)
-		}
-
-		wg.Wait()
-		close(out)
-	}()
-	return out
-}
-
-func (cs *ColorStream) Run(done <-chan struct{}) {
-	numRoutines := 4
-	generators := make([]<-chan interface{}, 0)
-	for i := 0; i < numRoutines; i++ {
-		generators = append(generators, takeFn(done, cs.Status, asStream(done, genRandomSeededColor, time.Millisecond*10), cs.Validator))
-	}
-	cs.OutColors = fanIn(generators...)
-}
-
-func TakeNColors(done <-chan struct{}, valueStream <-chan interface{}, num int) []Color {
-	colors := make([]Color, 0)
-	for cv := range takeN(done, valueStream, num) {
-    if cv == nil {
-      continue
-    }
-		col := cv.(Color)
-		colors = append(colors, col)
-	}
-	return colors
-}
-
-func StartColorStream(g func() interface{}, v func(interface{}) bool) *ColorStream {
-	ctx, cancel := context.WithCancel(context.Background())
-	// ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
-	cs := &ColorStream{
-		OutColors: make(<-chan interface{}),
-		Start:     make(chan struct{}),
-		Status:    NewColorStreamProgress(),
-		Cancel:    cancel,
-		Generator: func() interface{} {
-			return &Color{0, 0, 0}
-		},
-		Validator: func(interface{}) bool {
-			return true
-		},
-		Context: ctx,
-	}
-
-	if g != nil {
-		cs.Generator = g
-	}
-
-	if v != nil {
-		cs.Validator = v
-	}
-
-	return cs
-}
-func genSimilarHslColor(tcol Color, f func(r,h,s,l float64) Color) interface{} {
-	rand.Seed(time.Now().UnixNano())
-  h,s,l := tcol.Hsl()
-  adjust := rand.Float64() * 360
-  return f(adjust, h,s,l)
-	// tcol2 := MakeColorFromTcell(randomColor())
-	// return tcol2
+	h, s, l := tcol.Hsl()
+	adjust := rand.Float64() * 360
+	return f(adjust, h, s, l)
 }
 
 func checkHslColorDistance(tcol, tcol2 Color, distance float64) bool {
-	return tcol2.DistanceCIEDE2000(tcol) <= distance
+	return tcol2.DistanceRgb(tcol) <= distance
 }
 
-
-func RandomHuesStream(tcol Color, maxDistance float64) *ColorStream { // , cs *ColorStream
-	cs := StartColorStream(genRandomSeededColor, func(c interface{}) bool {
-		return checkColorDistance(tcol, c.(Color), maxDistance)
-	})
-	return cs
-}
-
-func RandomShadesStream(tcol Color, maxDistance float64) *ColorStream { // , cs *ColorStream
-	cs := StartColorStream(genRandomSeededColor, func(c interface{}) bool {
-		return checkColorDistance(tcol, c.(Color), maxDistance)
-	})
-	return cs
-}
-
-func ShutdownStream(cs *ColorStream) {
-	cs.Cancel()
-}
-
-func RandomNamedAnsiClusterShade(tcol Color, distance float64) Color {
-	clusterColor := lo.Sample[*CoolorColorCluster](getNamedAnsiColors())
-	return RandomShadeFromCluster(tcol, clusterColor, distance)
-}
-
-func RandomAnsiClusterShade(tcol Color, distance float64) Color {
-	clusterColor := lo.Sample[*CoolorColorCluster](getBaseAnsiClusterColors())
-	return RandomShadeFromCluster(tcol, clusterColor, distance)
-}
-
-func RandomShadeFromCluster(tcol Color, cluster *CoolorColorCluster, distance float64) Color {
-	col2 := cluster.leadColor
-	return RandomShadeFromColors(tcol, col2, distance)
-}
-
-func RandomShadeFromColors(tcol, tcol2 Color, distance float64) Color {
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	max := (distance * r.Float64()) + 0.01
-	return tcol.BlendLuv(tcol2, max)
-}
-
-func MakeRandomColor() *tcell.Color {
-	col := tcell.NewRGBColor(int32(randRange(0, 255)), int32(randRange(0, 255)), int32(randRange(0, 255)))
-	return &col
-}
-
-func randRange(min int, max int) int {
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	return r.Intn(max-min+1) + min
-}
-
-func RandomColor() Color {
-	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-  r,g,b := rng.Float64(), rng.Float64(), rng.Float64()
-	return Color{r, g, b}
-}
-
-func randomColor() tcell.Color {
-	r := int32(randRange(0, 255))
-	g := int32(randRange(0, 255))
-	b := int32(randRange(0, 255))
-	return tcell.NewRGBColor(r, g, b)
-}
-
-func getFGColor(col tcell.Color) tcell.Color {
-	cc := NewIntCoolorColor(inverseColor(col).Hex())
-	c, ok := MakeColor(cc)
-	// dump.P(cc.TerminalPreview())
-	if ok {
-		r, g, b := c.LinearRgb()
-		if (255*float64(r)*0.299 + 255*float64(g)*0.587 + 255*float64(b)*0.114) > 150 {
-			// if (255*float64(r)*0.2926 + 255*float64(g)*0.5152 + 255*float64(b)*0.1722) > 150 {
-			// if (float64(r)*0.2926 + float64(g)*0.5152 + float64(b)*0.1722) > 150 {
-			return tcell.ColorBlack
+func GetColorName(col tcell.Color) string {
+	for n, v := range tcell.ColorNames {
+		if col == v {
+			return n
 		}
-		return tcell.ColorWhite
 	}
-	return tcell.ColorBlack
-	// r, g, b := cc.RGB
-	// if (float64(r)*0.299 + float64(g)*0.587 + float64(b)*0.114) > 150 {
+	return ""
 }
 
-// func getFGColor(col tcell.Color) tcell.Color {
-// 	r, g, b := col.RGB()
-// 	if (float64(r)*0.299 + float64(g)*0.587 + float64(b)*0.114) > 150 {
-// 		return tcell.ColorBlack
-// 	}
-// 	return tcell.ColorWhite
+func errAss[R any](v R, e error) R {
+	iserr := func(v interface{}) {
+		if v == nil {
+			return
+		}
+		e, ok := v.(error)
+		if ok {
+			doLog(errorx.WithPrevf(e, "%V", v))
+			panic(e)
+		}
+		return
+	}
+	iserr(e)
+	// for _, v := range vars {
+	//   iserr(v)
+	//   r, ok := v.(R)
+	//   if ok {
+	//     return r
+	//   } else {
+	//     continue
+	//   }
+	// }
+	return v
+}
+
+func checkErrX(err error, vars ...interface{}) bool {
+	if err != nil {
+		doLog(errorx.WithPrevf(err, "%V", vars))
+		return false
+	}
+	return true
+}
+
+func checkErr(err error) {
+	if err != nil {
+		doLog(err)
+		panic(err)
+	}
+}
+
+
+func handleSignals() {
+	signal_chan := make(chan os.Signal, 1)
+	signal.Notify(signal_chan,
+		syscall.SIGHUP,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT)
+
+	exit_chan := make(chan int)
+	go func() {
+		for {
+			s := <-signal_chan
+			switch s {
+			// kill -SIGHUP XXXX
+			case syscall.SIGHUP:
+			case syscall.SIGINT:
+			case syscall.SIGTERM:
+				exit_chan <- 0
+			case syscall.SIGQUIT:
+				exit_chan <- 0
+			default:
+				exit_chan <- 1
+			}
+			GetStore().Close()
+		}
+	}()
+
+	code := <-exit_chan
+	os.Exit(code)
+}
+
+func startBoltStats() {
+	go func() {
+		// Grab the initial stats.
+		// prev := Store.Bolt().Stats()
+		tick := time.NewTicker(10 * time.Second)
+    tick.Reset(1000 * time.Millisecond)
+
+		for {
+			// Wait for 10s.
+			select {
+			case <-tick.C:
+			TrimSeentCoolors(RecentCoolorsMax)
+				// stats := Store.Bolt().Stats()
+				// diff := stats.Sub(&prev)
+
+				// Encode stats to JSON and print to STDERR.
+				// json.NewEncoder(os.Stderr).Encode(diff)
+
+				// Save stats for the next loop.
+				// prev = stats
+			}
+		}
+	}()
+}
+
+func SeentColor(from string, cc *CoolorColor, src Referenced) {
+	// fmt.Println(from, cc)
+	if MainC == nil || MainC.eventNotifier == nil {
+		return
+	}
+	MainC.eventNotifier.Notify(*MainC.eventNotifier.NewObservableEvent(ColorSeentEvent, from, cc, src))
+}
+
+func IfElse[T any](b bool, a,c T) T {
+  if b {
+    return a
+  }
+  return c
+}
+
+var IfElseStr = IfElse[string]
+var IfElseUint64 = IfElse[uint64]
+var IfElseTCol = IfElse[*tcell.Color]
+var IfElseCCol = IfElse[*CoolorColor]
+
+// custom msgpack decoding function for bolthold (faster than gobs)
+func dec(data []byte, value interface{}) error {
+	return msgpack.Unmarshal(data, value)
+}
+
+// custom msgpack encoding function for bolthold (faster than gobs)
+func enc(value interface{}) ([]byte, error) {
+	return msgpack.Marshal(value)
+}
+
+// var _ msgpack.CustomEncoder = (*CoolorColorPalette)(nil)
+// var _ msgpack.CustomDecoder = (*CoolorColorPalette)(nil)
+//
+var _ msgpack.CustomEncoder = (*CoolorColor)(nil)
+var _ msgpack.CustomDecoder = (*CoolorColor)(nil)
+
+// Debug message categories.
+// const (
+// 	LogConn  = LogMask(1 << iota)   // Connection events
+// 	LogState                        // State changes
+// 	LogCmd                          // Command execution
+// 	LogRaw                          // Raw data stream excluding literals
+// 	LogGo                           // Goroutine execution
+// 	LogAll   = LogMask(1<<iota - 1) // All messages
+// 	LogNone  = LogMask(0)           // No messages
+// )
+
+// var logMasks = []enumName{
+// 	{uint32(LogAll), "LogAll"},
+// 	{uint32(LogConn), "LogConn"},
+// 	{uint32(LogState), "LogState"},
+// 	{uint32(LogCmd), "LogCmd"},
+// 	{uint32(LogRaw), "LogRaw"},
+// 	{uint32(LogNone), "LogNone"},
 // }
+//
+// func (v LogMask) String() string   { return enumString(uint32(v), logMasks, false) }
+// func (v LogMask) GoString() string { return enumString(uint32(v), logMasks, true) }
 
-func inverseColor(col tcell.Color) tcell.Color {
-	r, g, b := col.RGB()
-	return tcell.NewRGBColor(255-r, 255-g, 255-b)
+// enumName associates an enum value with its name for printing.
+type enumName struct {
+	v uint32
+	s string
 }
 
-func MakeTemplate(name, tpl string, funcMap template.FuncMap) func(s string, data interface{}) string {
-	status_tpl := template.New(name)
-	status_tpl.Funcs(funcMap)
-
-	status_tpl.Parse(tpl)
-
-	return func(s string, data interface{}) string {
-		out := &strings.Builder{}
-		ntpl, ok := template.Must(status_tpl.Clone()).Parse(s)
-		if ok != nil {
-			fmt.Println(fmt.Errorf("%s", ok))
+// enumString converts a flag-based enum value into its string representation.
+func enumString(v uint32, names []enumName, goSyntax bool) string {
+	s := ""
+	for _, n := range names {
+		if v&n.v == n.v && (n.v != 0 || v == 0) {
+			if len(s) > 0 {
+				s += "+"
+			}
+			if goSyntax {
+				s += "imap."
+			}
+			s += n.s
+			if v &= ^n.v; v == 0 {
+				return s
+			}
 		}
-		ntpl.Execute(out, data)
-		return out.String()
 	}
-}
-
-func MakeDebugDump(tp tview.Primitive) {
-	dump.P(tp)
-}
-
-func AddFlexItem(fl *tview.Flex, tp tview.Primitive, f, p int) {
-	fl.AddItem(tp, f, p, false)
-}
-
-func NewPalettePaddle(icon, iconActive string) *PalettePaddle {
-	nb := tview.NewBox()
-	pp := &PalettePaddle{
-		Box:        nb,
-		icon:       icon,
-		iconActive: iconActive,
-		status:     "active",
+	if len(s) > 0 {
+		s += "+"
 	}
-	nb.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
-	nb.SetDrawFunc(func(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
-		iconColor := tview.Styles.ContrastBackgroundColor
-		icon := pp.icon
-		switch pp.status {
-		case "enabled":
-			iconColor = tview.Styles.ContrastBackgroundColor
-			icon = pp.iconActive
-		case "disabled":
-			iconColor = tview.Styles.PrimitiveBackgroundColor
-		default:
-			iconColor = tview.Styles.MoreContrastBackgroundColor
-		}
-		centerX := x + (width / 2)
-		centerY := y + (height / 2)
-		tview.Print(screen, icon, centerX-1, centerY-1, 1, tview.AlignCenter, iconColor)
-		return x, y, width, height
-	})
-	return pp
+	return s + "0x" + strconv.FormatUint(uint64(v), 16)
 }
-
-func (pp *PalettePaddle) SetStatus(status string) {
-	pp.status = status
-	// MainC.app.Sync()
-}
-
-func MakeBoxItem(title, col string) *tview.Box {
-	nb := tview.NewBox().SetBorder(true)
-	if title == "" {
-		nb.SetBorder(false)
-	} else {
-		nb.SetBorder(true).SetTitle(title)
-	}
-	if col != "" {
-		return nb.SetBackgroundColor(tcell.GetColor(col))
-	}
-	return nb.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
-}
-
-func MakeSpace(fl *tview.Flex, title, col string, f, p int) *tview.Box {
-	// rc := randomColor()
-	spc := MakeBoxItem(title, col)
-	AddFlexItem(fl, spc, f, p)
-	return spc
-}
-
-func BlankSpace(fl *tview.Flex) *tview.Box {
-	return MakeSpace(fl, "", "", 0, 1)
-}
-
-func MakeSpacer(fl *tview.Flex) *tview.Box {
-	rc := randomColor()
-	spc := MakeBoxItem(" ", fmt.Sprintf("%06x", rc.Hex())).SetBackgroundColor(tcell.ColorBlack)
-	AddFlexItem(fl, spc, 0, 1)
-	return spc
-}
-
-func DrawCenteredLine(txt string, screen tcell.Screen, x int, y int, width int, height int) (int, int, int, int) {
-	centerY := y + height/2
-	lowerCenterY := centerY + centerY/3
-	for cx := x + 1; cx < x+width-1; cx++ {
-		screen.SetContent(cx, lowerCenterY, tview.BoxDrawingsLightHorizontal, nil, tcell.StyleDefault.Foreground(getFGColor(tview.Styles.ContrastBackgroundColor)))
-	}
-	tview.Print(screen, fmt.Sprintf(" %s ", txt), x+1, lowerCenterY, width-2, tview.AlignCenter, getFGColor(tview.Styles.ContrastBackgroundColor))
-	return x, y, width, height
-}
-
-func MakeCenterLineSpacer(fl *tview.Flex) (*tview.Box, func(string)) {
-	spc := MakeSpace(fl, "", "", 0, 1).SetBackgroundColor(tcell.ColorBlack)
-	AddFlexItem(fl, spc, 0, 1)
-	ctrtxt := ""
-	spc.SetDrawFunc(func(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
-		return DrawCenteredLine(ctrtxt, screen, x, y, width, height)
-	})
-	return spc, func(txt string) {
-		ctrtxt = txt
-	}
-}
-
-func HandleVimNavigableHorizontal(vm VimNav, ch rune, kp tcell.Key) {
-	switch {
-	case ch == 'h' || kp == tcell.KeyLeft:
-		vm.NavSelection(-1)
-	case ch == 'l' || kp == tcell.KeyRight:
-		vm.NavSelection(1)
-	}
-}
-
-func HandleVimNavigableVertical(vm VimNav, ch rune, kp tcell.Key) {
-	switch {
-	case ch == 'j' || kp == tcell.KeyDown:
-		vm.NavSelection(1)
-	case ch == 'k' || kp == tcell.KeyUp:
-		vm.NavSelection(-1)
-	}
-}
-
-func HandleVimNavSelectable(s VimNavSelectable) VimNav {
-	return s.GetSelectedVimNav()
-}
-
-func HandleSelectable(s Selectable) int {
-	return s.GetSelected()
-}
-
-// HandleVimNavSelectable
-func HandleCoolorSelectable(s CoolorSelectable, ch rune, kp tcell.Key) {
-	_ = kp
-	switch kp {
-	case tcell.KeyEnter:
-		cc, _ := s.GetSelected()
-		if cc == nil {
-			return
-		}
-		if MainC.menu == nil {
-			return
-		}
-		MainC.menu.ActivateSelected(cc)
-	}
-}
-
 // vim: ts=2 sw=2 et ft=go

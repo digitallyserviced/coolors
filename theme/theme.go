@@ -2,17 +2,18 @@ package theme
 
 import (
 	// "fmt"
-	"fmt"
+
 	"regexp"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/gookit/color"
-	"github.com/gookit/goutil/dump"
 )
 
 type Theme struct {
-	SidebarBackground tcell.Color
+	HeaderBackground tcell.Color 
+	GrayerBackground tcell.Color 
+  SidebarBackground tcell.Color
 	SidebarLines      tcell.Color
 	ContentBackground tcell.Color
 	Border            tcell.Color
@@ -21,43 +22,61 @@ type Theme struct {
 	Styles            map[string]tcell.Style
 }
 
-
 var theme *Theme
 
 func init() {
-		theme = &Theme{
-			SidebarBackground: tcell.NewHexColor(0x21252B),
-			SidebarLines:      tcell.NewHexColor(0x5c6370),
-			ContentBackground: tcell.NewHexColor(0x282c34),
-			Border:            tcell.NewHexColor(0x5c6370),
-			TopbarBorder:      tcell.NewHexColor(0x5c6370),
-			InfoLabel:         tcell.NewHexColor(0x5c6370),
-			Styles:            make(map[string]tcell.Style),
-		}
-	theme.SetStyleFgBgAttr("palette_name", tcell.ColorBlack, tcell.ColorBlue, tcell.AttrBold)
+	theme = &Theme{ //0x303030
+		HeaderBackground: tcell.NewHexColor(0x1C1C1C),
+		GrayerBackground: tcell.NewHexColor(0x303030),
+		SidebarBackground: tcell.NewHexColor(0x21252B),
+		SidebarLines:      tcell.NewHexColor(0x5c6370),
+		ContentBackground: tcell.NewHexColor(0x282c34),
+		Border:            tcell.NewHexColor(0x5c6370),
+		TopbarBorder:      tcell.NewHexColor(0x5c6370),
+		InfoLabel:         tcell.NewHexColor(0x5c6370),
+		Styles:            make(map[string]tcell.Style),
+	}
+	theme.SetStyleFgBgAttr(
+		"palette_name",
+		tcell.ColorBlack,
+		tcell.ColorBlue,
+		tcell.AttrBold,
+	)
 	theme.SetStyleFgBg("action", tcell.ColorBlack, tcell.ColorYellow)
 	theme.SetStyleFg("list_main", tcell.ColorGreen)
 	theme.SetStyleFg("list_second", tcell.ColorBlue)
-  theme.SetStyleFgBg("input_placeholder", tcell.ColorYellow, theme.SidebarBackground)
-  theme.SetStyleFgBg("input_field", tcell.ColorBlue, theme.SidebarBackground)
-  theme.SetStyleFgBg("input_autocomplete", tcell.ColorRed, theme.SidebarBackground)
-
+	theme.SetStyleFgBg(
+		"input_placeholder",
+		tcell.ColorYellow,
+		theme.SidebarBackground,
+	)
+	theme.SetStyleFgBg("input_field", tcell.ColorBlue, theme.SidebarBackground)
+	theme.SetStyleFgBg(
+		"input_autocomplete",
+		tcell.ColorRed,
+		theme.SidebarBackground,
+	)
 }
-func (t *Theme) SetStyleFgBgAttr(name string, fg, bg tcell.Color, attr tcell.AttrMask) *tcell.Style {
+
+func (t *Theme) SetStyleFgBgAttr(
+	name string,
+	fg, bg tcell.Color,
+	attr tcell.AttrMask,
+) *tcell.Style {
 	sty := t.SetStyle(name)
-	t.Styles[name]=sty.Foreground(fg).Background(bg).Attributes(attr)
+	t.Styles[name] = sty.Foreground(fg).Background(bg).Attributes(attr)
 	return sty
 }
 
 func (t *Theme) SetStyleFg(name string, fg tcell.Color) *tcell.Style {
 	sty := t.SetStyle(name)
-	t.Styles[name]=sty.Foreground(fg)
+	t.Styles[name] = sty.Foreground(fg)
 	return sty
 }
 
 func (t *Theme) SetStyleFgBg(name string, fg, bg tcell.Color) *tcell.Style {
 	sty := t.SetStyle(name)
-	t.Styles[name]=sty.Foreground(fg).Background(bg)
+	t.Styles[name] = sty.Foreground(fg).Background(bg)
 	return sty
 }
 
@@ -68,33 +87,31 @@ func (t *Theme) SetStyle(name string) *tcell.Style {
 }
 
 func (t *Theme) Get(name string) *tcell.Style {
-  sty, ok := t.Styles[name]
-  dump.P(sty, ok)
-  if ok {
-    return &sty
-  }
-  fmt.Printf("%v", sty)
-  return &tcell.Style{}
+	sty, ok := t.Styles[name]
+	if ok {
+		return &sty
+	}
+	return &tcell.Style{}
 }
 
 func Jright(s string, n int) string {
-  if n < 0 {
-    n = 0
-  }
+	if n < 0 {
+		n = 0
+	}
 	return strings.Repeat(" ", n) + s
 }
 
 func Jleft(s string, n int) string {
-  if n < 0 {
-    n = 0
-  }
+	if n < 0 {
+		n = 0
+	}
 	return s + strings.Repeat(" ", n)
 }
 
 func Jcenter(s string, n int) string {
-  if n < 0 {
-    n = 0
-  }
+	if n < 0 {
+		n = 0
+	}
 	div := n / 2
 	return strings.Repeat(" ", div) + s + strings.Repeat(" ", div)
 }
@@ -158,4 +175,3 @@ func RgbHex256toCode(val string, isBg bool) (code string) {
 	}
 	return
 }
-

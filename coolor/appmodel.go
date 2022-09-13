@@ -2,10 +2,12 @@ package coolor
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/digitallyserviced/coolors/status"
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
+	// "github.com/gdamore/tcell/v2/terminfo"
 )
 
 type Model struct {
@@ -16,17 +18,53 @@ type Model struct {
 	scr      tcell.Screen
 	pages    *MainContainer
 }
-
+// func init() {
+// 	if err := test(); err != nil {
+// 		log.Fatal(err)
+// 	}
+// }
+  // scr.SetContent(x int, y int, primary rune, combining []rune, style tcell.Style)
+  // ti, _ := terminfo.LookupTerminfo("xterm-256color")
+  // ti.TPuts
+  
+  // if err != nil {
+  //   // panic(err)
+  // }
+	// cmd := exec.Command("zsh", "-c", "echo", "-n", str)
+	// output := &bytes.Buffer{}
+	// errs := &bytes.Buffer{}
+	// cmd.Stdout = output
+ //  cmd.Stderr = errs
+ //
+	// if err := cmd.Run(); err != nil {
+ //    panic(err)
+	// }
+ //  dump.P(errs.String(),output.String(), len(output.Bytes()))
 var AppModel Model
-
 func StartApp() {
-	AppModel.app = tview.NewApplication()
-	scr, err := tcell.NewTerminfoScreen()
+  tty, ok := os.LookupEnv("GOTTY")
+  var scr tcell.Screen
+  if !ok {
+    scr, _ = tcell.NewTerminfoScreen()
+  } else {
+    tty, _ := tcell.NewDevTtyFromDev(tty)
+    scr, _ = tcell.NewTerminfoScreenFromTty(tty)
+  }
+	// if err != nil {
+	// 	panic(err)
+	// }
+  err := scr.Init()
 	if err != nil {
 		panic(err)
 	}
+ if scr.HasMouse() {
+  scr.EnableMouse()
+  }
+  scr.SetCursorStyle(tcell.CursorStyleBlinkingBar)
+  scr.EnablePaste()
 	AppModel.scr = scr
-	AppModel.scr.Init()
+	AppModel.app = tview.NewApplication()
+	
 	AppModel.app.SetScreen(AppModel.scr)
 	AppModel.status = status.NewStatusBar(AppModel.app)
 	AppModel.helpbar = &HelpBar{}
@@ -53,9 +91,10 @@ func StartApp() {
 
 	AppModel.pages.CloseConfig()
 	colors := AppModel.pages.GetPalette()
-	for i := 0; i < colors.GetItemCount(); i++ {
-		pcol := colors.GetItem(i)
-		fmt.Printf("%s ", pcol)
-	}
+  fmt.Println(colors)
+	// for i := 0; i < colors.GetItemCount(); i++ {
+	// 	pcol := colors.GetItem(i)
+	// 	fmt.Printf("%s\n", pcol)
+	// }
 }
 // vim: ts=2 sw=2 et ft=go

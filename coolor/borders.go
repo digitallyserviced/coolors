@@ -88,3 +88,44 @@ var MyBorderStyle = struct {
 	BottomLeftFocus:  tview.BoxDrawingsDoubleUpAndRight,
 	BottomRightFocus: tview.BoxDrawingsDoubleUpAndLeft,
 }
+var InvisBorders = struct {
+	Horizontal  rune
+	Vertical    rune
+	TopLeft     rune
+	TopRight    rune
+	BottomLeft  rune
+	BottomRight rune
+
+	LeftT   rune
+	RightT  rune
+	TopT    rune
+	BottomT rune
+	Cross   rune
+
+	HorizontalFocus  rune
+	VerticalFocus    rune
+	TopLeftFocus     rune
+	TopRightFocus    rune
+	BottomLeftFocus  rune
+	BottomRightFocus rune
+}{
+	Horizontal:  ' ',
+	Vertical:    ' ',
+	TopLeft:     ' ',
+	TopRight:    ' ',
+	BottomLeft:  ' ',
+	BottomRight: ' ',
+
+	LeftT:   ' ',
+	RightT:  ' ',
+	TopT:    ' ',
+	BottomT: ' ',
+	Cross:   ' ',
+
+	HorizontalFocus:  ' ',
+	VerticalFocus:    ' ',
+	TopLeftFocus:     ' ',
+	TopRightFocus:    ' ',
+	BottomLeftFocus:  ' ',
+	BottomRightFocus: ' ',
+}

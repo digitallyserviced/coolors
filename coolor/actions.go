@@ -8,9 +8,7 @@ import (
 	"github.com/digitallyserviced/coolors/status"
 	"github.com/digitallyserviced/tview"
 
-	// "github.com/gookit/goutil/dump"
-	// "github.com/gookit/goutil/dump"
-	// "github.com/gookit/goutil/dump"
+	"github.com/gookit/goutil/dump"
 	"github.com/gookit/goutil/structs"
 )
 
@@ -34,11 +32,12 @@ const (
 	RandomizeColorFlag
 	InfoColorFlag
 	TagColorFlag
+  FavoriteColorFlag
 	ShadeColorFlag
 	ColorContrastsFlag
 	ColorGradientFlag
 
-	MainPaletteActionsFlag = RemoveColorFlag | LockColorFlag | DuplicateColorFlag | MixColorFlag | InfoColorFlag | ShadeColorFlag | ColorContrastsFlag | ColorGradientFlag | RandomizeColorFlag | SwapColorFlag | TagColorFlag
+	MainPaletteActionsFlag = RemoveColorFlag | LockColorFlag | DuplicateColorFlag | MixColorFlag | InfoColorFlag | ShadeColorFlag | ColorContrastsFlag | ColorGradientFlag | RandomizeColorFlag | SwapColorFlag | TagColorFlag | FavoriteColorFlag
 )
 
 type CoolorColorActionFunctions struct {
@@ -94,6 +93,7 @@ var (
 	SwapColor      CoolorColorAct
 	RemoveColor    CoolorColorAct
 	RandomizeColor CoolorColorAct
+	FavoriteColor CoolorColorAct
 	AddColor       CoolorColorAct
 	TagColor       CoolorColorAct
 	LockColor      CoolorColorAct
@@ -104,8 +104,13 @@ var (
 	sets     map[CoolorColorActionFlag]CoolorColorActionFlag
 )
 
-func NewCoolorColorAct(name, icon string, flag CoolorColorActionFlag, ccaf ActorFunction, actionSet CoolorColorActionFlag, short rune) CoolorColorAct {
-
+func NewCoolorColorAct(
+	name, icon string,
+	flag CoolorColorActionFlag,
+	ccaf ActorFunction,
+	actionSet CoolorColorActionFlag,
+	short rune,
+) CoolorColorAct {
 	cca := CoolorColorAct{
 		name:      name,
 		icon:      icon,
@@ -122,18 +127,92 @@ func NewCoolorColorAct(name, icon string, flag CoolorColorActionFlag, ccaf Actor
 func init() {
 	ActionOptions = structs.NewMapData()
 	//  
-	TagColor = NewCoolorColorAct("tag", "", TagColorFlag, tagFunc, TagColorFlag, 't')
-	AddColor = NewCoolorColorAct("add", "", AddColorFlag, addFunc, MixColorFlag, '+')
-	RemoveColor = NewCoolorColorAct("remove", "", RemoveColorFlag, removeFunc, NilFlag, '-')
-	LockColor = NewCoolorColorAct("lock", "", LockColorFlag, lockFunc, NilFlag, 'l')
-	GradientColor = NewCoolorColorAct("mix", "", MixColorFlag, mixFunc, NilFlag, 'm')
+	AddColor = NewCoolorColorAct(
+		"add",
+		"",
+		AddColorFlag,
+		addFunc,
+		AddColorFlag,
+		'+',
+	)
+	TagColor = NewCoolorColorAct(
+		"tag",
+		"",
+		TagColorFlag,
+		tagFunc,
+		NilFlag,
+		't',
+	)
+	FavoriteColor = NewCoolorColorAct(
+		"favorite",
+		"",
+		FavoriteColorFlag,
+		favFunc,
+		NilFlag,
+		'h',
+	)
+	RemoveColor = NewCoolorColorAct(
+		"remove",
+		"",
+		RemoveColorFlag,
+		removeFunc,
+		NilFlag,
+		'-',
+	)
+	LockColor = NewCoolorColorAct(
+		"lock",
+		"",
+		LockColorFlag,
+		lockFunc,
+		NilFlag,
+		'l',
+	)
+	GradientColor = NewCoolorColorAct(
+		"mix",
+		"",
+		MixColorFlag,
+		mixFunc,
+		NilFlag,
+		'm',
+	)
 	//         ﭚ
-	ShadeColor = NewCoolorColorAct("shades", "", ShadeColorFlag, shadeFunc, NilFlag, 'h')
-	SwapColor = NewCoolorColorAct("swap", "", SwapColorFlag, swapFunc, NilFlag, '=')
-	RandomizeColor = NewCoolorColorAct("randomize", "", RandomizeColorFlag, randomizeFunc, NilFlag, 'o')
+	ShadeColor = NewCoolorColorAct(
+		"shades",
+		"",
+		ShadeColorFlag,
+		shadeFunc,
+		NilFlag,
+		'h',
+	)
+	SwapColor = NewCoolorColorAct(
+		"swap",
+		"",
+		SwapColorFlag,
+		swapFunc,
+		NilFlag,
+		'=',
+	)
+	RandomizeColor = NewCoolorColorAct(
+		"randomize",
+		"",
+		RandomizeColorFlag,
+		randomizeFunc,
+		NilFlag,
+		'o',
+	)
 	// SwapColor = CoolorColorAct{"swap", "", SwapColorFlag, swapFunc, NilFlag}
 	// RandomizeColor = CoolorColorAct{"randomize", "", RandomizeColorFlag, randomizeFunc, NilFlag}
-	actOrder = []string{"tag", "lock", "swap", "randomize", "mix", "shades", "remove"}
+	actOrder = []string{
+    "favorite",
+		"tag",
+		"lock",
+		"swap",
+		"randomize",
+		"mix",
+		"shades",
+		"remove",
+	}
+	actors = append(actors, &FavoriteColor)
 	actors = append(actors, &RemoveColor)
 	actors = append(actors, &RandomizeColor)
 	actors = append(actors, &GradientColor)
@@ -158,12 +237,23 @@ func ActionsInit() {
 }
 
 func SetupCoolorActor(actor *CoolorColorAct) *CoolorColorActor {
-	ncca := NewCoolorActor(actor.name, actor.icon, actor.flag, actor.actor, actor.actionSet)
+	ncca := NewCoolorActor(
+		actor.name,
+		actor.icon,
+		actor.flag,
+		actor.actor,
+		actor.actionSet,
+	)
 	ncca.actor = actor
 	return ncca
 }
 
-func NewCoolorActor(name, icon string, actionFlag CoolorColorActionFlag, f ActorFunction, actionSet CoolorColorActionFlag) *CoolorColorActor {
+func NewCoolorActor(
+	name, icon string,
+	actionFlag CoolorColorActionFlag,
+	f ActorFunction,
+	actionSet CoolorColorActionFlag,
+) *CoolorColorActor {
 	cca := &CoolorColorAction{
 		flag: actionFlag,
 		icon: icon,
@@ -300,11 +390,19 @@ func (cca *CoolorColorActor) Every(cc *CoolorColor) bool {
 	return cca.CoolorColorActionFunctions.Every(cca, cc)
 }
 
-func (cca *CoolorColorActor) Before(cp *CoolorPalette, cc *CoolorColor) bool {
+func (cca *CoolorColorActor) Before(
+	cp *CoolorPaletteMainView,
+	cc *CoolorColor,
+) bool {
 	return cca.CoolorColorActionFunctions.Before(cca, cc)
 }
 
 func (cca *CoolorColorActor) Activate(cc *CoolorColor) bool {
+	// doLog(errorx.WithStack(errorx.Newf("%s %s", cc.Html(), cca.name)))
+	// var st []uintptr
+	// _ = runtime.Stack(st, true)
+	// doLog(st)
+	// dump.P(runtime.Caller(1))
 	return cca.CoolorColorActionFunctions.Activate(cca, cc)
 }
 
@@ -354,7 +452,11 @@ func removeFunc() *CoolorColorActionFunctions {
 					col.Remove()
 					MainC.palette.NavSelection(1)
 					cca.Always()
-					status.NewStatusUpdateWithTimeout("action_str", fmt.Sprintf("Removed %s", cc.TVPreview()), 7000*time.Millisecond)
+					status.NewStatusUpdateWithTimeout(
+						"action_str",
+						fmt.Sprintf("Removed %s", cc.TVPreview()),
+						0*time.Second,
+					)
 				}
 			} else {
 				cca.Cancel()
@@ -413,8 +515,21 @@ func shadeFunc() *CoolorColorActionFunctions {
 			if cca.Is("selection") {
 				//         ﭚ
 				cCol := cca.GetColor()
+				if cCol == nil || cc == nil {
+					return false
+				}
 				status.NewStatusUpdate("color", cc.TVPreview())
-				status.NewStatusUpdateWithTimeout("action_str", fmt.Sprintf("[black:yellow:b] %s %sed [-:-:-]  %s <-> %s", cca.icon, cca.name, cCol.TVPreview(), cc.TVPreview()), time.Microsecond*7000)
+				status.NewStatusUpdateWithTimeout(
+					"action_str",
+					fmt.Sprintf(
+						"[black:yellow:b] %s %sed [-:-:-]  %s <-> %s",
+						cca.icon,
+						cca.name,
+						cCol.TVPreview(),
+						cc.TVPreview(),
+					),
+					time.Microsecond*7000,
+				)
 			} else {
 				cCol := cca.GetColor()
 				if cCol == nil {
@@ -427,8 +542,13 @@ func shadeFunc() *CoolorColorActionFunctions {
 		Finalize: func(cca *CoolorColorActor, cc *CoolorColor) {
 			if MainC.palette != nil {
 				MainC.palette.AddCoolorColor(cc.Unstatic())
+				SeentColor("selected_random_shade", cc, cc.pallette)
 			}
-			status.NewStatusUpdateWithTimeout("action_str", "Finaliz'd Shade", 7000*time.Millisecond)
+			status.NewStatusUpdateWithTimeout(
+				"action_str",
+				"Finaliz'd Shade",
+				0*time.Second,
+			)
 			cca.Always()
 		},
 		Always: func(cca *CoolorColorActor) {
@@ -458,12 +578,17 @@ func shadeFunc() *CoolorColorActionFunctions {
 		Cancel: func(cca *CoolorColorActor) bool {
 			cca.TakeColor()
 			cca.Always()
-			status.NewStatusUpdateWithTimeout("action_str", "Canceled Shade", 7000*time.Millisecond)
+			status.NewStatusUpdateWithTimeout(
+				"action_str",
+				"Canceled Shade",
+				0*time.Second,
+			)
 			return true
 		},
 	}
 	return ccaf
 }
+
 func mixFunc() *CoolorColorActionFunctions {
 	ccaf := &CoolorColorActionFunctions{
 		Activate: func(cca *CoolorColorActor, cc *CoolorColor) bool {
@@ -495,22 +620,35 @@ func mixFunc() *CoolorColorActionFunctions {
 			//         ﭚ
 			if cca.Is("selection") {
 				status.NewStatusUpdate("color", cc.TVPreview())
-				status.NewStatusUpdateWithTimeout("action_str", fmt.Sprintf("[black:yellow:b]  [-:-:-] = %s", cc.TVPreview()), 7000*time.Millisecond)
+				status.NewStatusUpdateWithTimeout(
+					"action_str",
+					fmt.Sprintf("[black:yellow:b]  [-:-:-] = %s", cc.TVPreview()),
+					0*time.Second,
+				)
 			} else {
 				cCol := cca.GetColor()
 				if cCol == nil {
 					return false
 				}
-				status.NewStatusUpdateWithTimeout("action_str", fmt.Sprintf("%s -> [black:yellow:b]  [-:-:-] -> %s", cCol.TVPreview(), cc.TVPreview()), 7000*time.Millisecond)
+				status.NewStatusUpdateWithTimeout("action_str", fmt.Sprintf("%s -> [black:yellow:b]  [-:-:-] -> %s", cCol.TVPreview(), cc.TVPreview()), 0*time.Second)
 			}
 			return true
 		},
 		Finalize: func(cca *CoolorColorActor, cc *CoolorColor) {
 			if MainC.palette != nil {
 				MainC.palette.AddCoolorColor(cc.Unstatic())
+				SeentColor("selected_blended_gradient_color", cc, cc.pallette)
 			}
 			cCol := cca.GetColor()
-			status.NewStatusUpdateWithTimeout("action_str", fmt.Sprintf("= %s -> [black:yellow:b]  [-:-:-] -> %s", cCol.TVPreview(), cc.TVPreview()), 7000*time.Millisecond)
+			status.NewStatusUpdateWithTimeout(
+				"action_str",
+				fmt.Sprintf(
+					"= %s -> [black:yellow:b]  [-:-:-] -> %s",
+					cCol.TVPreview(),
+					cc.TVPreview(),
+				),
+				0*time.Second,
+			)
 			cca.Always()
 		},
 		Always: func(cca *CoolorColorActor) {
@@ -540,7 +678,11 @@ func mixFunc() *CoolorColorActionFunctions {
 		Cancel: func(cca *CoolorColorActor) bool {
 			cca.TakeColor()
 			cca.Always()
-			status.NewStatusUpdateWithTimeout("action_str", fmt.Sprintf("%s", "Canceled Mix"), 7000*time.Millisecond)
+			status.NewStatusUpdateWithTimeout(
+				"action_str",
+				fmt.Sprintf("%s", "Canceled Mix"),
+				0*time.Second,
+			)
 			return true
 		},
 	}
@@ -551,6 +693,7 @@ func addFunc() *CoolorColorActionFunctions {
 	ccaf := &CoolorColorActionFunctions{
 		Activate: func(cca *CoolorColorActor, cc *CoolorColor) bool {
 			MainC.palette.AddCoolorColor(cc.Unstatic())
+			SeentColor("add_color", cc, cc.pallette)
 			cca.Finalize(cc.Unstatic())
 			return true
 		},
@@ -580,15 +723,15 @@ func addFunc() *CoolorColorActionFunctions {
 func lockFunc() *CoolorColorActionFunctions {
 	ccaf := &CoolorColorActionFunctions{
 		Activate: func(cca *CoolorColorActor, cc *CoolorColor) bool {
-			if cc == nil {
-				return false
-			}
-			cc.SetLocked(!cc.GetLocked())
-			cca.Finalize(cc)
+			// color, idx := MainC.palette.GetSelected()
+			// dump.P(color.selected, color.locked, idx)
+			color, _ := MainC.palette.ToggleLockSelected()
+			// dump.P(color.selected, color.locked, idx)
+			cca.Finalize(color)
 			return false
 		},
 		Before: func(cca *CoolorColorActor, cc *CoolorColor) bool {
-			ncc := MainC.palette.colors[MainC.palette.selectedIdx]
+			ncc := MainC.palette.Colors[MainC.palette.selectedIdx]
 			if ncc == nil {
 				return false
 			}
@@ -602,20 +745,40 @@ func lockFunc() *CoolorColorActionFunctions {
 			return false
 		},
 		Every: func(cca *CoolorColorActor, cc *CoolorColor) bool {
-			return true
+			ncc := MainC.palette.Colors[MainC.palette.selectedIdx]
+			if ncc == nil {
+				return false
+			}
+			if ncc.GetLocked() {
+				cca.icon = ""
+				cca.name = "unlock"
+			} else {
+				cca.icon = ""
+				cca.name = "lock"
+			}
+			return false
 		},
 		Finalize: func(cca *CoolorColorActor, cc *CoolorColor) {
-			ncc := MainC.palette.colors[MainC.palette.selectedIdx]
+			ncc := MainC.palette.Colors[MainC.palette.selectedIdx]
 			if ncc == nil {
 				return
 			}
 			icon := ""
 			name := "lock"
-			if ncc.GetLocked() {
+			if !ncc.GetLocked() {
 				icon = ""
 				name = "unlock"
 			}
-			status.NewStatusUpdateWithTimeout("action_str", fmt.Sprintf("[black:yellow:b] %s %sed [-:-:-] -> %s", icon, name, cc.TVPreview()), 7000*time.Millisecond)
+			status.NewStatusUpdateWithTimeout(
+				"action_str",
+				fmt.Sprintf(
+					"[black:yellow:b] %s %sed [-:-:-] -> %s",
+					icon,
+					name,
+					cc.TVPreview(),
+				),
+				0*time.Second,
+			)
 		},
 		Always: func(cca *CoolorColorActor) {
 		},
@@ -690,7 +853,17 @@ func swapFunc() *CoolorColorActionFunctions {
 			if pc := cca.TakeColor(); pc != nil {
 				if pc.Html() != cc.Html() {
 					cca.Always()
-					status.NewStatusUpdateWithTimeout("action_str", fmt.Sprintf("[black:yellow:b] %s %sed [-:-:-]  %s <-> %s", cca.icon, cca.name, pc.TVPreview(), cc.TVPreview()), 7000*time.Millisecond)
+					status.NewStatusUpdateWithTimeout(
+						"action_str",
+						fmt.Sprintf(
+							"[black:yellow:b] %s %sed [-:-:-]  %s <-> %s",
+							cca.icon,
+							cca.name,
+							pc.TVPreview(),
+							cc.TVPreview(),
+						),
+						0*time.Second,
+					)
 					// status.NewStatusUpdateWithTimeout("action_str", fmt.Sprintf("Moved %s", pc.TVPreview()))
 				}
 			} else {
@@ -780,7 +953,17 @@ func randomizeFunc() *CoolorColorActionFunctions {
 					MainC.palette.NavSelection(0)
 					// MainC.palette.NavSelection(-1)
 					cca.Always()
-					status.NewStatusUpdateWithTimeout("action_str", fmt.Sprintf("[black:yellow:b] %s %sed [-:-:-] %s -> %s", cca.icon, cca.name, oldCol.TVPreview(), cc.TVPreview()), 7000*time.Millisecond)
+					status.NewStatusUpdateWithTimeout(
+						"action_str",
+						fmt.Sprintf(
+							"[black:yellow:b] %s %sed [-:-:-] %s -> %s",
+							cca.icon,
+							cca.name,
+							oldCol.TVPreview(),
+							cc.TVPreview(),
+						),
+						0*time.Second,
+					)
 				}
 			} else {
 				cca.Cancel()
@@ -818,22 +1001,39 @@ func tagFunc() *CoolorColorActionFunctions {
 			mc := MainC
 			if mc.floater == nil {
 				items := GetTerminalColorsAnsiTags()
-				mc.floater = NewSelectionFloater(" Terminal ANSI Color Tag", items.GetListItems, func(lis ListItem, hdr *tview.TextView, ftr *tview.TextView) {
-					ccol, _ := MainC.palette.GetSelected()
-					ccol.SetTag(lis.(*TagItem))
-					// cc.SetTag(tag.(*TagItem))
-					cca.SetValue("tag", lis.(*TagItem))
-					cca.Finalize(cc)
-				}, func(lis ListItem, hdr *tview.TextView, ftr *tview.TextView) {
-					ftr.SetText(lis.MainText())
-				})
-				if tag != nil {
-					mc.floater.(*ListFloater).Lister.SetCurrent(tag)
-				}
+				mc.floater = NewSelectionFloater(
+					" Terminal ANSI Color Tag",
+					items.GetListItems,
+					func(lis ListItem, hdr *tview.TextView, ftr *tview.TextView) {
+						ccol, _ := MainC.palette.GetSelected()
+						ti := lis.(*TagItem)
+						MainC.palette.Each(func(cc *CoolorColor, i int) {
+							tags := MainC.palette.Colors[i].GetTags()
+							for _, v := range tags {
+								dump.P(ti, v)
+								if ti.MainText() == v.MainText() {
+									cc.ClearTags()
+								}
+							}
+						})
+						ccol.SetTag(ti)
+						cca.SetValue("tag", lis.(*TagItem))
+						cca.Before(ccol.pallette, ccol)
+						cca.Every(ccol)
+						cca.Finalize(cc)
+					},
+					func(lis ListItem, hdr *tview.TextView, ftr *tview.TextView) {
+						ftr.SetText(lis.MainText())
+					},
+				)
+			}
+			if !mc.pages.HasPage("floater") {
 				mc.pages.AddPage("floater", mc.floater.GetRoot(), true, false)
-				mc.pages.ShowPage("floater")
-			} else {
-				AppModel.helpbar.SetTable("floater")
+			}
+			mc.pages.ShowPage("floater")
+			AppModel.helpbar.SetTable("floater")
+			if tag != nil {
+				mc.floater.(*ListFloater).Lister.SetCurrent(tag)
 			}
 			return true
 		},
@@ -843,7 +1043,15 @@ func tagFunc() *CoolorColorActionFunctions {
 			for _, v := range tags {
 				tagStrs = append(tagStrs, v.MainText())
 			}
-			status.NewStatusUpdate("tag", fmt.Sprintf("[black:purple:b] %s %s(s) [-:-:-] %s", cca.icon, cca.name, strings.Join(tagStrs, ", ")))
+			status.NewStatusUpdate(
+				"tag",
+				fmt.Sprintf(
+					"[black:purple:b] %s %s(s) [-:-:-] %s",
+					cca.icon,
+					cca.name,
+					strings.Join(tagStrs, ", "),
+				),
+			)
 			if pc := cca.GetColor(); pc != nil {
 				if pc.Html() != cc.Html() {
 					cca.Cancel()
@@ -861,7 +1069,15 @@ func tagFunc() *CoolorColorActionFunctions {
 			for _, v := range tags {
 				tagStrs = append(tagStrs, v.MainText())
 			}
-			status.NewStatusUpdate("tag", fmt.Sprintf("[black:purple:b] %s %s(s) [-:-:-] %s", cca.icon, cca.name, strings.Join(tagStrs, ", ")))
+			status.NewStatusUpdate(
+				"tag",
+				fmt.Sprintf(
+					"[black:purple:b] %s %s(s) [-:-:-] %s",
+					cca.icon,
+					cca.name,
+					strings.Join(tagStrs, ", "),
+				),
+			)
 			return true
 		},
 		Finalize: func(cca *CoolorColorActor, cc *CoolorColor) {
@@ -869,7 +1085,16 @@ func tagFunc() *CoolorColorActionFunctions {
 				tg, ok := tag.(*TagItem)
 				if ok {
 					var tagg TagItem = TagItem(*tg)
-					status.NewStatusUpdateWithTimeout("action_str", fmt.Sprintf("[black:purple:b] %s %sged [-:-:-] %s", cca.icon, cca.name, tagg.MainText()), 7000*time.Millisecond)
+					status.NewStatusUpdateWithTimeout(
+						"action_str",
+						fmt.Sprintf(
+							"[black:purple:b] %s %sged [-:-:-] %s",
+							cca.icon,
+							cca.name,
+							tagg.MainText(),
+						),
+						0*time.Second,
+					)
 
 				}
 			}
@@ -877,9 +1102,9 @@ func tagFunc() *CoolorColorActionFunctions {
 			// status.NewStatusUpdateWithTimeout("action_str", fmt.Sprintf("[black:yellow:b] %s %sed [-:-:-] %s -> %s", cca.icon, cca.name, oldCol.TVPreview(), cc.TVPreview()))
 		},
 		Always: func(cca *CoolorColorActor) {
-      cca.Dectivated()
-      cca.TakeColor()
-      cca.SetValue("tag", nil)
+			cca.Dectivated()
+			cca.TakeColor()
+			cca.SetValue("tag", nil)
 			mc := MainC
 			name, page := mc.pages.GetFrontPage()
 			if name == "floater" {
@@ -888,7 +1113,7 @@ func tagFunc() *CoolorColorActionFunctions {
 				page.Blur()
 				mc.floater = nil
 			}
-      MainC.menu.UpdateVisibleActors(0)
+			MainC.menu.UpdateVisibleActors(0)
 		},
 		Actions: func(cca *CoolorColorActor) CoolorColorActionFlag {
 			if cca.Activated() {
@@ -903,6 +1128,56 @@ func tagFunc() *CoolorColorActionFunctions {
 	}
 	return ccaf
 }
+
+func favFunc() *CoolorColorActionFunctions {
+	ccaf := &CoolorColorActionFunctions{
+		Activate: func(cca *CoolorColorActor, cc *CoolorColor) bool {
+			GetStore().MetaService.ToggleFavorite(cc)
+			cca.Finalize(cc)
+			return false
+		},
+		Before: func(cca *CoolorColorActor, cc *CoolorColor) bool {
+			_, idx := GetStore().MetaService.FavoriteColors.Contains(cc)
+			fav := idx >= 0
+			cca.icon = IfElseStr(fav, "  ", "  ")
+			cca.name = IfElseStr(fav, "unfavorite", "favorite")
+			return false
+		},
+		Every: func(cca *CoolorColorActor, cc *CoolorColor) bool {
+			_, idx := GetStore().MetaService.FavoriteColors.Contains(cc)
+			fav := idx >= 0
+			cca.icon = IfElseStr(fav, "  ", "  ")
+			cca.name = IfElseStr(fav, "unfavorite", "favorite")
+			return false
+		},
+		Finalize: func(cca *CoolorColorActor, cc *CoolorColor) {
+			_, idx := GetStore().MetaService.FavoriteColors.Contains(cc)
+			fav := idx >= 0
+			icon := IfElseStr(fav, "  ", "  ")
+			name := IfElseStr(fav, "unfavorite", "favorite")
+			status.NewStatusUpdateWithTimeout(
+				"action_str",
+				fmt.Sprintf(
+					"[black:yellow:b] %s %sed [-:-:-] -> %s",
+					icon,
+					name,
+					cc.TVPreview(),
+				),
+				0*time.Second,
+			)
+		},
+		Always: func(cca *CoolorColorActor) {
+		},
+		Actions: func(cca *CoolorColorActor) CoolorColorActionFlag {
+			return MainPaletteActionsFlag
+		},
+		Cancel: func(cca *CoolorColorActor) bool {
+			return true
+		},
+	}
+	return ccaf
+}
+
 func templateFunc() *CoolorColorActionFunctions {
 	ccaf := &CoolorColorActionFunctions{
 		Activate: func(cca *CoolorColorActor, cc *CoolorColor) bool {

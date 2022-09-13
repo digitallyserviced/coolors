@@ -3,6 +3,7 @@ package coolor
 import (
 	"fmt"
 	"math/rand"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -49,23 +50,48 @@ var (
 	maxClusters         int = 8
 	ClusterPaletteTypes map[string]ClusterPalettes
 	CoolorClusterColors ClusterPalettes
-	baseAnsi            = []string{"#000000", "#c51e14", "#1dc121", "#c7c329", "#0a2fc4", "#c839c5", "#20c5c6", "#c7c7c7"}
-	baseBrightAnsi      = []string{"#686868", "#fd6f6b", "#67f86f", "#fffa72", "#6a76fb", "#fd7cfc", "#68fdfe", "#ffffff"}
-	baseAnsiNames       = []string{"black", "red", "green", "yellow", "blue", "magenta", "cyan", "grey"}
-	brightAnsiPrefix    = "bright"
-	levels              []string
+	// friendly base ansi colors
+	baseAnsi       = []string{"#000000", "#c51e14", "#1dc121", "#c7c329", "#0a2fc4", "#c839c5", "#20c5c6", "#7c7c7c"}
+	baseBrightAnsi = []string{"#686868", "#fd6f6b", "#67f86f", "#fffa72", "#6a76fb", "#fd7cfc", "#68fdfe", "#ffffff"}
+
+	// strict/hard base ansi colors
+	baseXterm = []string{"#000000", "#800000", "#008000", "#808000", "#000080", "#800080", "#008080", "#707070"}
+
+	baseBrightXterm = []string{"#A9A9A9", "#FF0000", "#00FF00", "#FFFF00", "#0000FF", "#FF00FF", "#00FFFF", "#FFFFFF"}
+
+	// base16 xterm color names
+	baseXtermAnsiColorNames = []string{"black", "maroon", "green", "olive", "navy", "purple", "teal", "silver", "gray", "red", "lime", "yellow", "blue", "fuchsia", "aqua", "white"}
+
+	// friendly base 16 colors with either dim or bright attributes added later
+	baseAnsiNames = []string{"black", "red", "green", "yellow", "blue", "magenta", "cyan", "grey"}
+	// if 0-7 are considered the "base" or "normal" bright is 8-15
+	brightAnsiPrefix = "bright"
+	// some terms see 8-15 as considered the "base" or "normal" with dim being 0-7
+	dimAnsiPrefix = "dim"
+	// ColorLightGray:            0xD3D3D3,
+	// ColorLightSlateGray:       0x778899,
+	// ColorSlateGray:            0x708090,
+	// ColorDimGray:              0x696969,
+	// ColorDarkSlateGray:        0x2F4F4F,
+	// ColorDarkGray:             0xA9A9A9,
+	// ColorGray:                 0x808080,
+
+	// ref all base16 colors with tcell strict/hard bases
+	baseXtermAnsiTcellColors = []tcell.Color{tcell.ColorBlack, tcell.ColorMaroon, tcell.ColorGreen, tcell.ColorOlive, tcell.ColorNavy, tcell.ColorPurple, tcell.ColorTeal, tcell.ColorSilver, tcell.ColorGray, tcell.ColorRed, tcell.ColorLime, tcell.ColorYellow, tcell.ColorBlue, tcell.ColorFuchsia, tcell.ColorAqua, tcell.ColorWhite}
+	levels                   []string
 )
 
 func init() {
 	levels = make([]string, 0)
 	levels = append(levels, "%sified")
 	levels = append(levels, "%sish")
-	levels = append(levels, "%sicated")
-	levels = append(levels, "%s'd")
-	levels = append(levels, "%s-touched")
+	// levels = append(levels, "%sicated")
+	// levels = append(levels, "%s'd")
+	// levels = append(levels, "%s-touched")
 	levels = append(levels, "%s'ed")
 	// CoolorClusterColors = getCoolorClusterColors()
-	CoolorClusterColors = getNamedAnsiColors()
+	CoolorClusterColors = getBaseXtermClusterColors()
+	// CoolorClusterColors = getNamedAnsiColors()
 	// CoolorClusterColors = getBaseAnsiClusterColors()
 	// colors := GenerateRandomColors(16)
 	// colors = append(colors, tcell.GetColor("#7b7b7b"))
@@ -90,13 +116,13 @@ func init() {
 	// 	}
 	// }
 	// for _, tcol := range ClusterColors {
-	// 	colorss := lo.Map[*Color, string](tcol.colors, func(c *Color, i int) string {
+	// 	colorss := lo.Map[*Color, string](tcol.colors, func(c *Color, i int) string {#e85c51
 	// 		return c.GetCC().TerminalPreview()
 	// 	})
 	// 	fmt.Println(fmt.Sprintf("%s %v", tcol.name, strings.Join(colorss, " ")))
 	// }
 }
-
+var t string = "#e85c51"
 func (cci *CoolorColorClusterInfo) Debug() string {
 	colorss := lo.Map[*CoolorColorDistanceInfo, string](cci.clusters, func(c *CoolorColorDistanceInfo, i int) string {
 		return fmt.Sprintf("%s %0.2f", c.cluster.leadColor.GetCC().TerminalPreview(), c.distance)
@@ -105,17 +131,20 @@ func (cci *CoolorColorClusterInfo) Debug() string {
 }
 
 func (cci *CoolorColorClusterInfo) String() string {
-	// colorss := lo.Map[*CoolorColorDistanceInfo, string](cci.clusters, func(c *CoolorColorDistanceInfo, i int) string {
-	// 	return fmt.Sprintf("%s %0.2f", c.cluster.leadColor.GetCC().TerminalPreview(), c.distance)
-	// })
-	rand.Seed(time.Now().UnixNano())
-	suff := lo.Sample[string](levels)
 	rand.Seed(time.Now().UnixNano())
 	suff2 := lo.Sample[string](levels)
 	main := cci.clusters[0].cluster.name
-	second := cci.clusters[1].cluster.name
-	turd := cci.clusters[2].cluster.name
-	return fmt.Sprintf("%s [yellow:-:-]%s %s %s[-:-:-]", cci.color.TVPreview(), fmt.Sprintf(suff2, turd), fmt.Sprintf(suff, second), main)
+  fondler := cci.DemoteGray(cci.clusters[1].cluster.name, cci.clusters[2].cluster.name)
+	return fmt.Sprintf("%s [yellow:-:-]%s %s[-:-:-]", cci.color.TVPreview(), fmt.Sprintf(suff2, fondler), main)
+}
+
+func (cci *CoolorColorClusterInfo) DemoteGray(b, a string) string {
+  if m, err := regexp.Match("silver|gray|grey", []byte(a)); m {
+    return b
+  } else if err != nil {
+    panic(err)
+  }
+  return a
 }
 
 func (cci *CoolorColorClusterInfo) Sort() {
@@ -143,10 +172,9 @@ func (cci *CoolorColorClusterInfo) GenerateNeighbors(count int, maxDistance floa
 func (cci *CoolorColorClusterInfo) FindClusters() {
 	minDistance := 0.0
 	minDistanceIndex := -1
-	vcol := MakeColorFromTcell(*cci.color.color)
+	vcol := MakeColorFromTcell(*cci.color.Color)
 	for itc, tcol := range CoolorClusterColors {
-		// distance := tcol.leadColor.DistanceCIEDE2000(vcol)
-		distance := tcol.leadColor.DistanceRgb(vcol)
+		distance := tcol.leadColor.DistanceCIEDE2000(vcol)
 		ccdi := NewCoolorColorDistanceInfo(tcol)
 		ccdi.distance = distance
 		if minDistance == 0.0 || minDistance > distance {
@@ -154,9 +182,9 @@ func (cci *CoolorColorClusterInfo) FindClusters() {
 			minDistance = distance
 		}
 		cci.clusters = append(cci.clusters, ccdi)
-		if len(cci.clusters) > maxClusters {
-			break
-		}
+		// if len(cci.clusters) > maxClusters {
+		// 	break
+		// }
 	}
 	if minDistanceIndex != -1 {
 		cc := vcol
@@ -172,6 +200,15 @@ func getNamedAnsiColors() ClusterPalettes {
 		tcol := tcell.ColorNames[name]
 		col := MakeColorFromTcell(tcol)
 		cps = append(cps, NewClusterFromCss(name, col.Hex()))
+	}
+	return cps
+}
+
+func getBaseXtermClusterColors() ClusterPalettes {
+	cps := make(ClusterPalettes, 0)
+	for i, c := range baseXtermAnsiColorNames {
+		col := MakeColorFromTcell(baseXtermAnsiTcellColors[i])
+		cps = append(cps, NewClusterFromCss(c, col.Hex()))
 	}
 	return cps
 }

@@ -216,7 +216,6 @@ func (ft *FileTree) IsRoot(fsnode *FSNode) bool {
 
 func (ft *FileTree) Load(dir string) {
 	ft.SetRoot(newRootFsnode(dir))
-
 }
 
 func (ft *FileTree) OnSelect(fn func(node *FSNode)) {

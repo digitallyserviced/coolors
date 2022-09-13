@@ -42,6 +42,9 @@ func init() {
 }
 
 func NewStatusUpdateWithTimeout(elem, content string, to time.Duration) {
+  if to == 0 * time.Second {
+    to = 3000 * time.Millisecond
+  }
 	if updateCh != nil {
 		updateCh <- &StatusUpdate{
 			elem: elem, content: content, timeOut: to,
@@ -233,7 +236,7 @@ func (s *StatusBar) Init() {
 	pn.SetAlign(tview.AlignCenter)
 	s.AddStatusItem(pn)
 	s.AddStatusItem(NewStatusItem("fill1", " %s ", "", s, done))
-  tag := NewStatusItem("tag", "%s", " SHIT ", s, done)
+  tag := NewStatusItem("tag", "%s", "  ", s, done)
   tag.SetAlign(tview.AlignCenter)
 // tag.SetExpansion(1)
 	s.AddStatusItem(tag)

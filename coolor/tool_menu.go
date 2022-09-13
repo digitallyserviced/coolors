@@ -9,28 +9,29 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/gookit/goutil/dump"
 
-	// "github.com/gookit/goutil/dump"
 	"github.com/samber/lo"
-	// "github.com/gookit/goutil/dump"
 )
 
 type CoolorToolMenu struct {
 	*tview.Flex
-	list             *Lister
-	mc               *MainContainer
-	app              *tview.Application
-	selectedColor    *CoolorColor
+	list          *Lister
+	mc            *MainContainer
+	app           *tview.Application
+	selectedColor *CoolorColor
+	*eventObserver
+	*eventNotifier
 	menuItems        []*CoolorButtonMenuItem
 	visibleItems     []*CoolorButtonMenuItem
 	selected         int
 	activeActionFlag CoolorColorActionFlag
 }
+
 type CoolorPaletteAction interface {
 	IsActivated() bool
 	Activate(cc *CoolorColor) bool
 	Before(cp *CoolorBlendPalette) bool
 	Every(cp *CoolorBlendPalette, menu *CoolorToolMenu) bool
-	Finalize(cc *CoolorColor, cp *CoolorPalette, menu *CoolorToolMenu)
+	Finalize(cc *CoolorColor, cp *CoolorPaletteMainView, menu *CoolorToolMenu)
 }
 
 type CoolorButtonMenuItem struct {
@@ -42,7 +43,10 @@ type CoolorButtonMenuItem struct {
 	selected bool
 }
 
-func NewButtonMenuItem(menu *CoolorToolMenu, action *CoolorColorActor) *CoolorButtonMenuItem {
+func NewButtonMenuItem(
+	menu *CoolorToolMenu,
+	action *CoolorColorActor,
+) *CoolorButtonMenuItem {
 	action.menu = menu
 	mmi := &CoolorButtonMenuItem{
 		Button:   tview.NewButton(action.name),
@@ -52,7 +56,9 @@ func NewButtonMenuItem(menu *CoolorToolMenu, action *CoolorColorActor) *CoolorBu
 		menu:     menu,
 		icon:     action.icon,
 	}
-	mmi.Button.SetLabel(mmi.icon).SetBorder(false).SetTitleAlign(tview.AlignCenter)
+	mmi.Button.SetLabel(mmi.icon).
+		SetBorder(false).
+		SetTitleAlign(tview.AlignCenter)
 	mmi.SetBackgroundColor(tview.Styles.PrimitiveBackgroundColor)
 	mmi.SetLabelColor(tview.Styles.InverseTextColor)
 	mmi.SetSelectedFunc(func() {
@@ -64,15 +70,17 @@ func NewButtonMenuItem(menu *CoolorToolMenu, action *CoolorColorActor) *CoolorBu
 
 func NewCoolorColorMainMenu(app *tview.Application) *CoolorToolMenu {
 	cmm := &CoolorToolMenu{
-		Flex:          tview.NewFlex(),
-		menuItems:     []*CoolorButtonMenuItem{},
-		visibleItems:  []*CoolorButtonMenuItem{},
-		mc:            MainC,
-		app:           app,
-		selectedColor: &CoolorColor{},
-		selected:      0,
+		Flex:             tview.NewFlex(),
+		list:             &Lister{},
+		mc:               MainC,
+		app:              app,
+		selectedColor:    &CoolorColor{},
+		eventObserver:    NewEventObserver("menu"),
+		menuItems:        []*CoolorButtonMenuItem{},
+		visibleItems:     []*CoolorButtonMenuItem{},
+		selected:         0,
+		activeActionFlag: 0,
 	}
-	// '烙'
 	cmm.SetDirection(tview.FlexRow)
 	cmm.list = NewLister()
 	cmm.list.SetItemLister(cmm.GetListItems)
@@ -80,10 +88,11 @@ func NewCoolorColorMainMenu(app *tview.Application) *CoolorToolMenu {
 }
 
 func (cc CoolorButtonMenuItem) MainText() string {
-  if cc.selected {
-    return fmt.Sprintf("[-:-:b]%s[-:-:-]", cc.icon)
-  }
-	return fmt.Sprintf("%s", cc.icon)
+	cc.action.Before(cc.menu.selectedColor.pallette, cc.menu.selectedColor)
+	if cc.selected {
+		return fmt.Sprintf("[-:-:b]%s[-:-:-]", cc.action.icon)
+	}
+	return fmt.Sprintf("%s", cc.action.icon)
 }
 
 func (cc CoolorButtonMenuItem) SecondaryText() string {
@@ -91,18 +100,24 @@ func (cc CoolorButtonMenuItem) SecondaryText() string {
 }
 
 func (cc CoolorButtonMenuItem) Shortcut() ScriptShortcut {
-  return NewScriptShortcut(rune(0), rune(0))
+	return NewScriptShortcut(rune(0), rune(0))
 }
 
-func (cc CoolorButtonMenuItem) Changed(idx int, selected bool, i interface{}, lis []*ListItem) {
-  cc.selected = selected
-	if cc.menu.selectedColor == nil || cc.menu == nil || cc.menu.selectedColor.color == nil {
+func (cc CoolorButtonMenuItem) Changed(
+	idx int,
+	selected bool,
+	i interface{},
+	lis []*ListItem,
+) {
+	if cc.menu.selectedColor == nil || cc.menu == nil ||
+		cc.menu.selectedColor.Color == nil {
 		return
 	}
 	if i == nil {
 		return
 	}
-
+  dump.P(idx, selected, fmt.Sprintf("%T %v", i))
+	cc.menu.UpdateActionStatus(&cc)
 	cc.action.Every(cc.menu.selectedColor)
 }
 
@@ -117,26 +132,33 @@ func (cc CoolorButtonMenuItem) Visibility() ListItemsVisibility {
 	return ListItemHidden
 }
 
-func (cc CoolorButtonMenuItem) Cancelled(idx int, i interface{}, lis []*ListItem) {
-  MainC.app.QueueUpdateDraw(func(){
-    cc.action.Cancel()
-  })
+func (cc CoolorButtonMenuItem) Cancelled(
+	idx int,
+	i interface{},
+	lis []*ListItem,
+) {
+	MainC.app.QueueUpdateDraw(func() {
+		cc.action.Cancel()
+	})
 }
 
-func (cc CoolorButtonMenuItem) Selected(idx int, i interface{}, lis []*ListItem) {
-	cc.action.Before(cc.menu.selectedColor.pallette, cc.menu.selectedColor)
+func (cc CoolorButtonMenuItem) Selected(
+	idx int,
+	i interface{},
+	lis []*ListItem,
+) {
 	MainC.app.QueueUpdate(func() {
 		// cc.action.Before(cc.menu.selectedColor.pallette, cc.menu.selectedColor)
-		if cc.action.Activate(cc.menu.selectedColor){
-      cc.menu.ResetViews()
-    }
+		if cc.action.Activate(cc.menu.selectedColor) {
+			cc.menu.ResetViews()
+		}
 		cc.menu.UpdateVisibleActors(cc.action.Actions())
 		cc.menu.UpdateActionStatus(&cc)
 	})
 }
 
 func (cc *CoolorToolMenu) GetMainTextStyle() tcell.Style {
-	if cc.selectedColor == nil || cc.selectedColor.color == nil {
+	if cc.selectedColor == nil || cc.selectedColor.Color == nil {
 		return tcell.Style{}
 	}
 	// tcol := cc.selectedColor.color
@@ -153,10 +175,10 @@ func (cc *CoolorToolMenu) GetShortcutStyle() tcell.Style {
 }
 
 func (cc *CoolorToolMenu) GetSelectedStyle() tcell.Style {
-	if cc.selectedColor == nil || cc.selectedColor.color == nil {
+	if cc.selectedColor == nil || cc.selectedColor.Color == nil {
 		return tcell.Style{}
 	}
-	tcol := cc.selectedColor.color
+	tcol := cc.selectedColor.Color
 	fcol := cc.selectedColor.GetFgColor()
 	return tcell.StyleDefault.Foreground(fcol).Background(*tcol)
 }
@@ -288,7 +310,23 @@ func (mmi *CoolorButtonMenuItem) UpdateState() {
 	}
 }
 
-func (ctm *CoolorToolMenu) forMenuItems(visible bool, f func(c *CoolorButtonMenuItem, idx int)) {
+func (ctm *CoolorToolMenu) GetMenuItem(m string) (cbmi *CoolorButtonMenuItem) {
+	ctm.forMenuItems(false, func(c *CoolorButtonMenuItem, idx int) (err error) {
+		if c.name == m {
+			cbmi = c
+		}
+		return
+	})
+	if cbmi != nil {
+		return
+	}
+	return nil
+}
+
+func (ctm *CoolorToolMenu) forMenuItems(
+	visible bool,
+	f func(c *CoolorButtonMenuItem, idx int) (err error),
+) {
 	if ctm == nil || ctm.Flex == nil {
 		return
 	}
@@ -302,25 +340,37 @@ func (ctm *CoolorToolMenu) forMenuItems(visible bool, f func(c *CoolorButtonMenu
 			if v == nil {
 				continue
 			}
-			f(v, i)
+			e := f(v, i)
+			if e != nil {
+				break
+			}
 		}
 	}
 }
 
+func (ctm *CoolorToolMenu) HandleEvent(e ObservableEvent) bool {
+	switch e.Type {
+	case SelectedEvent:
+		var cc *CoolorColor = e.Ref.(*CoolorColor)
+		ctm.UpdateColor(cc.Color)
+	}
+	return true
+}
+
 func (ctm *CoolorToolMenu) UpdateColor(col *tcell.Color) {
-	dump.P(col)
 	if ctm == nil || col == nil {
 		return
 	}
-  pcol, _ := ctm.mc.palette.GetSelected()
+	pcol, i := ctm.mc.palette.GetSelected()
 	ctm.selectedColor = NewIntCoolorColor(col.Hex())
-	ctm.forMenuItems(false, func(c *CoolorButtonMenuItem, idx int) {
-    c.action.Every(pcol)
-		c.SetBackgroundColor(*ctm.selectedColor.color)
-		c.SetLabelColor(ctm.selectedColor.GetFgColor())
-	// c.action.Every(c.menu.selectedColor)
+	ctm.forMenuItems(false, func(c *CoolorButtonMenuItem, idx int) (err error) {
+		c.action.Every(MainC.palette.CoolorColorsPalette.Colors[i])
+		c.SetBackgroundColor(*pcol.Color)
+		c.SetLabelColor(pcol.GetFgColor())
+		// c.action.Every(c.menu.selectedColor)
+		return
 	})
-  
+
 	ctm.updateState()
 }
 
@@ -378,15 +428,22 @@ func (ctm *CoolorToolMenu) UpdateActionStatus(mmi *CoolorButtonMenuItem) {
 		return
 	}
 
-	status.NewStatusUpdate("action", fmt.Sprintf("[black:yellow:b] %s %s [-:-:-]", mmi.action.icon, mmi.action.name))
+	status.NewStatusUpdate(
+		"action",
+		fmt.Sprintf(
+			"[black:yellow:b] %s %s [-:-:-]",
+			mmi.action.icon,
+			mmi.action.name,
+		),
+	)
 }
 
 func (ctm *CoolorToolMenu) updateState() {
 	// ctm.list.List.GetCurrentItem()
 	MainC.app.QueueUpdateDraw(func() {
-		ctm.forMenuItems(false, func(c *CoolorButtonMenuItem, idx int) {
-			// c.action.Every(ctm.selectedColor)
+		ctm.forMenuItems(false, func(c *CoolorButtonMenuItem, idx int) (err error) {
 			c.selected = false
+			return
 		})
 
 		// if act := ctm.Activated(); act != nil {
@@ -395,7 +452,7 @@ func (ctm *CoolorToolMenu) updateState() {
 		// 	ctm.UpdateVisibleActors(MainPaletteActionsFlag)
 		// }
 
-		ctm.forMenuItems(true, func(c *CoolorButtonMenuItem, idx int) {
+		ctm.forMenuItems(true, func(c *CoolorButtonMenuItem, idx int) (err error) {
 			if idx == ctm.selected {
 				c.selected = true
 				if MainC.menu != nil && MainC.menu.selectedColor != nil {
@@ -410,6 +467,7 @@ func (ctm *CoolorToolMenu) updateState() {
 				}
 			}
 			c.UpdateState()
+			return
 		})
 
 		mmi := ctm.Selected()
@@ -423,7 +481,7 @@ func (ctm *CoolorToolMenu) updateState() {
 
 func (ctm *CoolorToolMenu) ResetViews() {
 	MainC.app.QueueUpdateDraw(func() {
-    ctm.list.UpdateListItems()
+		ctm.list.UpdateListItems()
 		ctm.Clear()
 		itemOrder := ctm.RotateItems(ctm.selected)
 		for _, v := range itemOrder {
@@ -458,12 +516,13 @@ func (ctm *CoolorToolMenu) ActivateSelected(cc *CoolorColor) {
 
 func (ctm *CoolorToolMenu) FindAct(n string) (*CoolorButtonMenuItem, int) {
 	var cbmi *CoolorButtonMenuItem
-	var i = 0
-	ctm.forMenuItems(true, func(c *CoolorButtonMenuItem, idx int) {
+	i := 0
+	ctm.forMenuItems(true, func(c *CoolorButtonMenuItem, idx int) (err error) {
 		if c.name == n {
 			cbmi = c
 			i = idx
 		}
+		return
 	})
 	return cbmi, i
 }

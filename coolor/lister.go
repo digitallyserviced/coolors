@@ -108,7 +108,7 @@ type Lister struct {
 	changed            func(index int, mainText, secondaryText string, shortcut rune)
 	*tview.Box
 	done              func()
-	canceled              func()
+	canceled          func()
 	itemsLister       func() []*ListItem
 	items             []*ListItem
 	currentItem       int
@@ -201,29 +201,13 @@ func (l *Lister) Each(flag ListItemsVisibility, f func(i interface{}, idx int, v
 // index value
 
 func (l *Lister) SetCurrent(i interface{}) *Lister {
-	// if index < 0 {
-	// 	index = len(l.items) + index
-	// }
-	// if index >= len(l.items) {
-	// 	index = len(l.items) - 1
-	// }
-	// if index < 0 {
-	// 	index = 0
-	// }
-	//
-	// if index != l.currentItem && l.changed != nil {
-	// 	item := l.items[index]
-	// 	l.changed(index, item.MainText(), item.SecondaryText(), item.Shortcut())
-	// }
 	index := -1
 	for num, v := range l.items {
 		if v == i {
 			index = num
 		}
 	}
-
-	l.currentItem = index
-
+  l.SetCurrentItem(index)
 	return l
 }
 
@@ -356,16 +340,16 @@ func (l *Lister) SetSelectedBackgroundColor(color tcell.Color) *Lister {
 	l.selectedStyle = l.selectedStyle.Background(color)
 	return l
 }
+
 // func (li listerItem) Selected(idx int, i interface{}, lis []*ListItem) {
 // }
 //
 // func (li listerItem) Changed(idx int, selected bool, i interface{}, lis []*ListItem) {
 // }
 
-func (list *Lister) SetHandlers(sel func(idx int, i interface{}, lis []*ListItem), chg func(idx int, selected bool, i interface{}, lis []*ListItem) ) {
+func (list *Lister) SetHandlers(sel func(idx int, i interface{}, lis []*ListItem), chg func(idx int, selected bool, i interface{}, lis []*ListItem)) {
 	// items := &list.items
 	list.SetChangedFunc(func(index int, s1, s2 string, r rune) {
-
 		// tem := list.GetItem(index)
 		// dump.P(index,tem, s1, s2, r)
 		if list == nil || list.items == nil {
@@ -386,9 +370,9 @@ func (list *Lister) SetHandlers(sel func(idx int, i interface{}, lis []*ListItem
 
 		item := *list.items[index]
 		selItem := list.GetCurrentItem() == index
-    if chg != nil {
-      chg(index, selItem, item, list.items)
-    }
+		if chg != nil {
+			chg(index, selItem, item, list.items)
+		}
 		item.Changed(index, selItem, item, list.items)
 	})
 
@@ -410,9 +394,9 @@ func (list *Lister) SetHandlers(sel func(idx int, i interface{}, lis []*ListItem
 		}
 
 		item := *list.items[index]
-    if sel != nil {
-      sel(index, item, list.items)
-    }
+		if sel != nil {
+			sel(index, item, list.items)
+		}
 		item.Selected(index, item, list.items)
 	})
 }
@@ -621,50 +605,50 @@ func (l *Lister) GetItemText(index int) (main, secondary string) {
 // Set ignoreCase to true for case-insensitive search.
 
 func (l *Lister) ClampSelectionToVisible() {
-  vis := l.FindVisibleItems(ListItemDefault | ListItemVisible)
-  if lo.Contains[int](vis, l.currentItem) {
-    return
-  }
-  if len(vis) == 0 {
-    return
-  }
-  if len(vis) == 1 {
-    l.currentItem = vis[0]
-  }
-  best, bidx := 0,0
-  if len(vis) > 1 {
-    for i, v := range vis {
-      if i + 1 >= len(vis){
-        l.currentItem = v
-        return
-      }
-      c := l.currentItem - v
-      if c < best {
-        best = c
-        bidx = v
-      }
-    }
-    l.currentItem = bidx
-  }
-ind := l.currentItem
-  for {
-  if lo.Contains[int](vis, l.currentItem) {
-    return
-  }
-  ind++
-  }
+	vis := l.FindVisibleItems(ListItemDefault | ListItemVisible)
+	if lo.Contains[int](vis, l.currentItem) {
+		return
+	}
+	if len(vis) == 0 {
+		return
+	}
+	if len(vis) == 1 {
+		l.currentItem = vis[0]
+	}
+	best, bidx := 0, 0
+	if len(vis) > 1 {
+		for i, v := range vis {
+			if i+1 >= len(vis) {
+				l.currentItem = v
+				return
+			}
+			c := l.currentItem - v
+			if c < best {
+				best = c
+				bidx = v
+			}
+		}
+		l.currentItem = bidx
+	}
+	ind := l.currentItem
+	for {
+		if lo.Contains[int](vis, l.currentItem) {
+			return
+		}
+		ind++
+	}
 }
 
 func (l *Lister) FindVisibleItems(flag ListItemsVisibility) (indices []int) {
-  indices = make([]int, 0)
+	indices = make([]int, 0)
 	for index, itemP := range l.items {
 		item := (*itemP)
 		if item.Visibility()&(flag) == 0 {
 			continue
 		}
-    indices = append(indices, index)
-  }
-  return indices
+		indices = append(indices, index)
+	}
+	return indices
 }
 
 func (l *Lister) FindItems(mainSearch, secondarySearch string, mustContainBoth, ignoreCase bool) (indices []int) {
@@ -814,19 +798,19 @@ func (l *Lister) Draw(screen tcell.Screen) {
 				}
 				// ❱ ➤ ┃
 			}
-				highlightSymbol := "SHIT"
-				switch l.highlightType {
-				case ListerHighlightDefault:
-				case ListerHighlightBars:
-					highlightSymbol = fmt.Sprintf("%s", "❱")
-				case ListerHighlightThinArrow:
-					highlightSymbol = fmt.Sprintf("%s", "➤")
+			highlightSymbol := "SHIT"
+			switch l.highlightType {
+			case ListerHighlightDefault:
+			case ListerHighlightBars:
+				highlightSymbol = fmt.Sprintf("%s", "❱")
+			case ListerHighlightThinArrow:
+				highlightSymbol = fmt.Sprintf("%s", "➤")
 				// case ListerHighlightBars:
 				// 	highlightSymbol = fmt.Sprintf("%s", "┃")
-				}
-				if l.highlightType != ListerHighlightDefault {
-					printWithStyle(screen, highlightSymbol, x-5, y, 0, len(highlightSymbol), AlignLeft, tcell.StyleDefault.Foreground(tcell.ColorRed), true)
-				}
+			}
+			if l.highlightType != ListerHighlightDefault {
+				printWithStyle(screen, highlightSymbol, x-5, y, 0, len(highlightSymbol), AlignLeft, tcell.StyleDefault.Foreground(tcell.ColorRed), true)
+			}
 		}
 
 		y++
@@ -862,29 +846,29 @@ func (l *Lister) Draw(screen tcell.Screen) {
 // InputHandler returns the handler for this primitive.
 func (l *Lister) InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
 	return l.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
-    if event.Key() == tcell.KeyF40 {
+		if event.Key() == tcell.KeyF40 {
 			if l.done != nil {
 				l.done()
 			}
 			return
-    }
+		}
 		if event.Key() == tcell.KeyEscape {
-      if l.canceled != nil {
-			if l.currentItem >= 0 && l.currentItem < len(l.items) {
-				item := *l.items[l.currentItem]
-				item.Cancelled(l.currentItem, item, l.items)
-				if l.selected != nil {
-					l.canceled()
+			if l.canceled != nil {
+				if l.currentItem >= 0 && l.currentItem < len(l.items) {
+					item := *l.items[l.currentItem]
+					item.Cancelled(l.currentItem, item, l.items)
+					if l.selected != nil {
+						l.canceled()
+					}
 				}
 			}
-      }
 		} else if len(l.items) == 0 {
 			return
 		}
 
 		previousItem := l.currentItem
-key := event.Key()
-ch := event.Rune()
+		key := event.Key()
+		ch := event.Rune()
 		switch {
 		case key == tcell.KeyTab || key == tcell.KeyDown || ch == 'j':
 			l.currentItem++
@@ -921,7 +905,7 @@ ch := event.Rune()
 		case key == tcell.KeyEnter:
 			if l.currentItem >= 0 && l.currentItem < len(l.items) {
 				item := *l.items[l.currentItem]
-				item.Selected(l.currentItem, item, l.items)
+				// item.Selected(l.currentItem, item, l.items)
 				if l.selected != nil {
 					l.selected(l.currentItem, item.MainText(), item.SecondaryText(), item.Shortcut().Text())
 				}
@@ -946,7 +930,7 @@ ch := event.Rune()
 				}
 			}
 			item := *l.items[l.currentItem]
-			item.Selected(l.currentItem, item, l.items)
+			// item.Selected(l.currentItem, item, l.items)
 			// if item.Selected != nil {
 			// item.Selected()
 			// }
@@ -969,7 +953,7 @@ ch := event.Rune()
 			}
 		}
 
-    l.ClampSelectionToVisible()
+		l.ClampSelectionToVisible()
 
 		if l.currentItem != previousItem && l.currentItem < len(l.items) && l.changed != nil {
 			item := *l.items[l.currentItem]
@@ -1042,6 +1026,7 @@ func (l *Lister) MouseHandler() func(action tview.MouseAction, event *tcell.Even
 		return
 	})
 }
+
 func printWithStyle(screen tcell.Screen, text string, x, y, skipWidth, maxWidth, align int, style tcell.Style, maintainBackground bool) (int, int, int, int) {
 	totalWidth, totalHeight := screen.Size()
 	if maxWidth <= 0 || len(text) == 0 || y < 0 || y >= totalHeight {
@@ -1229,6 +1214,7 @@ func printWithStyle(screen tcell.Screen, text string, x, y, skipWidth, maxWidth,
 
 	return drawn + tagOffset + len(escapeIndices), drawnWidth, from, to
 }
+
 func overlayStyle(style tcell.Style, fgColor, bgColor, attributes string) tcell.Style {
 	_, _, defAttr := style.Decompose()
 
@@ -1337,6 +1323,7 @@ func decomposeString(text string, findColors, findRegions bool) (colorIndices []
 
 	return
 }
+
 func styleFromTag(fgColor, bgColor, attributes string, tagSubstrings []string) (newFgColor, newBgColor, newAttributes string) {
 	if tagSubstrings[colorForegroundPos] != "" {
 		color := tagSubstrings[colorForegroundPos]

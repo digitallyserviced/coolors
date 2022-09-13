@@ -13,7 +13,6 @@ import (
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
 	"github.com/gookit/color"
-	"github.com/gookit/goutil/dump"
 	"github.com/gookit/goutil/errorx"
 )
 
@@ -34,25 +33,28 @@ type ColorsView struct {
 }
 
 func (cv *ColorsView) Draw(screen tcell.Screen) {
+	cv.Box.DrawForSubclass(screen, cv)
+  // cv.Grid.DrawForSubclass(screen, cv)
 	x, y, w, h := cv.GetRect()
-  _,_,_,_ = x,w,y,h
+	_, _, _, _ = x, w, y, h
 	x, y, w, h = cv.GetInnerRect()
-  dump.P(x,y,w,h)
-	cv.SetGap(0, 2)
 	rows := make([]int, 0)
 	for i, v := range cv.palettes {
 		p := v.GetPalette()
-    p.Sort()
-		p.Plainify(true)
-		f := tview.NewFrame(p)
+		// p.Plainify(true)
+    pt := NewPaletteTable(p)
+    pt.SetBackgroundColor(theme.GetTheme().ContentBackground)
+    pt.SetBorders(false).SetBorder(false)
+    // pt.SetFixed(2, p.Len())
+		f := tview.NewFrame(pt)
+    f.SetTitleAlign(AlignCenter)
 		f.SetTitle("")
-		f.SetBorder(true).SetBorderPadding(0, 0, 2, 2).SetBorderColor(tree.GetTheme().TopbarBorder)
-		f.SetBorders(0, 0, 0, 0, 2, 2)
-		cv.AddItem(f, i, 0, 1, 1, 0, 0, false)
+		f.SetBorder(true).SetBorderPadding(0, 0, 0, 0).SetBorderColor(tree.GetTheme().TopbarBorder)
+		f.SetBorders(0, 0, 0, 0, 1, 1)
+		cv.AddItem(f, i, 0, 1, 1, 3, 0, false)
 		rows = append(rows, 4)
 	}
 	cv.SetRows(rows...)
-	cv.DrawForSubclass(screen, cv)
 	cv.Grid.Draw(screen)
 }
 
@@ -62,12 +64,16 @@ func (cv *ColorsView) Clear() {
 }
 
 func (cv *ColorsView) SetPalettes(pdc *HistoryDataConfig) {
-	cv.Clear()
-	pals := pdc.GetPalettes()
-	for _, v := range pals {
-		pal := pdc.LoadPalette(v)
-		cv.palettes = append(cv.palettes, pal.GetPalette())
-	}
+	MainC.app.QueueUpdateDraw(func() {
+		cv.Clear()
+		pals := pdc.GetPalettes()
+
+		// dump.P(pals)
+		for _, v := range pals {
+			pal := pdc.LoadPalette(v)
+			cv.palettes = append(cv.palettes, pal.GetPalette())
+		}
+	})
 }
 
 func NewColorsView() *ColorsView {
@@ -96,12 +102,14 @@ func formatSize(b int64) string {
 
 func NewPaletteFileView(theme *theme.Theme) *PaletteFileView {
 	view := tview.NewGrid()
-	view.SetRows(3, 5, 0)
+	// view.SetRows(3, 5, 0)
 
 	topbar := tview.NewTextView()
 	topbar.SetBorderPadding(0, 0, 0, 0)
 	topbar.ScrollTo(0, 0)
 	topbar.SetBorder(true)
+  topbar.SetMaxLines(1)
+  topbar.SetTextAlign(AlignCenter)
 	topbar.SetBorderColor(theme.TopbarBorder)
 	topbar.SetDynamicColors(true)
 	topbar.SetRegions(true)
@@ -119,7 +127,7 @@ func NewPaletteFileView(theme *theme.Theme) *PaletteFileView {
 	view.AddItem(topbar, 0, 0, 1, 1, 3, 0, false)
 	view.AddItem(info, 1, 0, 1, 1, 5, 0, false)
 	view.AddItem(colorsView, 2, 0, 1, 1, 0, 0, false)
-	// view.AddItem(content, 3, 0, 1, 1, 0, 0, false)
+	// view.AddItem(content, 2, 0, 1, 1, 1, 0, false)
 
 	ft := &PaletteFileView{
 		theme:       theme,
@@ -135,15 +143,19 @@ func NewPaletteFileView(theme *theme.Theme) *PaletteFileView {
 
 // Primitive interface
 
+func (ft *PaletteFileView) UpdateSizes() {
+ //  x,y,w,h := ft.view.GetRect()
+ //  x, y, w, h := ft.view.GetInnerRect()
+	// dump.P(x, y, w, h)
+ //  ft.colorsView.SetRows(3, 5, h - 8)
+}
 func (ft *PaletteFileView) Draw(screen tcell.Screen) {
 	// x, y, w, h := ft.topbarView.GetInnerRect()
-	// dump.P(x, y, w, h)
-	// x, y, w, h = ft.topbarView.GetRect()
-	// dump.P(x, y, w, h)
 	ft.view.Draw(screen)
 }
 
 func (ft *PaletteFileView) GetRect() (int, int, int, int) {
+  // ft.UpdateSizes()
 	return ft.view.GetRect()
 }
 
@@ -180,22 +192,27 @@ func (v *PaletteFileView) SetPreview(fsnode *tree.FSNode) {
 			}
 		}
 	}()
+	i := []string{}
+  // v.contentView.SetDynamicColors(true)
 	d := LoadConfigFrom(fsnode.Path)
 	v.colorsView.SetPalettes(d)
-	v.topbarView.SetText(formatPath(fsnode.Path))
 
+  // v.colorsView.palettes.
 	if !fsnode.IsDir {
-		v.contentView.SetText(fsnode.Path)
+		// v.contentView.SetText(fsnode.Path)
 		// v.contentView.SetTitle(fsnode.Path)
 		content, _ := ioutil.ReadFile(fsnode.Path)
-		v.contentView.SetText(string(content))
-		v.contentView.ScrollTo(0, 0)
+    _, cols := StringColorizer(string(content))
+	v.topbarView.SetText(strings.Join(cols.MakeSquarePalette(false), " "))
+		// v.contentView.SetText(cs)
+		v.view.SetOffset(0,0)
 	} else {
 		v.contentView.SetText("")
 	}
 
-	i := []string{}
 	// infoHex := fmt.Sprintf("#%6x", theme.InfoLabel.Hex())
+    // i = append(i, )
+	i = append(i, color.Render(fmt.Sprintf(" <infolabel>│      Path:</> %v", formatPath(fsnode.Path))))
 	i = append(i, color.Render(fmt.Sprintf(" <infolabel>│      Mode:</> %v", fsnode.Mode)))
 	i = append(i, color.Render(fmt.Sprintf(" <infolabel>│  Modified:</> %v", fsnode.ModTime)))
 	if fsnode.Size != -1 {
@@ -206,8 +223,10 @@ func (v *PaletteFileView) SetPreview(fsnode *tree.FSNode) {
 		i = append(i, color.Render(fmt.Sprintf(" <infolabel>│ Mime Type:</> %v", fsnode.MimeType)))
 	}
 
+  v.infoView.SetDynamicColors(true)
 	v.infoView.SetText(tview.TranslateANSI(strings.Join(i, "\n")))
 	v.view.SetRows(3, len(i), len(d.GetPalettes())*4, 0)
+  v.view.SetOffset(-5, 0)
 }
 
 func formatPath(p string) string {

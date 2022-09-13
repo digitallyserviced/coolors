@@ -5,13 +5,13 @@ import (
 	"io/fs"
 	"os"
 	"path"
-	"regexp"
 	"strings"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/gookit/goutil/arrutil"
-	"github.com/gookit/goutil/dump"
+
+	// "github.com/gookit/goutil/dump"
 
 	// "github.com/gookit/goutil/dump"
 	"github.com/gookit/goutil/errorx"
@@ -39,11 +39,11 @@ type PaletteData struct {
 	Hash   uint64   `koanf:"hash"`
 }
 
-func (pd PaletteData) GetPalette() *CoolorPalette {
-	hash := HashCssColors(pd.Colors)
-	if hash != pd.Hash {
-		dump.P(fmt.Sprintf("Hashes do not match... %d != %d", hash, pd.Hash))
-	}
+func (pd PaletteData) GetPalette() *CoolorColorsPalette {
+	// hash := HashCssColors(pd.Colors)
+	// if hash != pd.Hash {
+	// 	dump.P(fmt.Sprintf("Hashes do not match... %d != %d", hash, pd.Hash))
+	// }
 	pairs := lo.Zip2(pd.Names, pd.Colors)
 	entries := lo.Map(pairs, TupleToEntry)
 	mapper := lo.FromEntries(entries)
@@ -75,10 +75,15 @@ type PaletteFile struct {
 	tmp     bool
 }
 
+type MetaData interface {
+  GetMeta() interface{}
+}
+
 type HistoryDataConfig struct {
 	*PaletteFile
 	*koanf.Koanf
 	data *CoolorPaletteData
+  Meta []MetaData
 }
 
 var (
@@ -114,7 +119,7 @@ func (pdc *HistoryDataConfig) LoadPalette(s string) Palette {
 	if arrutil.Contains(pdc.data.Metadata.Palettes, s) {
 		for _, v := range pdc.data.Palettes {
 			if v.Name == s {
-				v.GetPalette()
+				return v.GetPalette()
 			}
 		}
 	}
@@ -143,9 +148,9 @@ func (pdc *HistoryDataConfig) FixFileVersion() {
 }
 
 func (pdc *HistoryDataConfig) Save() {
-	if pdc.version != 0 && pdc.version <= pdc.GetFileVersion() {
-		panic(errorx.New("version too low"))
-	}
+	// if pdc.version != 0 && pdc.version <= pdc.GetFileVersion() {
+	// 	panic(errorx.New("version too low"))
+	// }
 	pdc.UpdateVersion(pdc.version)
 	// err := pdc.Koanf.Load(structs.Provider(pdc.data, "koanf"), nil)
 	// if err != nil {
@@ -216,6 +221,7 @@ func NewPaletteHistoryFile() *HistoryDataConfig {
 
 	name := fmt.Sprintf("palette_%x", time.Now().Unix())
 	pdc.NewTempConfigFile(name)
+  pdc.Meta = make([]MetaData, 0)
 	return pdc
 }
 
@@ -280,44 +286,36 @@ func (pdc *HistoryDataConfig) BumpVersion() {
 
 func (pdc *HistoryDataConfig) AddPalette(name string, p Palette) {
 	cp := p.GetPalette()
-	if cp == nil {
-		panic(errorx.Errorf("Unable to save %d %s to %s", cp.GetItemCount(), name, pdc.path))
-	}
-	name = fmt.Sprintf("%s.%d", name, len(pdc.data.Metadata.Palettes))
-	flat := cp.ToMap()
-	colors := make([]string, 0)
-	names := make([]string, 0)
-	for x, v := range flat {
-		// k := fmt.Sprintf("%s", x)
-		names = append(names, x)
-		colors = append(colors, v)
-		// colors[k] = v
-	}
-	pdc.data.Palettes = append(pdc.data.Palettes, PaletteData{
-		Names:  names,
-		Name:   name,
-		Colors: colors,
-		Hash:   cp.Hash(),
-	})
-	pdc.data.Metadata.Palettes = append(pdc.data.Metadata.Palettes, name)
-	pdc.UpdateVersion(cp.Hash())
-	pdc.SetConfigData(nil)
-	if pdc.NeedsSave() {
-		pdc.Save()
-	}
+  cp.UpdateHash()
+  ccm := cp.GetMeta()
+  fmt.Println(Generator().WithSeed(int64(cp.UpdateHash())).GenerateName(2),ccm.Current.Name, ccm.Named, ccm.String())
+  ccm.Update(false)
+  // fmt.Println(ccm)
 }
 
-func (cp *CoolorPalette) Hash() uint64 {
-	var hash uint64 = 0
-	for _, v := range cp.colors {
-		hash += uint64(v.color.Hex())
-	}
-	return hash
+  // if cp.Hash != hash {
+  //
+  // }
+
+func (cp *CoolorColorsPalette) UpdateHash() uint64 {
+  cp.Hash = cp.HashColors()
+  return cp.Hash
 }
 
-func (cp *CoolorPalette) ToMap() map[string]string {
+func (cp *CoolorColorsPalette) HashColors() uint64 {
+	// var hash uint64 = 0
+  hashed := lo.Reduce[*CoolorColor, uint64](cp.Colors, func(h uint64, c *CoolorColor, i int) uint64 {
+    return h + uint64(c.Color.Hex())
+  }, 0)
+	// for _, v := range cp.Colors {
+	// 	hash += uint64(v.Color.Hex())
+	// }
+	return hashed
+}
+
+func (cp *CoolorColorsPalette) ToMap() map[string]string {
 	outcols := make(map[string]string)
-	for i, v := range cp.colors {
+	for i, v := range cp.Colors {
 		k := fmt.Sprintf("color%d", i)
 		outcols[k] = v.Html()
 	}
@@ -393,25 +391,35 @@ func (pdc *HistoryDataConfig) LoadConfigFromFile(path string, overwrite bool) er
 
 // func (pdc *PaletteDataConfig) InitConfigData(k *koanf.Koanf) {
 // }
-
-func Colorizer(s string) string {
-	for _, v := range colorRegexes {
-		CheckForReg(v, s)
-	}
-	return ""
-}
-
-func CheckForReg(reg string, c string) {
-	if match := regexp.MustCompile(reg).FindAllStringSubmatch(c, -1); match != nil {
-		colors := make([]string, 0)
-		for _, c := range match {
-			if len(c) == 2 {
-				colors = append(colors, c[1])
-			}
-		}
-	}
-	// regexp.MustCompile(reg).FindAllSubmatch()
-	if matchIdxs := regexp.MustCompile(reg).FindAllStringSubmatchIndex(c, -1); matchIdxs != nil {
-		// dump.P(matchIdxs)
-	}
-}
+// func (pdc *HistoryDataConfig) AddPalette(name string, p Palette) {
+// 	cp := p.GetPalette()
+//   cp.UpdateHash()
+//   ccm := cp.GetMeta()
+//   fmt.Println(ccm.Named, ccm.String())
+//   fmt.Println(ccm)
+	// if cp == nil {
+	// 	panic(errorx.Errorf("Unable to save %d %s to %s", cp.GetItemCount(), name, pdc.path))
+	// }
+	// name = fmt.Sprintf("%s.%d", name, len(pdc.data.Metadata.Palettes))
+	// flat := cp.ToMap()
+	// colors := make([]string, 0)
+	// names := make([]string, 0)
+	// for x, v := range flat {
+	// 	// k := fmt.Sprintf("%s", x)
+	// 	names = append(names, x)
+	// 	colors = append(colors, v)
+	// 	// colors[k] = v
+	// }
+	// pdc.data.Palettes = append(pdc.data.Palettes, PaletteData{
+	// 	Names:  names,
+	// 	Name:   name,
+	// 	Colors: colors,
+	// 	Hash:   cp.Hash(),
+	// })
+	// pdc.data.Metadata.Palettes = append(pdc.data.Metadata.Palettes, name)
+	// pdc.UpdateVersion(cp.Hash())
+	// pdc.SetConfigData(nil)
+	// if pdc.NeedsSave() {
+	// 	pdc.Save()
+	// }
+// }

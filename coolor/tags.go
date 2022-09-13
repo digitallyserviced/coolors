@@ -7,21 +7,21 @@ import (
 	// "strings"
 
 	"github.com/gdamore/tcell/v2"
-	"github.com/gookit/goutil/dump"
 )
 
-var TagTypes map[string]TagTypeInfo
-
-type TagTypeFieldType uint32
+type (
+  TagTypeFieldType uint32
+)
 
 const (
 	FieldKey TagTypeFieldType = 1 << iota
 	FieldYesNo
 	FieldString
 	FieldOptions
-	FieldMultiple
 	FieldRequired
 	FieldDynamic
+	FieldMultiple
+	FieldMutuallyExclusive
 
 	MainTextField
 	SecondaryTextField
@@ -36,19 +36,20 @@ const (
 )
 
 var (
+TagTypes map[string]TagType = make(map[string]TagType)
 	TagKey         TagTypeField = NewTagTypeField("key", "tag key", reflect.TypeOf(""), FieldString)
 	TagName        TagTypeField = NewTagTypeField("name", "tag name", reflect.TypeOf(""), ListMainTextField)
 	TagDescription TagTypeField = NewTagTypeField("description", "tag description", reflect.TypeOf(""), ListSecondaryTextField)
 	TagRequired    TagTypeField = NewTagTypeField("required", "field required", reflect.TypeOf(false), FieldRequired)
 	options        []string     = []string{"one", "two"}
 	TagOptions     TagTypeField = NewTagTypeField("options", options, reflect.TypeOf(options), FieldOptions)
-	Base16Tags     TagTypeInfo
-	StatusTags     TagTypeInfo
+	Base16Tags     TagType
+	StatusTags     TagType
 )
 
 func init() {
-	TagTypes = make(map[string]TagTypeInfo)
-	Base16Tags = NewTagType("base16", "console base16 ansi colors", []TagTypeField{
+	TagTypes = make(map[string]TagType)
+	Base16Tags = NewTagTypeInfo("base16", "base16 color scheme tags", true, []TagTypeField{
 		TagKey, TagName, TagDescription, TagRequired,
 	})
 }
@@ -59,24 +60,31 @@ func (f *TagTypeField) SetOptions(data interface{}) {
 	}
 }
 
-type Tagger interface {
-	AddTag(*TagItem)
+// type TaggableItems Tagger
+// type Taggables struct {
+//   *TaggableItems
+// }
+
+type Tagging interface {
+	// AddTag(*TagItem)
+  GetItem()
 	SetTag(*TagItem)
-	SetTags([]*TagItem)
 	ClearTags()
 }
 
-type Tagged interface {
-	Tagger
-	SetTagType(*TagTypeInfo)
-	GetTag(idx int) *TagItem
+type Tagger interface {
+	Tagging
+	SetTagType(*TagType)
+	GetTagged(tag *TagItem)
 	GetTags() []*TagItem
-	GetTagsType() *TagTypeInfo
+	SetTags([]*TagItem)
+	GetTagsType() *TagType
 }
 
-type Taggable struct {
-	TagsType *TagTypeInfo
-	Tags     []*TagItem
+type Tagged struct {
+	TagType *TagType
+	Item    interface{}
+	Tags    []*TagItem
 }
 
 type TagTypeField struct {
@@ -92,8 +100,8 @@ type TagListItems struct {
 
 type TagList struct {
 	*TagListItems
-	*TagTypeInfo
-  *ScriptShortcuts
+	*TagType
+	*ScriptShortcuts
 	name string
 }
 
@@ -104,58 +112,27 @@ type TagItemData struct {
 	data map[string]interface{}
 }
 
-type TagTypeInfo struct {
-	name   string
-	desc   string
-	fields []TagTypeField
-  tagList *TagList
+type TagType struct {
+	tagList *TagList
+	*TagTypeCallbacks
+	name      string
+	desc      string
+	fields    []TagTypeField
+	exclusive bool
 }
 
-type TagTypeCallbackFunc func(tti *TagTypeInfo, ti *TagItem)
+type TagTypeCallbackFunc func(tti *TagType, ti *TagItem, tgd *Tagged)
 
-type TagTypeCallback struct {
+type TagTypeCallbacks struct {
 	callbacks map[string]*TagTypeCallbackFunc
 }
 
 type TagItem struct {
 	*TagItemData
-	*TagTypeInfo
-  *ScriptShortcut
+	*TagType
+	*ScriptShortcut
 	idx int
 }
-
-// Changed implements ListItem
-func (f TagItem) SecondaryText() string {
-	ttf := f.GetFlag(SecondaryTextField)
-  dump.P(ttf, ttf.name, f.data)
-	return f.data[ttf.name].(string)
-}
-func (f TagItem) MainText() string {
-	ttf := f.GetFlag(MainTextField)
-	dump.P(ttf, MainTextField)
-	return f.data[ttf.name].(string)
-}
-func (ti *TagItem) Shortcut() ScriptShortcut {
-  return *ti.ScriptShortcut
-}
-
-func (*TagItem) Cancelled(idx int, i interface{}, lis []*ListItem) {
-}
-
-func (*TagItem) Changed(idx int, selected bool, i interface{}, lis []*ListItem) {
-    dump.P(idx, selected, i, lis)
-}
-
-// Selected implements ListItem
-func (ti *TagItem) Selected(idx int, i interface{}, lis []*ListItem) {
-
-}
-
-func (*TagItem) Visibility()ListItemsVisibility {
-  return ListItemVisible
-}
-
-
 type TagTypeFieldValue struct {
 	*TagTypeField
 	*TagTypeFieldData
@@ -166,15 +143,114 @@ type TagListItem struct {
 	shortcut        rune
 }
 
+type TagsData struct {
+	items []*TagItemData
+}
+
+func NewTaggable(tti *TagType) *Tagged {
+	tgbl := &Tagged{
+		TagType: tti,
+		Tags:     make([]*TagItem, 0),
+	}
+	return tgbl
+}
+
+func NewTagTypeField(name string, data interface{}, typed reflect.Type, flag TagTypeFieldType) TagTypeField {
+	ttf := &TagTypeField{
+		name:     name,
+		typeFlag: flag,
+		data:     data,
+		typed:    typed,
+	}
+	return *ttf
+}
+
+func NewTagTypeInfo(name, desc string, exclusive bool, fields []TagTypeField) TagType {
+	tti := &TagType{
+		TagTypeCallbacks: &TagTypeCallbacks{
+			callbacks: make(map[string]*TagTypeCallbackFunc),
+		},
+		name:             name,
+		desc:             desc,
+		fields:           fields,
+		exclusive:        exclusive,
+	}
+	TagTypes[name] = *tti
+	return TagTypes[name]
+}
+
+func NewTagListItem(main, sec string, s rune) *TagListItem {
+	ti := &TagListItem{
+		main:      main,
+		secondary: sec,
+		shortcut:  s,
+	}
+
+	return ti
+}
+func (tti *TagType) NewTagList(name string) *TagList {
+	tl := &TagList{
+		TagListItems:    &TagListItems{items: make([]*TagItem, 0)},
+		TagType:     tti,
+		ScriptShortcuts: NewSubScriptShortcuts(),
+		name:            name,
+	}
+	tti.tagList = tl
+	return tl
+}
+
+func (tti *TagTypeCallbacks) SetCallback(name string, f TagTypeCallbackFunc) {
+  tti.callbacks[name] = &f
+}
+
+func (tti *TagTypeCallbacks) Callback(name string, tgd *Tagged, ti *TagItem) {
+  cb, ok := tti.callbacks[name]
+  if ok && cb != nil {
+    (*cb)(ti.TagType, ti, tgd)
+  }
+}
+
+// Changed implements ListItem
+func (f TagItem) SecondaryText() string {
+	ttf := f.GetFlag(SecondaryTextField)
+	// dump.P(ttf, ttf.name, f.data)
+	return f.data[ttf.name].(string)
+}
+
+func (f TagItem) MainText() string {
+	ttf := f.GetFlag(MainTextField)
+	// dump.P(ttf, MainTextField)
+	return f.data[ttf.name].(string)
+}
+
+func (ti *TagItem) Shortcut() ScriptShortcut {
+	return *ti.ScriptShortcut
+}
+
+func (*TagItem) Cancelled(idx int, i interface{}, lis []*ListItem) {
+}
+
+func (*TagItem) Changed(idx int, selected bool, i interface{}, lis []*ListItem) {
+	// dump.P(idx, selected, i, lis)
+}
+
+// Selected implements ListItem
+func (ti *TagItem) Selected(idx int, i interface{}, lis []*ListItem) {
+}
+
+func (*TagItem) Visibility() ListItemsVisibility {
+	return ListItemVisible
+}
+
 func (tti *TagList) AddItem(ti *TagItem) {
 	tti.items = append(tti.items, ti)
 }
 
 func (tti *TagList) AddTagItemWithData(args ...interface{}) *TagItem {
-  ss := tti.ScriptShortcuts.TakeNext()
+	ss := tti.TakeNext()
 	ti := &TagItem{
 		TagItemData:    tti.NewTagItemData(args...),
-		TagTypeInfo:    tti.TagTypeInfo,
+		TagType:    tti.TagType,
 		ScriptShortcut: &ss,
 		idx:            len(tti.items),
 	}
@@ -185,25 +261,25 @@ func (tti *TagList) AddTagItemWithData(args ...interface{}) *TagItem {
 func (lis *TagList) GetListItems() []*ListItem {
 	lits := make([]*ListItem, 0)
 	for _, v := range lis.items {
-	litem := ListItem(v)
-	var li *ListItem = &litem
+		litem := ListItem(v)
+		li := &litem
 		lits = append(lits, li)
 	}
 	return lits
 }
 
 func (tti *TagList) NewTagItem(tid *TagItemData) *TagItem {
-  ss := tti.ScriptShortcuts.TakeNext()
+	ss := tti.TakeNext()
 	ti := &TagItem{
 		TagItemData:    tid,
-		TagTypeInfo:    tti.TagTypeInfo,
+		TagType:    tti.TagType,
 		ScriptShortcut: &ss,
 		idx:            len(tti.items),
 	}
 	return ti
 }
 
-func (tti *TagTypeInfo) NewTagItemData(args ...interface{}) *TagItemData {
+func (tti *TagType) NewTagItemData(args ...interface{}) *TagItemData {
 	// if len(tti.fields) != len(args) {
 	//
 	// }
@@ -219,7 +295,7 @@ func (tti *TagTypeInfo) NewTagItemData(args ...interface{}) *TagItemData {
 	return tid
 }
 
-func (ttf TagTypeInfo) GetFlag(flag TagTypeFieldType) *TagTypeField {
+func (ttf TagType) GetFlag(flag TagTypeFieldType) *TagTypeField {
 	for _, v := range ttf.fields {
 		if v.HasFlag(flag) {
 			return &v
@@ -232,55 +308,10 @@ func (ttf TagTypeField) HasFlag(flag TagTypeFieldType) bool {
 	return flag&ttf.typeFlag != 0
 }
 
-func NewTagTypeField(name string, data interface{}, typed reflect.Type, flag TagTypeFieldType) TagTypeField {
-	ttf := &TagTypeField{
-		name:     name,
-		typeFlag: flag,
-		data:     data,
-		typed:    typed,
-	}
-	return *ttf
-}
-
-func NewTagType(name, desc string, fields []TagTypeField) TagTypeInfo {
-	tti := &TagTypeInfo{
-		name:   name,
-		desc:   desc,
-		fields: fields,
-	}
-	TagTypes[name] = *tti
-	return TagTypes[name]
-}
-
-func NewTagListItem(main, sec string, s rune) *TagListItem {
-	ti := &TagListItem{
-		main:      main,
-		secondary: sec,
-		shortcut:  s,
-	}
-
-	return ti
-}
-
-func (tti *TagTypeInfo) NewTagList(name string) *TagList {
-	tl := &TagList{
-		TagListItems:    &TagListItems{items: make([]*TagItem, 0)},
-		TagTypeInfo:     tti,
-		ScriptShortcuts: NewSubScriptShortcuts(),
-		name:            name,
-	}
-  tti.tagList = tl
-	return tl
-}
 
 // func (tl *TagList) AddTag(ti TagListItem) {
 // 	tl.ListItems(ti)
 // }
-
-type TagsData struct {
-	items []*TagItemData
-}
-
 func (lis *TagsData) GetItemCount() int {
 	return len(lis.items)
 }
@@ -311,67 +342,73 @@ func (f *TagListItem) GetMainTextStyle() tcell.Style {
 	return tcell.Style{}
 }
 
-func (t *Taggable) init() (notNil bool) {
-  if t == nil {
-    return false
-  }
+func (t *Tagged) init() (notNil bool) {
+	if t == nil {
+		return false
+	}
 	notNil = true
-	if  t.Tags == nil {
+	if t.Tags == nil {
 		t.Tags = make([]*TagItem, 0)
 		notNil = false
 	}
 	return notNil
 }
 
-func (t *Taggable) AddTag(ti *TagItem) {
+func (t *Tagged) AddTag(ti *TagItem) {
 	t.init()
 	t.Tags = append(t.Tags, ti)
 }
 
-func (t *Taggable) SetTagType(tt *TagTypeInfo) {
-	t.TagsType = tt
+func (t *Tagged) SetTagType(tt *TagType) {
+	t.TagType = tt
 	t.init()
 	t.ClearTags()
 }
 
-func (t *Taggable) SetTag(ti *TagItem) {
+func (t *Tagged) SetTag(ti *TagItem) {
 	t.init()
-	// t.Tags = make([]*TagItem, 0)
 	t.ClearTags()
 	t.Tags = append(t.Tags, ti)
+  t.TagType.Callback("set", t, ti)
 }
 
-func (t *Taggable) SetTags(tis []*TagItem, appendItems bool) {
+func (t *Tagged) SetTags(tis []*TagItem, appendItems bool) {
 	if t.init() && !appendItems {
 		t.Tags = make([]*TagItem, 0)
 	}
 	t.Tags = append(t.Tags, tis...)
 }
 
-func (t *Taggable) ClearTags() {
+func (t *Tagged) ClearTags() {
 	t.init()
 	t.Tags = make([]*TagItem, 0)
 }
 
-func (t *Taggable) GetTag(idx int) *TagItem {
+func (t *Tagged) GetTag(idx int) *TagItem {
 	t.init()
-	if len(t.Tags)-1 > idx {
+  if t == nil {
+    return nil
+  }
+  if len(t.Tags) == 0 {
+    return nil
+  }
+	if len(t.Tags)-1 >= idx {
 		return t.Tags[idx]
 	}
 	return nil
 }
 
-func (t *Taggable) GetTagsType() *TagTypeInfo {
-	if t.TagsType != nil {
-		return t.TagsType
+func (t *Tagged) GetTagsType() *TagType {
+	if t.TagType != nil {
+		return t.TagType
 	}
 	return nil
 }
 
-func (t *Taggable) GetTags() []*TagItem {
-  if t == nil {
-    return nil
-  }
+func (t *Tagged) GetTags() []*TagItem {
+	if t == nil {
+		return nil
+	}
 	t.init()
 	if len(t.Tags) > 0 {
 		return t.Tags
@@ -380,6 +417,7 @@ func (t *Taggable) GetTags() []*TagItem {
 }
 
 func (tl *TagList) GetTag(idx int) *TagItem {
+  
 	if idx < len(tl.items) {
 		return tl.items[idx]
 	}
@@ -387,41 +425,16 @@ func (tl *TagList) GetTag(idx int) *TagItem {
 	// return *tl.GetItem(idx).(Tagged).GetTag(idx)
 }
 
-func NewTaggable(tti *TagTypeInfo) *Taggable {
-  tgbl := &Taggable{
-  	TagsType: tti,
-  	Tags:     make([]*TagItem, 0),
-  }
-  return tgbl
-}
-
 func GetTerminalColorsAnsiTags() *TagList {
-	items := Base16Tags.NewTagList("color tags")
-	// items.ListItems =
-	// it := Base16Tags.NewTagItemData("foreground", "fg", "default foreground", true)
-	// Base16Tags.NewTagList
-	// items.TagListItems
-	// items.TagListItems.items = append(items.TagListItems.items, Base16Tags.TagListItems.NewTagItemWithData("foreground", "fg", "default foreground", true))
+	items := Base16Tags.NewTagList("base16 color scheme")
+  Base16Tags.SetCallback("set", func(tti *TagType, ti *TagItem, tgd *Tagged) {
+
+
+  })
 	items.AddTagItemWithData("fg", "foreground", "default foreground", true)
 	items.AddTagItemWithData("bg", "background", "default background", true)
 	items.AddTagItemWithData("cursor", "cursor", "cursor color", true)
-	// items.AddItem(NewTagListItem("foreground", "default foreground", 'f'))
-	// items.AddItem(NewTagListItem("background", "default background", 'b'))
-	// items.AddItem(NewTagListItem("cursor", "cursor color", 'c'))
-	ansiNames := make([]string, 0)
-	for _, v := range baseAnsiNames {
-		name := v
-		ansiNames = append(ansiNames, name)
-	}
-	for _, v := range baseAnsiNames {
-		name := fmt.Sprintf("%s %s", brightAnsiPrefix, v)
-		ansiNames = append(ansiNames, name)
-	}
-	for i, name := range ansiNames {
-		// s := rune(shortcutChars[i])
-		// items.AddItem(NewTagListItem(name, fmt.Sprintf("%d/16 ansi color %s", i, name), s))
-		// name := fmt.Sprintf("", i, name)
-		// key := strings.Replace(name, " ", "_", -1)
+	for i, name := range baseXtermAnsiColorNames {
 		desc := fmt.Sprintf("4-bit color (%d) [%s]", i, name)
 		items.AddTagItemWithData(name, name, desc, false)
 	}

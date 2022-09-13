@@ -13,7 +13,7 @@ import (
 type Square struct {
 	color *CoolorColor
 	*tview.Box
-	cp         *CoolorPalette
+	cp         *CoolorColorsPalette
 	items      []*rSquare
 	num, count int
 }
@@ -29,7 +29,7 @@ type rSquare struct {
 	num, count int
 }
 
-func (sq *Square) NewSquare(cp *CoolorPalette, x, y, size, count int, rsq int) *rSquare {
+func (sq *Square) NewSquare(cp *CoolorColorsPalette, x, y, size, count int, rsq int) *rSquare {
 	nextIdx += 1
 	count--
 	nrsq := &rSquare{
@@ -72,7 +72,7 @@ func pRand(count int, pc float64) bool {
 	return r > p
 }
 
-func NewRecursiveSquare(cp *CoolorPalette, count int) *Square {
+func NewRecursiveSquare(cp *CoolorColorsPalette, count int) *Square {
 	nextIdx = 0
 	sq := &Square{
 		Box:   tview.NewBox(),
@@ -104,7 +104,7 @@ func (sq *Square) TopInit(count int) {
 	// sq.ColorPass(sq.cp)
 }
 
-func (sq *Square) ColorPass(cp *CoolorPalette) {
+func (sq *Square) ColorPass(cp *CoolorPaletteMainView) {
 	sq.color = cp.RandomColor()
 	for _, v := range sq.items {
 		if v == nil {

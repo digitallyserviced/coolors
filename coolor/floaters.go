@@ -51,33 +51,18 @@ type (
 	ListSelectedHandler func(idx int, i interface{}, lis []ListItem)
 	ListChangedHandler  func(idx int, selected bool, i interface{}, lis []ListItem)
 )
-//
-// type ListItemSelected interface {
-// 	Selected(idx int, i interface{}, lis []ListItem)
-// 	Changed(idx int, selected bool, i interface{}, lis []ListItem)
-// }
-//
-// type ListItemText interface {
-// 	GetMainText() string
-// 	GetSecondaryText() string
-// 	GetShortcut() rune
-// }
-//
-// type ListStyles struct {
-// 	main, sec, short, sel string
-// }
-//
-// type ListItem interface {
-// 	ListItemText
-// 	ListItemSelected
-// }
 
 type CoolorColorFloater struct {
-  *tview.Flex
-  Color *CoolorColorInfo
-  Items []*tview.Primitive
+	*tview.Flex
+	Color *CoolorColorInfo
+	Items []*tview.Primitive
 }
 
+type FixedFloater struct {
+	Header *tview.TextView
+	Footer *tview.TextView
+	*RootFloatContainer
+}
 type ListFloater struct {
 	Header *tview.TextView
 	Footer *tview.TextView
@@ -195,38 +180,7 @@ func (f ListStyles) GetMainTextStyle() tcell.Style {
 
 func (f *ListFloater) Selected() {
 }
-//
-// func (f *Lister) SetItemLister(il func() []ListItem) {
-// 	f.itemsLister = il
-// }
-//
-// func (f *Lister) UpdateListItems(li []ListItem) {
-// 	f.listItems = li
-// }
-//
-// func (f *Lister) UpdateView() {
-// 	if f.itemsLister != nil {
-// 		f.items = f.itemsLister()
-// 	}
-// 	f.SetBorder(false)
-// 	f.SetBorderPadding(0, 0, 0, 0)
-// 	f.Clear()
-// 	curr := f.GetCurrentItem()
-// 	for _, v := range f.items {
-// 		main := v.GetMainText()
-// 		sec := v.GetSecondaryText()
-//     short 
-// 		short := v.GetShortcut()
-// 		selecting := func(lis ListItem) func() {
-// 			return func() {
-// 			}
-// 		}
-// 		f.AddItem(main, sec, short, selecting(*v))
-// 	}
-// 	f.SetCurrentItem(curr)
-//   // f.SetHandlers()
-// }
-//
+
 func (f *ListFloater) UpdateView() {
 	f.Container.SetBorder(true)
 	f.Container.SetDirection(tview.FlexRow)
@@ -239,192 +193,110 @@ func (f *ListFloater) UpdateView() {
 	f.GetRoot().UpdateView()
 	f.Container.AddItem(f.Footer, 1, 0, false)
 }
-// type ListItems struct {
-//   name  string
-//   items []ListItem
-// }
 
-// func NewListItems(name string) ListItems {
-//   lis := &ListItems{
-//     items: make([]ListItem, 0),
-//     name:  name,
-//   }
-//
-//   return *lis
-// }
-// func (lis *ListItems) GetItemCount() int {
-// 	return len(lis.items)
-// }
-//
-// func (lis *ListItems) GetItem(idx int) ListItem {
-// 	if len(lis.items) > idx && idx > 0 {
-// 		return lis.items[idx]
-// 	}
-// 	return nil
-// }
-//
-// func (lis *ListItems) AddItem(li ListItem) {
-// 	lis.items = append(lis.items, li)
-// }
-//
-// func (lis *ListItems) GetListItems() []ListItem {
-// 	lits := make([]ListItem, 0)
-// 	lits = append(lits, lis.items...)
-// 	return lits
-// }
-
-// type Lister struct {
-// 	*tview.List
-// 	*ListerHandler
-// 	itemsLister func() []ListItem
-// 	listItems   []ListItem
-// }
-//
-// type ListerSelectedHandler struct {
-// 	selected func(idx int, i interface{}, lis []ListItem)
-// }
-//
-// type ListerChangedHandler struct {
-// 	changed  func(idx int, selected bool, i interface{}, lis []ListItem)
-// }
-//
-// type ListerHandler struct {
-//   *ListerChangedHandler
-//   *ListerSelectedHandler
-// }
-//
-// // Changed implements ListItemSelected
-// func (lh *ListerHandler) Changed() func(idx int, selected bool, i interface{}, lis []ListItem) {
-//   return lh.changed
-// }
-//
-// // Selected implements ListItemSelected
-// func (lh *ListerHandler) Selected() func(idx int, i interface{}, lis []ListItem) {
-//   return lh.selected
-// }
-//
-// func (l *ListerHandler) SetChangedFunc(handler func(idx int, selected bool, i interface{}, lis []ListItem)) {
-// 	l.changed = handler
-// }
-//
-// func (l *ListerHandler) SetSelectedFunc(handler func(idx int, i interface{}, lis []ListItem)) {
-// 	l.selected = handler
-// }
-//
-// func NewLister(li []ListItem) *Lister {
-// 	list := &Lister{
-// 		List:          tview.NewList(),
-// 		ListerHandler: NewListerHandler(),
-// 		itemsLister:   nil,
-// 		listItems:     li,
-// 	}
-//
-//
-// 	return list
-// }
-//
-// func (list *Lister) SetHandlers() {
-// 	list.List.SetChangedFunc(func(index int, s1, s2 string, r rune) {
-//     if list == nil || list.List == nil {
-//       return
-//     }
-//     if len(list.listItems) == 0 {
-//       return
-//     }
-// 		if index < 0 {
-// 			index = len(list.listItems) + index
-// 		}
-// 		if index >= len(list.listItems) {
-// 			index = len(list.listItems) - 1
-// 		}
-// 		if index < 0 {
-// 			index = 0
-// 		}
-//
-// 		item := list.listItems[index]
-//     sel := list.GetCurrentItem() == index
-// 		item.Changed(index, sel, item, list.listItems)
-//     list.changed(index, sel, item, list.listItems)
-// 	})
-//
-// 	list.List.SetSelectedFunc(func(index int, s1, s2 string, r rune) {
-//     if list == nil || list.List == nil {
-//       return
-//     }
-//     if len(list.listItems) == 0 {
-//       return
-//     }
-// 		if index < 0 {
-// 			index = len(list.listItems) + index
-// 		}
-// 		if index >= len(list.listItems) {
-// 			index = len(list.listItems) - 1
-// 		}
-// 		if index < 0 {
-// 			index = 0
-// 		}
-//
-// 		item := list.listItems[index]
-// 		item.Selected(index, item, list.listItems)
-//     list.selected(index, item, list.listItems)
-// 	})
-// }
-//
-// func NewListerHandler() *ListerHandler {
-// 	lh := &ListerHandler{
-// 		ListerChangedHandler:  &ListerChangedHandler{
-// 			changed: func(idx int, selected bool, i interface{}, lis []ListItem) {
-// 			},
-// 		},
-// 		ListerSelectedHandler: &ListerSelectedHandler{
-// 			selected: func(idx int, i interface{}, lis []ListItem) {
-// 			},
-// 		},
-// 	}
-//
-// 	return lh
-// }
-
-func NewSelectionFloater(name string, il func() []*ListItem,sel func(lis ListItem, hdr *tview.TextView, ftr *tview.TextView), chg func(lis ListItem, hdr *tview.TextView, ftr *tview.TextView)) *ListFloater {
+func NewSelectionFloater(
+	name string,
+	il func() []*ListItem,
+	sel func(lis ListItem, hdr *tview.TextView, ftr *tview.TextView),
+	chg func(lis ListItem, hdr *tview.TextView, ftr *tview.TextView),
+) *ListFloater {
 	ler := NewLister()
 	ler.SetItemLister(il)
 
-  ler.UpdateListItems()
+	ler.UpdateListItems()
 	f := &ListFloater{
 		Header:             tview.NewTextView(),
 		Footer:             tview.NewTextView(),
 		RootFloatContainer: NewFloater(ler),
 		Lister:             ler,
 	}
-  ler.SetHandlers(func(idx int, i interface{}, lis []*ListItem) {
-    sel(*lis[idx], f.Header, f.Footer)
-  },func(idx int, selected bool, i interface{}, lis []*ListItem) {
-    chg(*lis[idx], f.Header, f.Footer)
-  })
+	ler.SetHandlers(func(idx int, i interface{}, lis []*ListItem) {
+		sel(*lis[idx], f.Header, f.Footer)
+	}, func(idx int, selected bool, i interface{}, lis []*ListItem) {
+		chg(*lis[idx], f.Header, f.Footer)
+	})
 
-  ler.SetBorderPadding(1, 1, 1, 1)
-
+	ler.SetBorderPadding(1, 1, 1, 1)
 
 	f.Header.SetDynamicColors(true)
-	f.Header.SetTextAlign(tview.AlignCenter).SetText(fmt.Sprintf("[yellow]%s[-]", name))
-	f.Header.SetBackgroundColor(theme.GetTheme().SidebarBackground).SetBorderColor(theme.GetTheme().SidebarBackground)
+	f.Header.SetTextAlign(tview.AlignCenter).
+		SetText(fmt.Sprintf("[yellow]%s[-]", name))
+	f.Header.SetBackgroundColor(theme.GetTheme().SidebarBackground).
+		SetBorderColor(theme.GetTheme().SidebarBackground)
 
 	f.Footer.SetDynamicColors(true)
-	f.Footer.SetTextAlign(tview.AlignCenter).SetText(fmt.Sprintf("[yellow]%s[-]", name))
-	f.Footer.SetBackgroundColor(theme.GetTheme().SidebarBackground).SetBorderColor(theme.GetTheme().SidebarBackground)
+	f.Footer.SetTextAlign(tview.AlignCenter).
+		SetText(fmt.Sprintf("[yellow]%s[-]", name))
+	f.Footer.SetBackgroundColor(theme.GetTheme().SidebarBackground).
+		SetBorderColor(theme.GetTheme().SidebarBackground)
 
 	f.UpdateView()
 
 	return f
 }
 
-func NewSizedFloater(nw, nh int, prop int) *RootFloatContainer {
-	if nw == 0 && nh == 0 && prop == 1 {
-		nw = 14
-		nh = 10
-		prop = 16
-	}
+func (f *FixedFloater) UpdateView() {
+  // f.Container.SetBackgroundColor(theme.GetTheme().TopbarBorder)
+  f.Container.SetBorder(false)
+  f.Flex.SetBorder(false)
+  f.Rows.SetBorder(false)
+	f.Container.SetDirection(tview.FlexRow)
+	f.Container.Clear()
+	// f.Container.AddItem(f.Header, 3, 0, false)
+	// f.Container.AddItem(f.List, 0, 6, true)
 
+	// f.Lister.UpdateView()
+
+	f.GetRoot().UpdateView()
+  // f.Header.SetBorder(true).SetBorderPadding(1, 1, 1, 1)
+	// f.Container.AddItem(f.Footer, 2, 0, false)
+}
+
+func NewFixedFloater(name string, p tview.Primitive) *FixedFloater {
+	f := &FixedFloater{
+		Header:             tview.NewTextView(),
+		Footer:             tview.NewTextView(),
+		RootFloatContainer: NewFloater(p),
+	}
+	f.RootFloatContainer.
+  SetBorder(false).
+		SetBorderPadding(0,0,1,1).
+		SetBackgroundColor(theme.GetTheme().SidebarBackground)
+	f.Container.SetBackgroundColor(theme.GetTheme().SidebarBackground)
+	f.RootFloatContainer.Rows.Clear()
+	f.RootFloatContainer.Rows.AddItem(f.Container, 0, 10, true)
+	f.RootFloatContainer.Clear()
+	f.RootFloatContainer.AddItem(nil, 0, 70, false)
+	f.RootFloatContainer.AddItem(f.Rows, 0, 30, true)
+
+	f.Header.SetDynamicColors(true)
+	f.Header.SetTextAlign(tview.AlignCenter).
+		SetText(fmt.Sprintf("[yellow]%s[-]", name)).SetBorderPadding(1, 1, 1, 1)
+	f.Header.SetBackgroundColor(theme.GetTheme().SidebarLines).
+		SetBorderColor(theme.GetTheme().SidebarBackground)
+	bw := f.Header.BatchWriter()
+	bw.Close()
+
+	f.Footer.SetDynamicColors(true)
+	f.Footer.SetTextAlign(tview.AlignCenter).
+		SetText(fmt.Sprintf("[yellow]%s[-]", name))
+	f.Footer.SetBackgroundColor(theme.GetTheme().SidebarBackground).
+		SetBorderColor(theme.GetTheme().SidebarBackground)
+
+	f.UpdateView()
+
+	return f
+}
+
+// func NewFixedFloater(nw, nh int, prop int) *RootFloatContainer {
+//   r := NewSizedFloater(0,0,0)
+//   r.Clear()
+//   r.Rows.Clear()
+//   r.AddItem(item tview.Primitive, fixedSize int, proportion int, focus bool)
+//   return r
+// }
+
+func NewSizedFloater(nw, nh int, prop int) *RootFloatContainer {
 	f := &RootFloatContainer{
 		Flex:          tview.NewFlex(),
 		Rows:          tview.NewFlex(),
@@ -438,10 +310,23 @@ func NewSizedFloater(nw, nh int, prop int) *RootFloatContainer {
 		},
 	}
 
+  f.Flex.SetBackgroundColor(theme.GetTheme().SidebarBackground)
 	f.SetDirection(tview.FlexColumn)
 	f.Rows.SetDirection(tview.FlexRow)
 	f.Container.SetBorder(true)
 	f.Container.SetDirection(tview.FlexRow)
+
+	f.Center(nw, nh, prop)
+
+	return f
+}
+
+func (f *RootFloatContainer) Center(nw, nh int, prop int) {
+	if nw == 0 && nh == 0 && prop == 1 {
+		nw = 14
+		nh = 10
+		prop = 16
+	}
 
 	nwp := math.Abs(float64(nw)) / 100.0
 	nhp := math.Abs(float64(nh)) / 100.0
@@ -495,8 +380,6 @@ func NewSizedFloater(nw, nh int, prop int) *RootFloatContainer {
 		f.Rows.AddItem(f.Container, 0, ph, true)
 		f.Rows.AddItem(nil, 0, padh, false)
 	}
-
-	return f
 }
 
 func NewFloater(i tview.Primitive) *RootFloatContainer {
@@ -507,24 +390,26 @@ func NewFloater(i tview.Primitive) *RootFloatContainer {
 }
 
 func (f *RootFloatContainer) InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
-	return f.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
-		handler := f.Item.InputHandler()
-		handler(event, setFocus)
-		if event.Key() == tcell.KeyEscape {
-			if f.cancel != nil {
-				f.cancel()
+	return f.WrapInputHandler(
+		func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
+			handler := f.Item.InputHandler()
+			handler(event, setFocus)
+			if event.Key() == tcell.KeyEscape {
+				if f.cancel != nil {
+					f.cancel()
+				}
+				name, _ := MainC.pages.GetFrontPage()
+				MainC.pages.HidePage(name)
 			}
-			name, _ := MainC.pages.GetFrontPage()
-			MainC.pages.HidePage(name)
-		}
-		// if f.captureInput {
-		//   event = nil
-		// }
-	})
+			// if f.captureInput {
+			//   event = nil
+			// }
+		},
+	)
 }
 
 func (f *RootFloatContainer) UpdateView() {
-	f.Container.AddItem(f.Item, 0, 6, true)
+	f.Container.AddItem(f.Item, 0, 8, true)
 }
 
 //
@@ -552,7 +437,7 @@ func (cci *CoolorColorInfo) UpdateColor(ncc *CoolorColor) {
 	fcc.SetStatic(true)
 	fcc.SetPlain(true)
 	cci.CoolorColor = fcc
-	cci.color = fcc.color
+	cci.Color = fcc.Color
 	cci.UpdateView()
 }
 
@@ -595,29 +480,78 @@ func (cci *CoolorColorInfo) UpdateView() {
 }
 
 func (cci *CoolorColorInfo) ColorInfoTable() {
-	tcol := MakeColorFromTcell(*cci.color)
+	tcol := MakeColorFromTcell(*cci.Color)
 	cci.details.AddCssValue("hex", cci.Html())
 	h, s, l := tcol.Hsl()
-	cci.details.AddCssValue("hsl", fmt.Sprintf("[yellow:-:b] hsl(%0.2f, %0.2f, %0.2f) [-:-:-]", h, s, l))
+	cci.details.AddCssValue(
+		"hsl",
+		fmt.Sprintf("[yellow:-:b] hsl(%0.2f, %0.2f, %0.2f) [-:-:-]", h, s, l),
+	)
 	r, g, b := tcol.RGB255()
 	lr, lg, lb := tcol.LinearRgb()
-	cci.details.AddCssValue("rgb", fmt.Sprintf("[yellow:-:b] rgb(%d, %d, %d) [-:-:-]", r, g, b))
-	cci.details.AddCssValue("srgb", fmt.Sprintf("[yellow:-:b] rgb(%0.2f, %0.2f, %0.2f) [-:-:-]", lr, lg, lb))
+	cci.details.AddCssValue(
+		"rgb",
+		fmt.Sprintf("[yellow:-:b] rgb(%d, %d, %d) [-:-:-]", r, g, b),
+	)
+	cci.details.AddCssValue(
+		"srgb",
+		fmt.Sprintf("[yellow:-:b] rgb(%0.2f, %0.2f, %0.2f) [-:-:-]", lr, lg, lb),
+	)
 	// cci.details.AddCssValue("rgba", fmt.Sprintf("[yellow:-:b] rgba(%d, %d, %d, %d) [-:-:-]", r, g, b, a))
 	h, s, v := tcol.Hsv()
-	cci.details.AddCssValue("hsv", fmt.Sprintf("[yellow:-:b] hsl(%0.2f, %0.2f, %0.2f) [-:-:-]", h, s, v))
+	cci.details.AddCssValue(
+		"hsv",
+		fmt.Sprintf("[yellow:-:b] hsl(%0.2f, %0.2f, %0.2f) [-:-:-]", h, s, v),
+	)
 	l, c, h := tcol.LuvLCh()
-	cci.details.AddCssValue("LuvLCh", fmt.Sprintf("[yellow:-:b] Light: %0.2f Chroma: %0.2f Hue: %0.2f) [-:-:-]", l, c, h))
+	cci.details.AddCssValue(
+		"LuvLCh",
+		fmt.Sprintf(
+			"[yellow:-:b] Light: %0.2f Chroma: %0.2f Hue: %0.2f) [-:-:-]",
+			l,
+			c,
+			h,
+		),
+	)
 	x, y, z := tcol.Xyz()
-	cci.details.AddCssValue("XYZ", fmt.Sprintf("[yellow:-:b] X: %0.2f Y: %0.2f Z: %0.2f) [-:-:-]", x, y, z))
+	cci.details.AddCssValue(
+		"XYZ",
+		fmt.Sprintf("[yellow:-:b] X: %0.2f Y: %0.2f Z: %0.2f) [-:-:-]", x, y, z),
+	)
 	ciex, ciey, ciey2 := tcol.Xyy()
-	cci.details.AddCssValue("xyY", fmt.Sprintf("[yellow:-:b] x: %0.2f y: %0.2f Y: %0.2f) [-:-:-]", ciex, ciey, ciey2))
+	cci.details.AddCssValue(
+		"xyY",
+		fmt.Sprintf(
+			"[yellow:-:b] x: %0.2f y: %0.2f Y: %0.2f) [-:-:-]",
+			ciex,
+			ciey,
+			ciey2,
+		),
+	)
 	ciel, ciea, cieb := tcol.Lab()
-	cci.details.AddCssValue("L*a*b", fmt.Sprintf("[yellow:-:b] L: %0.2f a: %0.2f b: %0.2f) [-:-:-]", ciel, ciea, cieb))
+	cci.details.AddCssValue(
+		"L*a*b",
+		fmt.Sprintf(
+			"[yellow:-:b] L: %0.2f a: %0.2f b: %0.2f) [-:-:-]",
+			ciel,
+			ciea,
+			cieb,
+		),
+	)
 }
 
 var (
-	primaryCssValues    []string = []string{"hex", "rgb", "srgb", "hsl", "hsv", "LuvLCh", "XYZ", "xyY", "L*a*b"}
+	primaryCssValues []string = []string{
+		"hex",
+		"rgb",
+		"srgb",
+		"hsl",
+		"hsv",
+		"LuvLCh",
+		"XYZ",
+		"xyY",
+		"L*a*b",
+	}
 	selectableCssValues []string
 )
 
@@ -694,7 +628,7 @@ type PaletteFloater struct {
 	Palette *CoolorPaletteContainer
 }
 
-func NewScratchPaletteFloater(cp *CoolorPalette) *PaletteFloater {
+func NewScratchPaletteFloater(cp *CoolorColorsPalette) *PaletteFloater {
 	spf := &PaletteFloater{
 		Flex:    tview.NewFlex(),
 		Palette: NewCoolorPaletteContainer(cp),
@@ -707,7 +641,9 @@ func NewScratchPaletteFloater(cp *CoolorPalette) *PaletteFloater {
 	return spf
 }
 
-func NewCoolorPaletteContainer(cp *CoolorPalette) *CoolorPaletteContainer {
+func NewCoolorPaletteContainer(
+	cp *CoolorColorsPalette,
+) *CoolorPaletteContainer {
 	p := cp.GetPalette()
 	p.Plainify(true)
 	p.Sort()
@@ -718,29 +654,33 @@ func NewCoolorPaletteContainer(cp *CoolorPalette) *CoolorPaletteContainer {
 	}
 	cpc.SetBorders(1, 1, 0, 0, 0, 0)
 	cpc.SetTitle("")
-	cpc.Frame.SetBorder(true).SetBorderPadding(0, 0, 1, 1).SetBorderColor(theme.GetTheme().TopbarBorder)
+	cpc.Frame.SetBorder(true).
+		SetBorderPadding(0, 0, 1, 1).
+		SetBorderColor(theme.GetTheme().TopbarBorder)
 	return cpc
 }
 
 func (ccf *CoolorColorFloater) InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
-	return ccf.WrapInputHandler(func(event *tcell.EventKey, _ func(p tview.Primitive)) {
-		ch := event.Rune()
-		// kp := event.Key()
+	return ccf.WrapInputHandler(
+		func(event *tcell.EventKey, _ func(p tview.Primitive)) {
+			ch := event.Rune()
+			// kp := event.Key()
 
-		num, err := strconv.ParseInt(fmt.Sprintf("%c", ch), 10, 8)
-		if err != nil {
-			return
-		}
-		if num >= 0 && int(num) < len(selectableCssValues) {
-			name := selectableCssValues[num]
-			ccf.Color.details.selected = name
-			ccf.Color.UpdateView()
-		}
-		// re , _ := regexp.Compile("[0-9]")
-		// if re.MatchString(fmt.Sprintf("%c", ch)) {
-		//
-		// }
-	})
+			num, err := strconv.ParseInt(fmt.Sprintf("%c", ch), 10, 8)
+			if err != nil {
+				return
+			}
+			if num >= 0 && int(num) < len(selectableCssValues) {
+				name := selectableCssValues[num]
+				ccf.Color.details.selected = name
+				ccf.Color.UpdateView()
+			}
+			// re , _ := regexp.Compile("[0-9]")
+			// if re.MatchString(fmt.Sprintf("%c", ch)) {
+			//
+			// }
+		},
+	)
 }
 
 // vim: ts=2 sw=2 et ft=go

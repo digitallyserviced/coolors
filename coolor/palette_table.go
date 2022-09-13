@@ -1,8 +1,10 @@
 package coolor
 
 import (
+	"github.com/digitallyserviced/coolors/theme"
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
+	// "github.com/gookit/goutil/dump"
 )
 
 type CoolorPaletteContainer struct {
@@ -11,42 +13,79 @@ type CoolorPaletteContainer struct {
 }
 
 type PaletteTableCell struct {
-	*tview.Box
+	// *tview.Box
+	*tview.TableCell
 	Color *CoolorColor
 }
+
 type PaletteTable struct {
-	*tview.Flex
-	Palette *CoolorPalette
+	*tview.Table
+	Palette *CoolorColorsPalette
+}
+
+func (pt *PaletteTable) UpdateView(w, h int) {
+	// pt.SetCell(0, 0, tview.NewTableCell(" ").SetTransparency(true))
+	// pt.SetCell(0, cols+1, tview.NewTableCell(" ").SetTransparency(true))
+	pt.ResetCells()
+}
+
+func (pt *PaletteTable) ResetCells() {
+	x, y, w, h := pt.GetInnerRect()
+	_, _, _, _ = x, y, w, h
+	// cols := pt.Palette.Len()
+	// colw := (w) / cols
+	pt.Palette.Each(func(cc *CoolorColor, idx int) {
+		tc := NewPaletteTableCell(cc)
+		// tc.SetText(strings.Repeat("▉", colw))
+		// tc.SetText("").SetBackgroundColor(*cc.color)
+		tc.SetExpansion(1)
+		pt.SetCell(0, idx, tc.TableCell)
+		pt.SetCell(1, idx, tc.TableCell)
+	})
 }
 
 func NewPaletteTableCell(cc *CoolorColor) *PaletteTableCell {
-	ptc := &PaletteTableCell{
-		// TableCell: tview.NewTableCell(fmt.Sprintf(" \n %s \n ", cc.TVPreview())),
-		Box:   MakeBoxItem("", cc.Html()),
-		Color: cc,
+	tc := &PaletteTableCell{
+		// Box:   MakeBoxItem("", cc.Html()),
+		TableCell: tview.NewTableCell(""),
+		Color:     cc,
 	}
-	ptc.SetBackgroundColor(*cc.color)
+	// tc.SetSelectable(true)
+	tc.SetAlign(AlignCenter)
+	tc.SetTransparency(true) //.SetTextColor(cc.GetFgColor())
+	// pt.SetBackgroundColor(*cc.color)
 	// ptc.TableCell.SetAlign(tview.AlignCenter).SetTransparency(false)
-	return ptc
+	return tc
 }
 
-func NewPaletteTable(cp *CoolorPalette) *PaletteTable {
+func NewPaletteTable(cp *CoolorColorsPalette) *PaletteTable {
 	pt := &PaletteTable{
-		// Table:   tview.NewTable(),
-		Flex:    tview.NewFlex(),
+		Table:   tview.NewTable(),
 		Palette: cp,
 	}
+  pt.SetSelectedStyle(tcell.StyleDefault.Normal())
+  pt.SetSelectionChangedFunc(func(row, column int) {
+    pt.GetCell(row,column).SetStyle(tcell.StyleDefault.Normal().Reverse(false).Blink(true))
+  })
+  pt.SetSelectedFunc(func(row, column int) {
+    c:=pt.GetCell(row,column)
+    c.SetStyle(tcell.StyleDefault.Normal().Reverse(false).Blink(true))
+    c.SetText("*")
+    // dump.P(row, column, pt.Palette.GetItem(column).TerminalPreview())
+  })
+	pt.SetDrawFunc(func(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
+		pt.UpdateView(width, height)
+		return x, y, width, height
+	})
+	pt.SetBackgroundColor(theme.GetTheme().ContentBackground)
+	pt.SetSelectable(false, true)
+  
+	pt.SetOffset(0, 0)
+	pt.SetSeparator(' ')
 	return pt
 }
 
 func (pt *PaletteTable) Draw(s tcell.Screen) {
-	pt.Clear()
-	pt.SetDirection(tview.FlexColumn)
-	x, y, w, h := pt.GetInnerRect()
-	_, _, _, _ = x, y, w, h
-	pt.Palette.Each(func(cc *CoolorColor, _ int) {
-		pt.AddItem(NewPaletteTableCell(cc), 0, 1, false)
-	})
-	pt.Flex.Draw(s)
+	pt.SetOffset(0, 0)
+	pt.Table.Draw(s)
 }
-

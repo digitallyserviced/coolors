@@ -3,7 +3,6 @@ package coolor
 import (
 	"fmt"
 
-	"github.com/gookit/goutil/dump"
 	"github.com/samber/lo"
 )
 
@@ -11,9 +10,12 @@ var SubShortcuts *ScriptShortcuts
 var SuperShortcuts *ScriptShortcuts
 
 type ScriptShortcuts struct {
-	txtScriptMap               map[rune]ScriptShortcut
-	used, origScript, origText []rune
-	wrapBegin, wrapEnd         string
+	txtScriptMap map[rune]ScriptShortcut
+	wrapBegin    string
+	wrapEnd      string
+	used         []rune
+	origScript   []rune
+	origText     []rune
 }
 
 func (sss *ScriptShortcuts) Give(short ScriptShortcut) {
@@ -21,14 +23,14 @@ func (sss *ScriptShortcuts) Give(short ScriptShortcut) {
 }
 
 func (sss *ScriptShortcuts) Take(txt rune) ScriptShortcut {
-	dump.P(txt, sss.used, sss.origText)
+	// dump.P(txt, sss.used, sss.origText)
 	if lo.Contains[rune](sss.used, txt) {
 		short := sss.TakeNext()
 		return short
 	}
 	short := sss.txtScriptMap[txt]
 	sss.used = append(sss.used, txt)
-	dump.P(short, sss.txtScriptMap)
+	// dump.P(short, sss.txtScriptMap)
 	return short
 }
 
@@ -36,8 +38,7 @@ func (sss *ScriptShortcuts) Clear() {
 	sss.used = make([]rune, 0)
 }
 func (sss *ScriptShortcuts) Avail() []rune {
-	ava, avail := lo.Difference[rune](sss.used, sss.origText)
-	dump.P(ava, avail)
+  _, avail := lo.Difference[rune](sss.used, sss.origText)
 	return avail
 }
 func (sss *ScriptShortcuts) SetWrapperStrings(b, e string) {
@@ -103,9 +104,10 @@ func NewSubScriptShortcuts() *ScriptShortcuts {
 }
 
 type ScriptShortcut struct {
-	text               rune
-	script             rune
-	wrapBegin, wrapEnd string
+	wrapBegin string
+	wrapEnd   string
+	text      rune
+	script    rune
 }
 
 func NewScriptShortcut(text, sub rune) ScriptShortcut {
