@@ -71,7 +71,7 @@ func randomColor() tcell.Color {
 }
 
 func GenerateRandomCoolors(count int) []*Coolor {
-	tcols := make(Coolors, count)
+	tcols := make([]*Coolor, count)
 	for i := range tcols {
 		tcols[i] = MakeRandomCoolor()
 	}

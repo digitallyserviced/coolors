@@ -8,12 +8,16 @@ require (
 	github.com/gdamore/tcell/v2 v2.5.2
 	github.com/gookit/goutil v0.5.7
 	github.com/jphsd/graphics2d v0.0.0-20220717174954-0a0ff2476d4b
+	github.com/lechuckroh/websocket-proxy-server v0.0.0-20210612155232-f56764904a7a
 	github.com/lucasb-eyer/go-colorful v1.2.0
 	github.com/mazznoer/colorgrad v0.9.0
 	github.com/samber/lo v1.26.0
 	github.com/timshannon/bolthold v0.0.0-20210913165410-232392fc8a6a
 	github.com/vmihailenco/msgpack/v5 v5.3.5
+	go.etcd.io/bbolt v1.3.6
+	go.kuoruan.net/v8go-polyfills v0.4.0
 	golang.org/x/term v0.0.0-20210220032956-6a3ed077a48d
+	rogchap.com/v8go v0.6.0
 )
 
 require (
@@ -25,6 +29,7 @@ require (
 	github.com/dgraph-io/badger/v3 v3.2103.1 // indirect
 	github.com/dgraph-io/ristretto v0.1.0 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
+	github.com/evanw/esbuild v0.12.15 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/gizak/termui v0.0.0-20181228210747-b136f68f55f1 // indirect
@@ -44,7 +49,6 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pyk/byten v0.0.0-20140925233358-f847a130bf6d // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
-	go.etcd.io/bbolt v1.3.6 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	golang.org/x/net v0.0.0-20211015210444-4f30a5c0130f // indirect
 	google.golang.org/appengine v1.4.0 // indirect
@@ -53,6 +57,7 @@ require (
 )
 
 require (
+	github.com/bfanger/enhanced-v8go v0.0.0-20210731224451-39d5857d3eca
 	github.com/creack/pty v1.1.18
 	github.com/divan/expvarmon v0.0.0-20190204123027-8bf297f0fa5d
 	github.com/docker/docker v20.10.18+incompatible
@@ -62,7 +67,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.13
 	github.com/mazznoer/csscolorparser v0.1.2 // indirect
 	github.com/pascaldekloe/name v1.0.0 // indirect
-	github.com/rivo/uniseg v0.3.0
+	github.com/rivo/uniseg v0.4.2
 	github.com/timshannon/badgerhold/v4 v4.0.2
 	github.com/xo/terminfo v0.0.0-20210125001918-ca9a967f8778 // indirect
 	golang.org/x/exp v0.0.0-20220303212507-bbda1eaf7a17 // indirect

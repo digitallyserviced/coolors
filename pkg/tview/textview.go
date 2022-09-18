@@ -1243,6 +1243,10 @@ func (t *TextView) Draw(screen tcell.Screen) {
 		t.index = nil
 		t.lineOffset = 0
 	}
+
+  if t.scrollable {
+    t.DrawOverflow(screen, t.lineOffset != 0, !t.trackEnd)
+  }
 }
 
 // InputHandler returns the handler for this primitive.

@@ -84,7 +84,12 @@ func (li listerItem) Shortcut() rune {
 func (li listerItem) Selected(idx int, i interface{}, lis []*ListItem) {
 }
 
-func (li listerItem) Changed(idx int, selected bool, i interface{}, lis []*ListItem) {
+func (li listerItem) Changed(
+	idx int,
+	selected bool,
+	i interface{},
+	lis []*ListItem,
+) {
 }
 
 type ListerHighlightType uint
@@ -125,10 +130,18 @@ type Lister struct {
 // NewList returns a new form.
 func NewLister() *Lister {
 	list := &Lister{
-		selectedStyle:      tcell.StyleDefault.Foreground(tview.Styles.PrimitiveBackgroundColor).Background(tview.Styles.PrimaryTextColor),
-		mainTextStyle:      tcell.StyleDefault.Foreground(tview.Styles.PrimaryTextColor),
-		secondaryTextStyle: tcell.StyleDefault.Foreground(tview.Styles.TertiaryTextColor),
-		shortcutStyle:      tcell.StyleDefault.Foreground(tview.Styles.SecondaryTextColor),
+		selectedStyle: tcell.StyleDefault.Foreground(
+			tview.Styles.PrimitiveBackgroundColor,
+		),
+		mainTextStyle: tcell.StyleDefault.Foreground(
+			tview.Styles.PrimaryTextColor,
+		),
+		secondaryTextStyle: tcell.StyleDefault.Foreground(
+			tview.Styles.TertiaryTextColor,
+		),
+		shortcutStyle: tcell.StyleDefault.Foreground(
+			tview.Styles.SecondaryTextColor,
+		),
 		selected: func(index int, mainText string, secondaryText string, shortcut rune) {
 		},
 		changed: func(index int, mainText string, secondaryText string, shortcut rune) {
@@ -174,7 +187,12 @@ func (l *Lister) SetCurrentItem(index int) *Lister {
 
 	if index != l.currentItem && l.changed != nil {
 		item := *l.items[index]
-		l.changed(index, item.MainText(), item.SecondaryText(), item.Shortcut().Text())
+		l.changed(
+			index,
+			item.MainText(),
+			item.SecondaryText(),
+			item.Shortcut().Text(),
+		)
 	}
 
 	l.currentItem = index
@@ -182,7 +200,10 @@ func (l *Lister) SetCurrentItem(index int) *Lister {
 	return l
 }
 
-func (l *Lister) Each(flag ListItemsVisibility, f func(i interface{}, idx int, visIdx int)) {
+func (l *Lister) Each(
+	flag ListItemsVisibility,
+	f func(lsi ListItem, idx int, visIdx int),
+) {
 	index := 0
 	for i, v := range l.items {
 		if v == nil {
@@ -190,7 +211,7 @@ func (l *Lister) Each(flag ListItemsVisibility, f func(i interface{}, idx int, v
 		}
 		var li ListItem = *v
 		if flag&li.Visibility() != 0 || flag == ListItemDefault {
-			f(li, i, index)
+			f(*v, i, index)
 			index += 1
 		}
 	}
@@ -207,7 +228,7 @@ func (l *Lister) SetCurrent(i interface{}) *Lister {
 			index = num
 		}
 	}
-  l.SetCurrentItem(index)
+	l.SetCurrentItem(index)
 	return l
 }
 
@@ -279,7 +300,12 @@ func (l *Lister) RemoveItem(index int) *Lister {
 	// Fire "changed" event for removed items.
 	if previousCurrentItem == index && l.changed != nil {
 		item := *l.items[l.currentItem]
-		l.changed(l.currentItem, item.MainText(), item.SecondaryText(), item.Shortcut().Text())
+		l.changed(
+			l.currentItem,
+			item.MainText(),
+			item.SecondaryText(),
+			item.Shortcut().Text(),
+		)
 	}
 
 	return l
@@ -347,7 +373,10 @@ func (l *Lister) SetSelectedBackgroundColor(color tcell.Color) *Lister {
 // func (li listerItem) Changed(idx int, selected bool, i interface{}, lis []*ListItem) {
 // }
 
-func (list *Lister) SetHandlers(sel func(idx int, i interface{}, lis []*ListItem), chg func(idx int, selected bool, i interface{}, lis []*ListItem)) {
+func (list *Lister) SetHandlers(
+	sel func(idx int, i interface{}, lis []*ListItem),
+	chg func(idx int, selected bool, i interface{}, lis []*ListItem),
+) {
 	// items := &list.items
 	list.SetChangedFunc(func(index int, s1, s2 string, r rune) {
 		// tem := list.GetItem(index)
@@ -369,11 +398,19 @@ func (list *Lister) SetHandlers(sel func(idx int, i interface{}, lis []*ListItem
 		}
 
 		item := *list.items[index]
-		selItem := list.GetCurrentItem() == index
-		if chg != nil {
-			chg(index, selItem, item, list.items)
-		}
-		item.Changed(index, selItem, item, list.items)
+		// selItem := list.GetCurrentItem() == index
+		MainC.app.QueueUpdateDraw(func() {
+			list.Each(
+				ListItemDefault|ListItemVisible,
+				func(lsi ListItem, idx, visIdx int) {
+					selItem := list.GetCurrentItem() == idx
+					if chg != nil {
+						chg(idx, selItem, lsi, list.items)
+					}
+					item.Changed(idx, selItem, lsi, list.items)
+				},
+			)
+		})
 	})
 
 	list.SetSelectedFunc(func(index int, s1, s2 string, r rune) {
@@ -448,7 +485,9 @@ func (l *Lister) SetWrapAround(wrapAround bool) *Lister {
 //
 // This function is also called when the first item is added or when
 // SetCurrentItem() is called.
-func (l *Lister) SetChangedFunc(handler func(index int, mainText string, secondaryText string, shortcut rune)) *Lister {
+func (l *Lister) SetChangedFunc(
+	handler func(index int, mainText string, secondaryText string, shortcut rune),
+) *Lister {
 	l.changed = handler
 	return l
 }
@@ -457,7 +496,9 @@ func (l *Lister) SetChangedFunc(handler func(index int, mainText string, seconda
 // list item by pressing Enter on the current selection. The function receives
 // the item's index in the list of items (starting with 0), its main text,
 // secondary text, and its shortcut rune.
-func (l *Lister) SetSelectedFunc(handler func(int, string, string, rune)) *Lister {
+func (l *Lister) SetSelectedFunc(
+	handler func(int, string, string, rune),
+) *Lister {
 	l.selected = handler
 	return l
 }
@@ -533,7 +574,9 @@ func (l *Lister) InsertItem(index int, item *ListItem) *Lister {
 
 	// Insert item (make space for the new item, then shift and insert).
 	l.items = append(l.items, nil)
-	if index < len(l.items)-1 { // -1 because l.items has already grown by one item.
+	if index < len(
+		l.items,
+	)-1 { // -1 because l.items has already grown by one item.
 		copy(l.items[index+1:], l.items[index:])
 	}
 
@@ -651,7 +694,10 @@ func (l *Lister) FindVisibleItems(flag ListItemsVisibility) (indices []int) {
 	return indices
 }
 
-func (l *Lister) FindItems(mainSearch, secondarySearch string, mustContainBoth, ignoreCase bool) (indices []int) {
+func (l *Lister) FindItems(
+	mainSearch, secondarySearch string,
+	mustContainBoth, ignoreCase bool,
+) (indices []int) {
 	if mainSearch == "" && secondarySearch == "" {
 		return
 	}
@@ -674,7 +720,8 @@ func (l *Lister) FindItems(mainSearch, secondarySearch string, mustContainBoth, 
 		mainContained := strings.Contains(mainText, mainSearch)
 		secondaryContained := strings.Contains(secondaryText, secondarySearch)
 		if mustContainBoth && mainContained && secondaryContained ||
-			!mustContainBoth && (mainText != "" && mainContained || secondaryText != "" && secondaryContained) {
+			!mustContainBoth &&
+				(mainText != "" && mainContained || secondaryText != "" && secondaryContained) {
 			indices = append(indices, index)
 		}
 	}
@@ -705,7 +752,7 @@ func (l *Lister) Clear() *Lister {
 
 // Draw draws this primitive onto the screen.
 func (l *Lister) Draw(screen tcell.Screen) {
-	l.DrawForSubclass(screen, l)
+	l.Box.DrawForSubclass(screen, l)
 
 	// Determine the dimensions.
 	x, y, width, height := l.GetInnerRect()
@@ -753,7 +800,8 @@ func (l *Lister) Draw(screen tcell.Screen) {
 	si := 0
 	for index, itemP := range l.items {
 		item := (*itemP)
-		if index < l.itemOffset || item.Visibility()&(ListItemDefault|ListItemVisible) == 0 {
+		if index < l.itemOffset ||
+			item.Visibility()&(ListItemDefault|ListItemVisible) == 0 {
 			continue
 		}
 
@@ -765,11 +813,31 @@ func (l *Lister) Draw(screen tcell.Screen) {
 		if showShortcuts && item.Shortcut().Script() != 0 {
 			shortStr := fmt.Sprintf(" %s", item.Shortcut().String())
 			dump.P(shortStr)
-			printWithStyle(screen, shortStr, x-5, y, 0, len(shortStr), AlignLeft, l.shortcutStyle, true)
+			printWithStyle(
+				screen,
+				shortStr,
+				x-5,
+				y,
+				0,
+				len(shortStr),
+				AlignLeft,
+				l.shortcutStyle,
+				true,
+			)
 		}
 
 		// Main text.
-		_, printedWidth, _, end := printWithStyle(screen, item.MainText(), x, y, l.horizontalOffset, width, tview.AlignLeft, l.mainTextStyle, true)
+		_, printedWidth, _, end := printWithStyle(
+			screen,
+			item.MainText(),
+			x,
+			y,
+			l.horizontalOffset,
+			width,
+			tview.AlignLeft,
+			l.mainTextStyle,
+			true,
+		)
 		if printedWidth > maxWidth {
 			maxWidth = printedWidth
 		}
@@ -809,7 +877,17 @@ func (l *Lister) Draw(screen tcell.Screen) {
 				// 	highlightSymbol = fmt.Sprintf("%s", "┃")
 			}
 			if l.highlightType != ListerHighlightDefault {
-				printWithStyle(screen, highlightSymbol, x-5, y, 0, len(highlightSymbol), AlignLeft, tcell.StyleDefault.Foreground(tcell.ColorRed), true)
+				printWithStyle(
+					screen,
+					highlightSymbol,
+					x-5,
+					y,
+					0,
+					len(highlightSymbol),
+					AlignLeft,
+					tcell.StyleDefault.Foreground(tcell.ColorRed),
+					true,
+				)
 			}
 		}
 
@@ -821,7 +899,17 @@ func (l *Lister) Draw(screen tcell.Screen) {
 
 		// Secondary text.
 		if l.showSecondaryText {
-			_, printedWidth, _, end := printWithStyle(screen, item.SecondaryText(), x, y, l.horizontalOffset, width, tview.AlignLeft, l.secondaryTextStyle, true)
+			_, printedWidth, _, end := printWithStyle(
+				screen,
+				item.SecondaryText(),
+				x,
+				y,
+				l.horizontalOffset,
+				width,
+				tview.AlignLeft,
+				l.secondaryTextStyle,
+				true,
+			)
 			if printedWidth > maxWidth {
 				maxWidth = printedWidth
 			}
@@ -845,121 +933,139 @@ func (l *Lister) Draw(screen tcell.Screen) {
 
 // InputHandler returns the handler for this primitive.
 func (l *Lister) InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
-	return l.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
-		if event.Key() == tcell.KeyF40 {
-			if l.done != nil {
-				l.done()
+	return l.WrapInputHandler(
+		func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
+			if event.Key() == tcell.KeyF40 {
+				if l.done != nil {
+					l.done()
+				}
+				return
 			}
-			return
-		}
-		if event.Key() == tcell.KeyEscape {
-			if l.canceled != nil {
-				if l.currentItem >= 0 && l.currentItem < len(l.items) {
-					item := *l.items[l.currentItem]
-					item.Cancelled(l.currentItem, item, l.items)
-					if l.selected != nil {
-						l.canceled()
+			if event.Key() == tcell.KeyEscape {
+				if l.canceled != nil {
+					if l.currentItem >= 0 && l.currentItem < len(l.items) {
+						item := *l.items[l.currentItem]
+						item.Cancelled(l.currentItem, item, l.items)
+						if l.selected != nil {
+							l.canceled()
+						}
 					}
 				}
+			} else if len(l.items) == 0 {
+				return
 			}
-		} else if len(l.items) == 0 {
-			return
-		}
 
-		previousItem := l.currentItem
-		key := event.Key()
-		ch := event.Rune()
-		switch {
-		case key == tcell.KeyTab || key == tcell.KeyDown || ch == 'j':
-			l.currentItem++
-		case key == tcell.KeyBacktab || key == tcell.KeyUp || ch == 'k':
-			l.currentItem--
-		// case tcell.KeyRight:
-		// 	if l.overflowing {
-		// 		l.horizontalOffset += 2 // We shift by 2 to account for two-cell characters.
-		// 	} else {
-		// 		l.currentItem++
-		// 	}
-		// case tcell.KeyLeft:
-		// 	if l.horizontalOffset > 0 {
-		// 		l.horizontalOffset -= 2
-		// 	} else {
-		// 		l.currentItem--
-		// 	}
-		case key == tcell.KeyHome:
-			l.currentItem = 0
-		case key == tcell.KeyEnd:
-			l.currentItem = len(l.items) - 1
-		case key == tcell.KeyPgDn:
-			_, _, _, height := l.GetInnerRect()
-			l.currentItem += height
-			if l.currentItem >= len(l.items) {
-				l.currentItem = len(l.items) - 1
-			}
-		case key == tcell.KeyPgUp:
-			_, _, _, height := l.GetInnerRect()
-			l.currentItem -= height
-			if l.currentItem < 0 {
-				l.currentItem = 0
-			}
-		case key == tcell.KeyEnter:
-			if l.currentItem >= 0 && l.currentItem < len(l.items) {
-				item := *l.items[l.currentItem]
-				// item.Selected(l.currentItem, item, l.items)
-				if l.selected != nil {
-					l.selected(l.currentItem, item.MainText(), item.SecondaryText(), item.Shortcut().Text())
-				}
-			}
-		case key == tcell.KeyRune:
+			previousItem := l.currentItem
+			key := event.Key()
 			ch := event.Rune()
-			if ch != ' ' {
-				// It's not a space bar. Is it a shortcut?
-				var found bool
-				for index, itemP := range l.items {
-					item := (*itemP)
-					if item.Shortcut().Text() == ch {
-						// We have a shortcut.
-						item.Selected(l.currentItem, item, l.items)
-						found = true
-						l.currentItem = index
+			switch {
+			case key == tcell.KeyTab || key == tcell.KeyDown || ch == 'j':
+				l.currentItem++
+			case key == tcell.KeyBacktab || key == tcell.KeyUp || ch == 'k':
+				l.currentItem--
+			// case tcell.KeyRight:
+			// 	if l.overflowing {
+			// 		l.horizontalOffset += 2 // We shift by 2 to account for two-cell characters.
+			// 	} else {
+			// 		l.currentItem++
+			// 	}
+			// case tcell.KeyLeft:
+			// 	if l.horizontalOffset > 0 {
+			// 		l.horizontalOffset -= 2
+			// 	} else {
+			// 		l.currentItem--
+			// 	}
+			case key == tcell.KeyHome:
+				l.currentItem = 0
+			case key == tcell.KeyEnd:
+				l.currentItem = len(l.items) - 1
+			case key == tcell.KeyPgDn:
+				_, _, _, height := l.GetInnerRect()
+				l.currentItem += height
+				if l.currentItem >= len(l.items) {
+					l.currentItem = len(l.items) - 1
+				}
+			case key == tcell.KeyPgUp:
+				_, _, _, height := l.GetInnerRect()
+				l.currentItem -= height
+				if l.currentItem < 0 {
+					l.currentItem = 0
+				}
+			case key == tcell.KeyEnter:
+				if l.currentItem >= 0 && l.currentItem < len(l.items) {
+					item := *l.items[l.currentItem]
+					// item.Selected(l.currentItem, item, l.items)
+					if l.selected != nil {
+						l.selected(
+							l.currentItem,
+							item.MainText(),
+							item.SecondaryText(),
+							item.Shortcut().Text(),
+						)
+					}
+				}
+			case key == tcell.KeyRune:
+				ch := event.Rune()
+				if ch != ' ' {
+					// It's not a space bar. Is it a shortcut?
+					var found bool
+					for index, itemP := range l.items {
+						item := (*itemP)
+						if item.Shortcut().Text() == ch {
+							// We have a shortcut.
+							item.Selected(l.currentItem, item, l.items)
+							found = true
+							l.currentItem = index
+							break
+						}
+					}
+					if !found {
 						break
 					}
 				}
-				if !found {
-					break
+				item := *l.items[l.currentItem]
+				// item.Selected(l.currentItem, item, l.items)
+				// if item.Selected != nil {
+				// item.Selected()
+				// }
+				if l.selected != nil {
+					l.selected(
+						l.currentItem,
+						item.MainText(),
+						item.SecondaryText(),
+						item.Shortcut().Text(),
+					)
 				}
 			}
-			item := *l.items[l.currentItem]
-			// item.Selected(l.currentItem, item, l.items)
-			// if item.Selected != nil {
-			// item.Selected()
-			// }
-			if l.selected != nil {
-				l.selected(l.currentItem, item.MainText(), item.SecondaryText(), item.Shortcut().Text())
-			}
-		}
 
-		if l.currentItem < 0 {
-			if l.wrapAround {
-				l.currentItem = len(l.items) - 1
-			} else {
-				l.currentItem = 0
+			if l.currentItem < 0 {
+				if l.wrapAround {
+					l.currentItem = len(l.items) - 1
+				} else {
+					l.currentItem = 0
+				}
+			} else if l.currentItem >= len(l.items) {
+				if l.wrapAround {
+					l.currentItem = 0
+				} else {
+					l.currentItem = len(l.items) - 1
+				}
 			}
-		} else if l.currentItem >= len(l.items) {
-			if l.wrapAround {
-				l.currentItem = 0
-			} else {
-				l.currentItem = len(l.items) - 1
+
+			l.ClampSelectionToVisible()
+
+			if l.currentItem != previousItem && l.currentItem < len(l.items) &&
+				l.changed != nil {
+				item := *l.items[l.currentItem]
+				l.changed(
+					l.currentItem,
+					item.MainText(),
+					item.SecondaryText(),
+					item.Shortcut().Text(),
+				)
 			}
-		}
-
-		l.ClampSelectionToVisible()
-
-		if l.currentItem != previousItem && l.currentItem < len(l.items) && l.changed != nil {
-			item := *l.items[l.currentItem]
-			l.changed(l.currentItem, item.MainText(), item.SecondaryText(), item.Shortcut().Text())
-		}
-	})
+		},
+	)
 }
 
 // indexAtPoint returns the index of the list item found at the given position
@@ -984,63 +1090,95 @@ func (l *Lister) indexAtPoint(x, y int) int {
 
 // MouseHandler returns the mouse handler for this primitive.
 func (l *Lister) MouseHandler() func(action tview.MouseAction, event *tcell.EventMouse, setFocus func(p tview.Primitive)) (consumed bool, capture tview.Primitive) {
-	return l.WrapMouseHandler(func(action tview.MouseAction, event *tcell.EventMouse, setFocus func(p tview.Primitive)) (consumed bool, capture tview.Primitive) {
-		if !l.InRect(event.Position()) {
-			return false, nil
-		}
+	return l.WrapMouseHandler(
+		func(action tview.MouseAction, event *tcell.EventMouse, setFocus func(p tview.Primitive)) (consumed bool, capture tview.Primitive) {
+			if !l.InRect(event.Position()) {
+				return false, nil
+			}
 
-		// Process mouse event.
-		switch action {
-		case tview.MouseLeftClick:
-			setFocus(l)
-			index := l.indexAtPoint(event.Position())
-			if index != -1 {
-				item := *l.items[index]
-				item.Selected(index, item, l.items)
-				// item.Selected
-				if l.selected != nil {
-					l.selected(index, item.MainText(), item.SecondaryText(), item.Shortcut().Text())
+			// Process mouse event.
+			switch action {
+			case tview.MouseLeftClick:
+				setFocus(l)
+				index := l.indexAtPoint(event.Position())
+				if index != -1 {
+					item := *l.items[index]
+					item.Selected(index, item, l.items)
+					// item.Selected
+					if l.selected != nil {
+						l.selected(
+							index,
+							item.MainText(),
+							item.SecondaryText(),
+							item.Shortcut().Text(),
+						)
+					}
+					if index != l.currentItem && l.changed != nil {
+						l.changed(
+							index,
+							item.MainText(),
+							item.SecondaryText(),
+							item.Shortcut().Text(),
+						)
+					}
+					l.currentItem = index
 				}
-				if index != l.currentItem && l.changed != nil {
-					l.changed(index, item.MainText(), item.SecondaryText(), item.Shortcut().Text())
+				consumed = true
+			case tview.MouseScrollUp:
+				if l.itemOffset > 0 {
+					l.itemOffset--
 				}
-				l.currentItem = index
+				consumed = true
+			case tview.MouseScrollDown:
+				lines := len(l.items) - l.itemOffset
+				if l.showSecondaryText {
+					lines *= 2
+				}
+				if _, _, _, height := l.GetInnerRect(); lines > height {
+					l.itemOffset++
+				}
+				consumed = true
 			}
-			consumed = true
-		case tview.MouseScrollUp:
-			if l.itemOffset > 0 {
-				l.itemOffset--
-			}
-			consumed = true
-		case tview.MouseScrollDown:
-			lines := len(l.items) - l.itemOffset
-			if l.showSecondaryText {
-				lines *= 2
-			}
-			if _, _, _, height := l.GetInnerRect(); lines > height {
-				l.itemOffset++
-			}
-			consumed = true
-		}
 
-		return
-	})
+			return
+		},
+	)
 }
 
-func printWithStyle(screen tcell.Screen, text string, x, y, skipWidth, maxWidth, align int, style tcell.Style, maintainBackground bool) (int, int, int, int) {
+func printWithStyle(
+	screen tcell.Screen,
+	text string,
+	x, y, skipWidth, maxWidth, align int,
+	style tcell.Style,
+	maintainBackground bool,
+) (int, int, int, int) {
 	totalWidth, totalHeight := screen.Size()
 	if maxWidth <= 0 || len(text) == 0 || y < 0 || y >= totalHeight {
 		return 0, 0, 0, 0
 	}
 
 	// Decompose the text.
-	colorIndices, colors, _, _, escapeIndices, strippedText, strippedWidth := decomposeString(text, true, false)
+	colorIndices, colors, _, _, escapeIndices, strippedText, strippedWidth := decomposeString(
+		text,
+		true,
+		false,
+	)
 
 	// We want to reduce all alignments to AlignLeft.
 	if align == AlignRight {
 		if strippedWidth-skipWidth <= maxWidth {
 			// There's enough space for the entire text.
-			return printWithStyle(screen, text, x+maxWidth-strippedWidth+skipWidth, y, skipWidth, maxWidth, AlignLeft, style, maintainBackground)
+			return printWithStyle(
+				screen,
+				text,
+				x+maxWidth-strippedWidth+skipWidth,
+				y,
+				skipWidth,
+				maxWidth,
+				AlignLeft,
+				style,
+				maintainBackground,
+			)
 		}
 		// Trim characters off the beginning.
 		var (
@@ -1048,33 +1186,62 @@ func printWithStyle(screen tcell.Screen, text string, x, y, skipWidth, maxWidth,
 			foregroundColor, backgroundColor, attributes           string
 		)
 		originalStyle := style
-		iterateString(strippedText, func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool {
-			// Update color/escape tag offset and style.
-			if colorPos < len(colorIndices) && textPos+tagOffset >= colorIndices[colorPos][0] && textPos+tagOffset < colorIndices[colorPos][1] {
-				foregroundColor, backgroundColor, attributes = styleFromTag(foregroundColor, backgroundColor, attributes, colors[colorPos])
-				style = overlayStyle(originalStyle, foregroundColor, backgroundColor, attributes)
-				tagOffset += colorIndices[colorPos][1] - colorIndices[colorPos][0]
-				colorPos++
-			}
-			if escapePos < len(escapeIndices) && textPos+tagOffset >= escapeIndices[escapePos][0] && textPos+tagOffset < escapeIndices[escapePos][1] {
-				tagOffset++
-				escapePos++
-			}
-			if strippedWidth-screenPos <= maxWidth {
-				// We chopped off enough.
-				if escapePos > 0 && textPos+tagOffset-1 >= escapeIndices[escapePos-1][0] && textPos+tagOffset-1 < escapeIndices[escapePos-1][1] {
-					// Unescape open escape sequences.
-					escapeCharPos := escapeIndices[escapePos-1][1] - 2
-					text = text[:escapeCharPos] + text[escapeCharPos+1:]
+		iterateString(
+			strippedText,
+			func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool {
+				// Update color/escape tag offset and style.
+				if colorPos < len(colorIndices) &&
+					textPos+tagOffset >= colorIndices[colorPos][0] &&
+					textPos+tagOffset < colorIndices[colorPos][1] {
+					foregroundColor, backgroundColor, attributes = styleFromTag(
+						foregroundColor,
+						backgroundColor,
+						attributes,
+						colors[colorPos],
+					)
+					style = overlayStyle(
+						originalStyle,
+						foregroundColor,
+						backgroundColor,
+						attributes,
+					)
+					tagOffset += colorIndices[colorPos][1] - colorIndices[colorPos][0]
+					colorPos++
 				}
-				// Print and return.
-				bytes, width, from, to = printWithStyle(screen, text[textPos+tagOffset:], x, y, 0, maxWidth, AlignLeft, style, maintainBackground)
-				from += textPos + tagOffset
-				to += textPos + tagOffset
-				return true
-			}
-			return false
-		})
+				if escapePos < len(escapeIndices) &&
+					textPos+tagOffset >= escapeIndices[escapePos][0] &&
+					textPos+tagOffset < escapeIndices[escapePos][1] {
+					tagOffset++
+					escapePos++
+				}
+				if strippedWidth-screenPos <= maxWidth {
+					// We chopped off enough.
+					if escapePos > 0 &&
+						textPos+tagOffset-1 >= escapeIndices[escapePos-1][0] &&
+						textPos+tagOffset-1 < escapeIndices[escapePos-1][1] {
+						// Unescape open escape sequences.
+						escapeCharPos := escapeIndices[escapePos-1][1] - 2
+						text = text[:escapeCharPos] + text[escapeCharPos+1:]
+					}
+					// Print and return.
+					bytes, width, from, to = printWithStyle(
+						screen,
+						text[textPos+tagOffset:],
+						x,
+						y,
+						0,
+						maxWidth,
+						AlignLeft,
+						style,
+						maintainBackground,
+					)
+					from += textPos + tagOffset
+					to += textPos + tagOffset
+					return true
+				}
+				return false
+			},
+		)
 		return bytes, width, from, to
 	} else if align == AlignCenter {
 		if strippedWidth-skipWidth == maxWidth {
@@ -1155,67 +1322,85 @@ func printWithStyle(screen tcell.Screen, text string, x, y, skipWidth, maxWidth,
 		drawn, drawnWidth, colorPos, escapePos, tagOffset, from, to int
 		foregroundColor, backgroundColor, attributes                string
 	)
-	iterateString(strippedText, func(main rune, comb []rune, textPos, length, screenPos, screenWidth int) bool {
-		// Skip character if necessary.
-		if skipWidth > 0 {
-			skipWidth -= screenWidth
-			from = textPos + length
-			to = from
+	iterateString(
+		strippedText,
+		func(main rune, comb []rune, textPos, length, screenPos, screenWidth int) bool {
+			// Skip character if necessary.
+			if skipWidth > 0 {
+				skipWidth -= screenWidth
+				from = textPos + length
+				to = from
+				return false
+			}
+
+			// Only continue if there is still space.
+			if drawnWidth+screenWidth > maxWidth || x+drawnWidth >= totalWidth {
+				return true
+			}
+
+			// Handle color tags.
+			for colorPos < len(colorIndices) && textPos+tagOffset >= colorIndices[colorPos][0] && textPos+tagOffset < colorIndices[colorPos][1] {
+				foregroundColor, backgroundColor, attributes = styleFromTag(
+					foregroundColor,
+					backgroundColor,
+					attributes,
+					colors[colorPos],
+				)
+				tagOffset += colorIndices[colorPos][1] - colorIndices[colorPos][0]
+				colorPos++
+			}
+
+			// Handle escape tags.
+			if escapePos < len(escapeIndices) &&
+				textPos+tagOffset >= escapeIndices[escapePos][0] &&
+				textPos+tagOffset < escapeIndices[escapePos][1] {
+				if textPos+tagOffset == escapeIndices[escapePos][1]-2 {
+					tagOffset++
+					escapePos++
+				}
+			}
+
+			// Memorize positions.
+			to = textPos + length
+
+			// Print the rune sequence.
+			finalX := x + drawnWidth
+			finalStyle := style
+			if maintainBackground {
+				_, _, existingStyle, _ := screen.GetContent(finalX, y)
+				_, background, _ := existingStyle.Decompose()
+				finalStyle = finalStyle.Background(background)
+			}
+			finalStyle = overlayStyle(
+				finalStyle,
+				foregroundColor,
+				backgroundColor,
+				attributes,
+			)
+			for offset := screenWidth - 1; offset >= 0; offset-- {
+				// To avoid undesired effects, we populate all cells.
+				if offset == 0 {
+					screen.SetContent(finalX+offset, y, main, comb, finalStyle)
+				} else {
+					screen.SetContent(finalX+offset, y, ' ', nil, finalStyle)
+				}
+			}
+
+			// Advance.
+			drawn += length
+			drawnWidth += screenWidth
+
 			return false
-		}
-
-		// Only continue if there is still space.
-		if drawnWidth+screenWidth > maxWidth || x+drawnWidth >= totalWidth {
-			return true
-		}
-
-		// Handle color tags.
-		for colorPos < len(colorIndices) && textPos+tagOffset >= colorIndices[colorPos][0] && textPos+tagOffset < colorIndices[colorPos][1] {
-			foregroundColor, backgroundColor, attributes = styleFromTag(foregroundColor, backgroundColor, attributes, colors[colorPos])
-			tagOffset += colorIndices[colorPos][1] - colorIndices[colorPos][0]
-			colorPos++
-		}
-
-		// Handle escape tags.
-		if escapePos < len(escapeIndices) && textPos+tagOffset >= escapeIndices[escapePos][0] && textPos+tagOffset < escapeIndices[escapePos][1] {
-			if textPos+tagOffset == escapeIndices[escapePos][1]-2 {
-				tagOffset++
-				escapePos++
-			}
-		}
-
-		// Memorize positions.
-		to = textPos + length
-
-		// Print the rune sequence.
-		finalX := x + drawnWidth
-		finalStyle := style
-		if maintainBackground {
-			_, _, existingStyle, _ := screen.GetContent(finalX, y)
-			_, background, _ := existingStyle.Decompose()
-			finalStyle = finalStyle.Background(background)
-		}
-		finalStyle = overlayStyle(finalStyle, foregroundColor, backgroundColor, attributes)
-		for offset := screenWidth - 1; offset >= 0; offset-- {
-			// To avoid undesired effects, we populate all cells.
-			if offset == 0 {
-				screen.SetContent(finalX+offset, y, main, comb, finalStyle)
-			} else {
-				screen.SetContent(finalX+offset, y, ' ', nil, finalStyle)
-			}
-		}
-
-		// Advance.
-		drawn += length
-		drawnWidth += screenWidth
-
-		return false
-	})
+		},
+	)
 
 	return drawn + tagOffset + len(escapeIndices), drawnWidth, from, to
 }
 
-func overlayStyle(style tcell.Style, fgColor, bgColor, attributes string) tcell.Style {
+func overlayStyle(
+	style tcell.Style,
+	fgColor, bgColor, attributes string,
+) tcell.Style {
 	_, _, defAttr := style.Decompose()
 
 	if fgColor != "" && fgColor != "-" {
@@ -1266,7 +1451,10 @@ func overlayStyle(style tcell.Style, fgColor, bgColor, attributes string) tcell.
 // themselves, the indices of an escaped tags (only if at least color tags or
 // region tags are requested), the string stripped by any tags and escaped, and
 // the screen width of the stripped string.
-func decomposeString(text string, findColors, findRegions bool) (colorIndices [][]int, colors [][]string, regionIndices [][]int, regions [][]string, escapeIndices [][]int, stripped string, width int) {
+func decomposeString(
+	text string,
+	findColors, findRegions bool,
+) (colorIndices [][]int, colors [][]string, regionIndices [][]int, regions [][]string, escapeIndices [][]int, stripped string, width int) {
 	// Shortcut for the trivial case.
 	if !findColors && !findRegions {
 		return nil, nil, nil, nil, nil, text, stringWidth(text)
@@ -1292,7 +1480,11 @@ func decomposeString(text string, findColors, findRegions bool) (colorIndices []
 	}
 
 	// Make a (sorted) list of all tags.
-	allIndices := make([][3]int, 0, len(colorIndices)+len(regionIndices)+len(escapeIndices))
+	allIndices := make(
+		[][3]int,
+		0,
+		len(colorIndices)+len(regionIndices)+len(escapeIndices),
+	)
 	for indexType, index := range [][][]int{colorIndices, regionIndices, escapeIndices} {
 		for _, tag := range index {
 			allIndices = append(allIndices, [3]int{tag[0], tag[1], indexType})
@@ -1324,7 +1516,10 @@ func decomposeString(text string, findColors, findRegions bool) (colorIndices []
 	return
 }
 
-func styleFromTag(fgColor, bgColor, attributes string, tagSubstrings []string) (newFgColor, newBgColor, newAttributes string) {
+func styleFromTag(
+	fgColor, bgColor, attributes string,
+	tagSubstrings []string,
+) (newFgColor, newBgColor, newAttributes string) {
 	if tagSubstrings[colorForegroundPos] != "" {
 		color := tagSubstrings[colorForegroundPos]
 		if color == "-" {
@@ -1389,12 +1584,16 @@ const (
 
 // Common regular expressions.
 var (
-	colorPattern     = regexp.MustCompile(`\[([a-zA-Z]+|#[0-9a-zA-Z]{6}|\-)?(:([a-zA-Z]+|#[0-9a-zA-Z]{6}|\-)?(:([lbidrus]+|\-)?)?)?\]`)
+	colorPattern = regexp.MustCompile(
+		`\[([a-zA-Z]+|#[0-9a-zA-Z]{6}|\-)?(:([a-zA-Z]+|#[0-9a-zA-Z]{6}|\-)?(:([lbidrus]+|\-)?)?)?\]`,
+	)
 	regionPattern    = regexp.MustCompile(`\["([a-zA-Z0-9_,;: \-\.]*)"\]`)
 	escapePattern    = regexp.MustCompile(`\[([a-zA-Z0-9_,;: \-\."#]+)\[(\[*)\]`)
 	nonEscapePattern = regexp.MustCompile(`(\[[a-zA-Z0-9_,;: \-\."#]+\[*)\]`)
-	boundaryPattern  = regexp.MustCompile(`(([,\.\-:;!\?&#+]|\n)[ \t\f\r]*|([ \t\f\r]+))`)
-	spacePattern     = regexp.MustCompile(`\s+`)
+	boundaryPattern  = regexp.MustCompile(
+		`(([,\.\-:;!\?&#+]|\n)[ \t\f\r]*|([ \t\f\r]+))`,
+	)
+	spacePattern = regexp.MustCompile(`\s+`)
 )
 
 // Transformation describes a widget state modification.
@@ -1474,7 +1673,10 @@ func Escape(text string) string {
 // character, and the screen width of it. The iteration stops if the callback
 // returns true. This function returns true if the iteration was stopped before
 // the last character.
-func iterateString(text string, callback func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool) bool {
+func iterateString(
+	text string,
+	callback func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool,
+) bool {
 	var screenPos int
 
 	gr := uniseg.NewGraphemes(text)
@@ -1505,7 +1707,10 @@ func iterateString(text string, callback func(main rune, comb []rune, textPos, t
 // string, its length in bytes, the screen position of the character, and the
 // screen width of it. The iteration stops if the callback returns true. This
 // function returns true if the iteration was stopped before the last character.
-func iterateStringReverse(text string, callback func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool) bool {
+func iterateStringReverse(
+	text string,
+	callback func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth int) bool,
+) bool {
 	type cluster struct {
 		main                                       rune
 		comb                                       []rune
@@ -1514,17 +1719,20 @@ func iterateStringReverse(text string, callback func(main rune, comb []rune, tex
 
 	// Create the grapheme clusters.
 	var clusters []cluster
-	iterateString(text, func(main rune, comb []rune, textPos int, textWidth int, screenPos int, screenWidth int) bool {
-		clusters = append(clusters, cluster{
-			main:        main,
-			comb:        comb,
-			textPos:     textPos,
-			textWidth:   textWidth,
-			screenPos:   screenPos,
-			screenWidth: screenWidth,
-		})
-		return false
-	})
+	iterateString(
+		text,
+		func(main rune, comb []rune, textPos int, textWidth int, screenPos int, screenWidth int) bool {
+			clusters = append(clusters, cluster{
+				main:        main,
+				comb:        comb,
+				textPos:     textPos,
+				textWidth:   textWidth,
+				screenPos:   screenPos,
+				screenWidth: screenWidth,
+			})
+			return false
+		},
+	)
 
 	// Iterate in reverse.
 	for index := len(clusters) - 1; index >= 0; index-- {
@@ -1546,11 +1754,14 @@ func iterateStringReverse(text string, callback func(main rune, comb []rune, tex
 // stripTags strips colour tags from the given string. (Region tags are not
 // stripped.)
 func stripTags(text string) string {
-	stripped := colorPattern.ReplaceAllStringFunc(text, func(match string) string {
-		if len(match) > 2 {
-			return ""
-		}
-		return match
-	})
+	stripped := colorPattern.ReplaceAllStringFunc(
+		text,
+		func(match string) string {
+			if len(match) > 2 {
+				return ""
+			}
+			return match
+		},
+	)
 	return escapePattern.ReplaceAllString(stripped, `[$1$2]`)
 }

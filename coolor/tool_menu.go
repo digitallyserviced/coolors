@@ -7,7 +7,6 @@ import (
 	"github.com/digitallyserviced/coolors/status"
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
-	"github.com/gookit/goutil/dump"
 
 	"github.com/samber/lo"
 )
@@ -83,16 +82,31 @@ func NewCoolorColorMainMenu(app *tview.Application) *CoolorToolMenu {
 	}
 	cmm.SetDirection(tview.FlexRow)
 	cmm.list = NewLister()
+  // cmm.list.highlightType=ListerHighlightBars
 	cmm.list.SetItemLister(cmm.GetListItems)
+  cmm.list.SetHandlers(func(idx int, i interface{}, lis []*ListItem) {
+    fmt.Println(idx,i)
+  }, func(idx int, selected bool, i interface{}, lis []*ListItem) {
+    fmt.Println("chg",idx,selected,i)
+
+    })
+  cmm.SetDrawFunc(func(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
+
+    cmm.Selected().action.Before(cmm.selectedColor.pallette, cmm.selectedColor)
+	// cmm.Before()
+  // dump.P(idx, selected, fmt.Sprintf("%T %v", i))
+  return x,y,width,height
+  })
 	return cmm
 }
 
 func (cc CoolorButtonMenuItem) MainText() string {
-	cc.action.Before(cc.menu.selectedColor.pallette, cc.menu.selectedColor)
 	if cc.selected {
-		return fmt.Sprintf("[-:-:b]%s[-:-:-]", cc.action.icon)
+    col := fmt.Sprintf("#%06x", cc.menu.selectedColor.GetFgColor().Hex())
+		return fmt.Sprintf("[%s:-:b]%s[-:-:-]", col, cc.action.icon)
 	}
-	return fmt.Sprintf("%s", cc.action.icon)
+  col := fmt.Sprintf("#%06x", cc.menu.selectedColor.GetFgColorShade().Hex())
+  return fmt.Sprintf("[%s:-:-]%s[-:-:-]", col, cc.action.icon)
 }
 
 func (cc CoolorButtonMenuItem) SecondaryText() string {
@@ -109,6 +123,8 @@ func (cc CoolorButtonMenuItem) Changed(
 	i interface{},
 	lis []*ListItem,
 ) {
+  cc.selected=selected
+  // fmt.Println(idx,selected,i)
 	if cc.menu.selectedColor == nil || cc.menu == nil ||
 		cc.menu.selectedColor.Color == nil {
 		return
@@ -116,9 +132,8 @@ func (cc CoolorButtonMenuItem) Changed(
 	if i == nil {
 		return
 	}
-  dump.P(idx, selected, fmt.Sprintf("%T %v", i))
-	cc.menu.UpdateActionStatus(&cc)
 	cc.action.Every(cc.menu.selectedColor)
+	cc.menu.UpdateActionStatus(&cc)
 }
 
 func (cc CoolorButtonMenuItem) Visibility() ListItemsVisibility {
@@ -147,6 +162,7 @@ func (cc CoolorButtonMenuItem) Selected(
 	i interface{},
 	lis []*ListItem,
 ) {
+	cc.action.Before(cc.menu.selectedColor.pallette, cc.menu.selectedColor)
 	MainC.app.QueueUpdate(func() {
 		// cc.action.Before(cc.menu.selectedColor.pallette, cc.menu.selectedColor)
 		if cc.action.Activate(cc.menu.selectedColor) {
@@ -207,7 +223,7 @@ func (f *CoolorToolMenu) Draw(screen tcell.Screen) {
 	}
 	f.SetDontClear(true)
 	f.list.SetDontClear(true)
-	f.DrawForSubclass(screen, f)
+	f.list.Box.DrawForSubclass(screen, f.list)
 	// f.list.DrawForSubclass(screen, f.list)
 
 	// How much space can we distribute?
@@ -350,7 +366,7 @@ func (ctm *CoolorToolMenu) forMenuItems(
 
 func (ctm *CoolorToolMenu) HandleEvent(e ObservableEvent) bool {
 	switch e.Type {
-	case SelectedEvent:
+	case PaletteColorSelectedEvent:
 		var cc *CoolorColor = e.Ref.(*CoolorColor)
 		ctm.UpdateColor(cc.Color)
 	}
@@ -441,6 +457,10 @@ func (ctm *CoolorToolMenu) UpdateActionStatus(mmi *CoolorButtonMenuItem) {
 func (ctm *CoolorToolMenu) updateState() {
 	// ctm.list.List.GetCurrentItem()
 	MainC.app.QueueUpdateDraw(func() {
+    if ctm.list != nil && MainC.menu != nil && MainC.menu.selectedColor != nil && MainC.menu.selectedColor.Color != nil {
+      ctm.list.SetMainTextStyle(tcell.StyleDefault.Background(*MainC.menu.selectedColor.Color).Foreground(MainC.menu.selectedColor.GetFgColorShade()))
+      ctm.list.SetSelectedStyle(tcell.StyleDefault.Background(*MainC.menu.selectedColor.Color).Foreground(MainC.menu.selectedColor.GetFgColor()))
+    }
 		ctm.forMenuItems(false, func(c *CoolorButtonMenuItem, idx int) (err error) {
 			c.selected = false
 			return

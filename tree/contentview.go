@@ -14,6 +14,7 @@ import (
 var _ tview.Primitive = &ContentView{}
 
 type ContentView struct {
+  *tview.Box
 	theme       *Theme
 	view        *tview.Grid
 	topbarView  *tview.TextView
@@ -59,6 +60,7 @@ func NewContentView(theme *Theme) *ContentView {
 	view.AddItem(content, 2, 0, 1, 1, 0, 0, false)
 
 	ft := &ContentView{
+    Box: tview.NewBox(),
 		theme:       theme,
 		view:        view,
 		topbarView:  topbar,

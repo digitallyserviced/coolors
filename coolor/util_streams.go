@@ -95,6 +95,7 @@ func fanIn(chans ...<-chan interface{}) <-chan interface{} {
 	return out
 }
 
+// TakeNColors function ﳑ
 func TakeNColors(
 	done <-chan struct{},
 	valueStream <-chan interface{},

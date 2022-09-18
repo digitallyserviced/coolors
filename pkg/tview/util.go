@@ -586,6 +586,31 @@ func Escape(text string) string {
 	return nonEscapePattern.ReplaceAllString(text, "$1[]")
 }
 
+func biterateString(text string, callback func(main rune, comb []rune, textPos, textWidth, screenPos, screenWidth, boundaries int) bool) bool {
+	var screenPos, textPos, boundaries int
+
+	state := -1
+	for len(text) > 0 {
+		var cluster string
+		cluster, text, boundaries, state = uniseg.StepString(text, state)
+
+		width := boundaries >> uniseg.ShiftWidth
+		runes := []rune(cluster)
+		var comb []rune
+		if len(runes) > 1 {
+			comb = runes[1:]
+		}
+
+		if callback(runes[0], comb, textPos, len(cluster), screenPos, width, boundaries) {
+			return true
+		}
+
+		screenPos += width
+		textPos += len(cluster)
+	}
+
+	return false
+}
 // iterateString iterates through the given string one printed character at a
 // time. For each such character, the callback function is called with the
 // Unicode code points of the character (the first rune and any combining runes

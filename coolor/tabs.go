@@ -2,12 +2,12 @@ package coolor
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
-	"github.com/digitallyserviced/coolors/theme"
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
+
+	"github.com/digitallyserviced/coolors/theme"
 )
 
 type TabViewContent interface {
@@ -115,8 +115,9 @@ func NewTabView(name string, shortcut ScriptShortcut, p TabViewContent) *TabView
   tv.Frame.SetBorders(0, 0, 0, 0, 0, 0)
   // tv.Frame.AddText("SHIT", false, AlignCenter, tcell.ColorRebeccaPurple)
   // tv.Frame.AddText("SHIT", false, AlignCenter, tcell.ColorRebeccaPurple)
-  tv.Frame.SetBorderPadding(1, 0, 1, 1)
+  tv.Frame.SetBorderPadding(0, 0, 1, 1)
   tv.Frame.SetBackgroundColor(theme.GetTheme().ContentBackground)
+  tv.Frame.AddText(" ", false, AlignCenter, theme.GetTheme().InfoLabel)
 	return tv
 }
 
@@ -156,6 +157,7 @@ func (o *TabView) HandleEvent(e ObservableEvent) bool {
     tab.Content.hide()
   }
 	tabs.UpdateView()
+  tabs.UpdateTabSelector()
 	return true
 }
 
@@ -218,6 +220,7 @@ func (tv *TabbedView) UpdateView() {
 	if curr == nil {
 		return
 	}
+  // dump.P(tv.GetRect())
 	if tv.Flex.GetItemCount() == 2 {
 		it := tv.Flex.GetItem(1)
 		tv.Flex.RemoveItem(it)
@@ -241,7 +244,7 @@ func (tv *TabbedView) AddTab(tab *TabView) *TabbedView {
 
 func (tv *TabbedView) InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
 	return tv.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
-    log.Println(event)
+    // log.Println(event)
 		current, _ := tv.GetCurrentTab()
 		if current != nil {
 			// bubble := current.InputHandler()

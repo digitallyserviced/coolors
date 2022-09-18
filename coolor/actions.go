@@ -1131,29 +1131,46 @@ func tagFunc() *CoolorColorActionFunctions {
 
 func favFunc() *CoolorColorActionFunctions {
 	ccaf := &CoolorColorActionFunctions{
-		Activate: func(cca *CoolorColorActor, cc *CoolorColor) bool {
+		Activate: func(cca *CoolorColorActor, ncc *CoolorColor) bool {
+			cc := MainC.palette.Colors[MainC.palette.selectedIdx]
+			if cc == nil {
+				return false
+			}
 			GetStore().MetaService.ToggleFavorite(cc)
 			cca.Finalize(cc)
 			return false
 		},
-		Before: func(cca *CoolorColorActor, cc *CoolorColor) bool {
+		Before: func(cca *CoolorColorActor, ncc *CoolorColor) bool {
+			cc := MainC.palette.Colors[MainC.palette.selectedIdx]
+			if cc == nil {
+				return false
+			}
+      // doCallers()
 			_, idx := GetStore().MetaService.FavoriteColors.Contains(cc)
 			fav := idx >= 0
-			cca.icon = IfElseStr(fav, "  ", "  ")
+			cca.icon = IfElseStr(fav, " ", " ")
 			cca.name = IfElseStr(fav, "unfavorite", "favorite")
 			return false
 		},
-		Every: func(cca *CoolorColorActor, cc *CoolorColor) bool {
+		Every: func(cca *CoolorColorActor, ncc *CoolorColor) bool {
+			cc := MainC.palette.Colors[MainC.palette.selectedIdx]
+			if cc == nil {
+				return false
+			}
 			_, idx := GetStore().MetaService.FavoriteColors.Contains(cc)
 			fav := idx >= 0
-			cca.icon = IfElseStr(fav, "  ", "  ")
+			cca.icon = IfElseStr(fav, " ", " ")
 			cca.name = IfElseStr(fav, "unfavorite", "favorite")
 			return false
 		},
-		Finalize: func(cca *CoolorColorActor, cc *CoolorColor) {
+		Finalize: func(cca *CoolorColorActor, ncc *CoolorColor) {
+			cc := MainC.palette.Colors[MainC.palette.selectedIdx]
+			if cc == nil {
+				return 
+			}
 			_, idx := GetStore().MetaService.FavoriteColors.Contains(cc)
 			fav := idx >= 0
-			icon := IfElseStr(fav, "  ", "  ")
+			icon := IfElseStr(fav, " ", " ")
 			name := IfElseStr(fav, "unfavorite", "favorite")
 			status.NewStatusUpdateWithTimeout(
 				"action_str",
@@ -1169,7 +1186,7 @@ func favFunc() *CoolorColorActionFunctions {
 		Always: func(cca *CoolorColorActor) {
 		},
 		Actions: func(cca *CoolorColorActor) CoolorColorActionFlag {
-			return MainPaletteActionsFlag
+			return 0
 		},
 		Cancel: func(cca *CoolorColorActor) bool {
 			return true

@@ -22,7 +22,7 @@ func doCallers() {
   f := runtime.CallersFrames(st)
   for {
     frame, more := f.Next()
-    dump.P(frame.Func.Name())
+    dump.P(frame.Line, frame.Func.Name())
     if !more {
       break
     }

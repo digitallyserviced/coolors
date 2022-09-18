@@ -9,6 +9,7 @@ var _ tview.Primitive = &FileTree{}
 
 type FileTree struct {
 	theme     *Theme
+  *tview.Box
 	view      *tview.TreeView
 	root      *tview.TreeNode
 	onSelect  func(node *FSNode)
@@ -30,13 +31,19 @@ func NewFileTree(theme *Theme) *FileTree {
 		SetTopLevel(1)
 
 	ft := &FileTree{
+    Box: tview.NewBox(),
 		theme: theme,
 		view:  view,
 	}
+  view.SetIndicateOverflow(true)
 
-	view.SetBorderPadding(0, 0, 2, 2)
+  view.SetBorder(true)
+	// view.SetBorderPadding(1,1, 1,1)
+  view.SetBorderSides(true, false, true, true)
 	view.SetGraphicsColor(theme.SidebarLines)
 	view.SetBackgroundColor(theme.SidebarBackground)
+  view.SetBorderVisible(false)
+  view.SetDontClear(true)
 
 	view.SetSelectedFunc(func(node *tview.TreeNode) {
 		ft.selected(node)
@@ -88,11 +95,13 @@ func (ft *FileTree) MouseHandler() func(action tview.MouseAction, event *tcell.E
 
 func (ft *FileTree) inputCapture(event *tcell.EventKey) *tcell.EventKey {
 	fsnode := get(ft.view.GetCurrentNode())
-
+if event.Modifiers() == tcell.ModShift {
+    return event
+  }
 	switch event.Key() {
 	case tcell.KeyLeft:
 
-		parent := ft.GetParent(fsnode)
+		parent := ft.GetParentNode(fsnode)
 
 		if fsnode.IsDir && fsnode.IsExpanded() {
 			fsnode.Collapse()
@@ -171,7 +180,7 @@ func (ft *FileTree) changed(node *tview.TreeNode) {
 	}
 }
 
-func (ft *FileTree) GetParent(fsnode *FSNode) *FSNode {
+func (ft *FileTree) GetParentNode(fsnode *FSNode) *FSNode {
 	var currParent *tview.TreeNode
 	ft.root.Walk(func(node, parent *tview.TreeNode) bool {
 		if node == fsnode.Node {

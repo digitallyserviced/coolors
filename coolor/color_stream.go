@@ -103,7 +103,7 @@ func (csp *ColorStreamProgress) Itrd() {
 }
 
 func (csp *ColorStreamProgress) Validd() {
-	res := atomic.AddUint32(&csp.Itr, 1)
+	res := atomic.AddUint32(&csp.Valid, 1)
 	csp.ProgressHandler.OnValid(res)
 }
 func (cs *ColorStream) Run(done <-chan struct{}) {

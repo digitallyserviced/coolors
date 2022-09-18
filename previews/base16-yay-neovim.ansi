@@ -1,0 +1,25 @@
+[37m    GTK UI for Neovim written in Rust
+[31maur[32m/[1;4mneovim-plug[0m[32m[49m [34m0.11.0-3[32m ([35m+18 1.66[32m)[39m 
+[37m    A Neovim plugin manager
+[31maur[32m/[1;4mruby-neovim[0m[32m[49m [34m0.9.0-1[32m ([35m+18 0.00[32m)[39m 
+[37m    Ruby bindings for Neovim
+[31maur[32m/[1;4mnyaovim[0m[32m[49m [34m0.2.0-1[32m ([35m+19 0.00[32m)[39m 
+[37m    Neovim frontend built on Electron
+[31maur[32m/[1;4mneovide-git[0m[32m[49m [34m0.8.0.r0.g86aa275-1[32m ([35m+20 0.66[32m)[39m 
+[37m    No Nonsense Neovim Client in Rust
+[31maur[32m/[1;4mpython2-neovim-git[0m[32m[49m [34m0.4.0.r0.ga5ee340-1[32m ([35m+22 0.00[32m)[39m [1m[36m([5m[33mOut-of-date: [0m[32m[49m2021-12-18[1m[36m)[0m[39m[49m 
+[37m    Python client to neovim, git version. Use this to keep up with neovim-git
+[31maur[32m/[1;4moni[0m[32m[49m [34m0.3.9-2[32m ([35m+30 0.00[32m)[39m 
+[37m    An IDE built around Neovim
+[31maur[32m/[1;4mneovim-nightly-bin[0m[32m[49m [34m0.6.0+dev+43+g02bf251bb-1[32m ([35m+35 0.42[32m)[39m [1m[36m([5m[33mOut-of-date: [0m[32m[49m2022-03-18[1m[36m)[0m[39m[49m 
+[37m    Fork of Vim aiming to improve user experience, plugins, and GUIs - Nightly Builds
+[31maur[32m/[1;4mneovim-qt-git[0m[32m[49m [34mv0.2.8.r0.g6e54e82-1[32m ([35m+39 0.36[32m)[39m 
+[37m    A Qt gui for Neovim (Neovim RPC and GUI using Qt5).
+[31maur[32m/[1;4mneovim-remote[0m[32m[49m [34m2.5.0-1[32m ([35m+43 3.48[32m)[39m 
+[37m    Support --remote and friends for Neovim
+[31maur[32m/[1;4mneovim-git[0m[32m[49m [34m0.7.0.r67.g5c53e29ca9-1[32m ([35m+235 2.76[32m)[39m 
+[37m    Fork of Vim aiming to improve user experience, plugins, and GUIs.
+[31mchaotic-aur[32m/[1;4mvim-coc-git[0m[32m[49m [34m0.0.81.r19.g87e5dd69-1[32m ([35m729.4 KiB 3.4 MiB[32m)[39m 
+[37m    Intellisense engine for Vim8 & Neovim, full language server protocol support as VSCode
+[31mchaotic-aur[32m/[1;4mneovim-remote[0m[32m[49m [34m2.5.0-1[32m ([35m23.1 KiB 78.3 KiB[32m)[39m 
+[37m    Support --remote and friends for Neovim

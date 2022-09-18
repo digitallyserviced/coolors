@@ -722,6 +722,8 @@ func (t *TreeView) Draw(screen tcell.Screen) {
 		// Advance.
 		posY++
 	}
+  	t.DrawOverflow(screen, t.offsetY != 0, (t.offsetY != len(t.nodes)-t.innerHeight) && len(t.nodes) > t.innerHeight)
+
 }
 
 // InputHandler returns the handler for this primitive.

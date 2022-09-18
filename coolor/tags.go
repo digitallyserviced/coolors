@@ -7,6 +7,7 @@ import (
 	// "strings"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/gookit/goutil/dump"
 )
 
 type (
@@ -37,7 +38,7 @@ const (
 
 var (
 TagTypes map[string]TagType = make(map[string]TagType)
-	TagKey         TagTypeField = NewTagTypeField("key", "tag key", reflect.TypeOf(""), FieldString)
+	TagKey         TagTypeField = NewTagTypeField("key", "tag key", reflect.TypeOf(""), FieldString|FieldKey)
 	TagName        TagTypeField = NewTagTypeField("name", "tag name", reflect.TypeOf(""), ListMainTextField)
 	TagDescription TagTypeField = NewTagTypeField("description", "tag description", reflect.TypeOf(""), ListSecondaryTextField)
 	TagRequired    TagTypeField = NewTagTypeField("required", "field required", reflect.TypeOf(false), FieldRequired)
@@ -214,6 +215,12 @@ func (tti *TagTypeCallbacks) Callback(name string, tgd *Tagged, ti *TagItem) {
 func (f TagItem) SecondaryText() string {
 	ttf := f.GetFlag(SecondaryTextField)
 	// dump.P(ttf, ttf.name, f.data)
+	return f.data[ttf.name].(string)
+}
+
+func (f TagItem) GetKey() string {
+	ttf := f.GetFlag(FieldKey)
+	dump.P(ttf, MainTextField)
 	return f.data[ttf.name].(string)
 }
 

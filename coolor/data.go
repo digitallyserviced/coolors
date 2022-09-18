@@ -46,6 +46,9 @@ type (
 	CoolorsCache struct {
 		cache map[int32]CoolorMeta
 	}
+	Coolor struct {
+		Color tcell.Color
+	}
 	CoolorMeta struct {
 		*Coolor
 		CssName   string
@@ -53,17 +56,28 @@ type (
 		XtermName string
 		UserNamed string
 		Hex       string
-		Tags      []TagItem
+		// Tags      []TagItem
 		Seent
-		ID uint64 `boltholdKey:"ID"`
+		ID uint64 
 		Besty
 	}
+	CoolorsMeta []CoolorMeta
+	Coolors     struct {
+    Hash uint64 
+		Key    string 
+		Colors []*Coolor
+		Saved  bool
+	}
+  TagsKeys []string
+	CoolorPaletteTagsMeta struct {
+    TaggedColors map[string]*Coolor
+  }
 	CoolorColorsPaletteMeta struct {
-		Current  *CoolorColorsPalette
-		Versions []*CoolorColorsPalette
+		Current  *Coolors
+		Versions []*Coolors
 		Started  time.Time
-		Named    string
-		ID       uint64 `boltholdKey:"ID"`
+    Named    string `boltholdUnique:"Named"`
+    ID       uint64 `boltholdKey:"ID"`
 		// CoolorPaletteOrigin
 		Saved bool
 	}
@@ -76,11 +90,6 @@ type (
 		Used   uint64
 		Origin CoolorColorOrigin
 	}
-	Coolor struct {
-		Color tcell.Color
-	}
-	CoolorsMeta []CoolorMeta
-	Coolors    []*Coolor
 	CoolorData struct {
 		*bh.Store
 		opts bh.Options
@@ -91,21 +100,28 @@ type (
 		*eventObserver
 		*eventNotifier
 		Cache          CoolorsCache
+    Current *CoolorColorsPaletteMeta
+    PaletteMeta []*CoolorColorsPaletteMeta
 		RecentColors   Coolors
 		FavoriteColors Coolors
 	}
 )
 
 func (ms *MetaService) Service() {
-  GetStore().MetaService.Load()
-	tick := time.NewTicker(10 * time.Second)
+	GetStore().FavoriteColors = *GetStore().FavoriteColors.Load("MetaService_Favorites")
+  ccpms := GetStore().PaletteHistory(false)
+  fmt.Println(ccpms)
+	// GetStore().ForEach(nil, func(r *){
+	//
+	// })
+	tick := time.NewTicker(1 * time.Second)
 	for {
 		select {
 		case <-tick.C:
-      GetStore().MetaService.Save()
+			// GetStore().MetaService.FavoriteColors.Save(false)
 			// GetStore().MetaService.LoadFavorites()
 			// ms.RecentColors = GetStore().MetaService.ColorHistory(-24 * time.Hour)
-			log.Println(ms.FavoriteColors)
+			// log.Println(msFavoriteColors)
 		}
 	}
 }
@@ -124,28 +140,35 @@ func GetStore() *CoolorData {
 	return Store
 }
 
-func (cc Coolors) Add(c *CoolorColor) {
-  _, ok := cc.Contains(c)
-  if ok < 0 {
-    cc = append(cc, c.Coolor())
-  }
+func (cc *Coolors) Add(c *CoolorColor) {
+	_, ok := cc.Contains(c)
+	// log.Println(col, ok)
+
+	if ok < 0 {
+		cc.Colors = append(cc.Colors, c.Coolor())
+	}
 }
-func (cc Coolors) Remove(c *CoolorColor) {
-  _, ok := cc.Contains(c)
-  if ok >= 0 {
-    // colors := make(Coolors, 0)
-    colors := cc[:ok-1]
-    colors = append(colors, cc[ok+1:]...)
-    cc = colors
-  }
+func (cc *Coolors) Remove(c *CoolorColor) {
+	_, ok := cc.Contains(c)
+	// colors := make([]Coolor, 0)
+	if ok >= 0 {
+		colors := make([]*Coolor, 0)
+		for _, v := range cc.Colors {
+			if v.Color.Hex() == c.Color.Hex() {
+				continue
+			}
+			colors = append(colors, v)
+		}
+		cc.Colors = colors
+	}
 }
-func (cc Coolors) Contains(c *CoolorColor) (*Coolor, int) {
-  for i, v := range cc {
-    if v.Color.Hex() == c.Color.Hex() {
-      return v,i
-    }
-  }
-  return nil,-1
+func (cc *Coolors) Contains(c *CoolorColor) (*Coolor, int) {
+	for i, v := range cc.Colors {
+		if v.Color.Hex() == c.Coolor().Color.Hex() {
+			return v, i
+		}
+	}
+	return nil, -1
 }
 
 func (cc CoolorsCache) Load(c *CoolorColor) CoolorMeta {
@@ -170,7 +193,6 @@ func (cc CoolorsCache) Remove(c *CoolorColor) {
 		delete(cc.cache, c.Color.Hex())
 	}
 }
-
 func (cc CoolorsCache) Contains(c *CoolorColor) (*CoolorMeta, bool) {
 	col, ok := cc.cache[c.Color.Hex()]
 	if ok {
@@ -183,11 +205,17 @@ func NewMetadataService() *MetaService {
 	// recents := make(CoolorsCache)
 	// favs := make(CoolorsCache)
 	ms := &MetaService{
-		eventObserver:  NewEventObserver("metaservice"),
-		eventNotifier:  NewEventNotifier("metaservice"),
-		Cache:          CoolorsCache{cache: make(map[int32]CoolorMeta)},
-		RecentColors:   make(Coolors, 0),
-		FavoriteColors: make(Coolors, 0),
+		eventObserver: NewEventObserver("metaservice"),
+		eventNotifier: NewEventNotifier("metaservice"),
+		Cache:         CoolorsCache{cache: make(map[int32]CoolorMeta)},
+		RecentColors: Coolors{
+			Key:    "MetaService_Seent",
+			Colors: make([]*Coolor, 0),
+		},
+		FavoriteColors: Coolors{
+			Key:    "MetaService_Favorites",
+			Colors: make([]*Coolor, 0),
+		},
 	}
 	return ms
 }
@@ -203,14 +231,14 @@ func NewCoolorColorsPaletteMeta(
 ) CoolorColorsPaletteMeta {
 	now := time.Now()
 	ccm := &CoolorColorsPaletteMeta{
-		Current:  ccp,
-		Versions: make([]*CoolorColorsPalette, 0),
+		Current:  ccp.Coolors(),
+		Versions: make([]*Coolors, 0),
 		Started:  now,
 		Named:    name,
 		ID:       0,
 		Saved:    false,
 	}
-	ccm.Versions = append(ccm.Versions, ccp)
+	ccm.Versions = append(ccm.Versions, ccp.Coolors())
 	return *ccm
 }
 
@@ -224,7 +252,7 @@ func NewCoolorMeta(c *CoolorColor) CoolorMeta {
 		UserNamed: "",
 		Hex:       fmt.Sprintf("#%06X", c.Color.Hex()),
 		CssName:   GetColorName(*c.Color),
-		Tags:      []TagItem{},
+		// Tags:      []TagItem{},
 		Seent: Seent{
 			Time:   time.Time{},
 			Used:   1,
@@ -262,6 +290,7 @@ func GenColors() {
 }
 
 func TrimSeentCoolors(n int) {
+  return
 	Store.Store.Bolt().Update(func(tx *bbolt.Tx) error {
 		var b, c *bbolt.Bucket
 		c = tx.Bucket([]byte("Coolors"))
@@ -309,23 +338,125 @@ func TrimSeentCoolors(n int) {
 	})
 }
 
+func (ms *MetaService) GetPaletteMeta(ccp *CoolorColorsPalette) *CoolorColorsPaletteMeta{
+  if ms.Current == nil {
+    ccm := NewCoolorColorsPaletteMeta("", ccp)
+    ms.Current = &ccm
+  } else {
+    ms.Current.Current = ccp.Coolors()
+  }
+  
+  return ms.Current
+}
+
 func (ms *MetaService) ToggleFavorite(cc *CoolorColor) {
 	_, ok := ms.FavoriteColors.Contains(cc)
-	if ok>=0 {
+	if ok >= 0 {
 		ms.FavoriteColors.Remove(cc)
 	} else {
 		ms.FavoriteColors.Add(cc)
 	}
+	ms.FavoriteColors.Save(false)
 }
 
-func (ms *MetaService) Load() {
-  mms := NewMetadataService()
-  err := Store.FindOne(mms, bh.Where(bh.Key).Eq("MetaService"))
-  checkErrX(err)
+// Store.Store.Bolt().View(func(tx *bbolt.Tx) error {
+// 	var b, c *bbolt.Bucket
+// 	c = tx.Bucket(bh.Ro)
+// 	b = c.Bucket([]byte("Seent"))
+// 	err := b.ForEach(func(k, v []byte) error {
+// 		var ve uint64
+// 		// var st uint64
+// 		// e := dec(k, &st)
+// 		// checkErr(e)
+// 		e := dec(v, &ve)
+// 		checkErr(e)
+// 		// colors = append(colors, NewIntCoolorColor(int32(ve)))
+// 		return nil
+// 	})
+// 	checkErr(err)
+// 	return nil
+// })
+func (oc *Coolors) GetPalette() *CoolorColorsPalette {
+  colors := NewCoolorColorsPalette()
+  for _, v := range oc.Colors {
+    colors.AddCoolorColor(v.Escalate())
+  }
+  return colors
+}
+func (oc *Coolors) Load(key string) *Coolors {
+	// var c = Coolors{
+	// 	Key:    key,
+	// 	Colors: make([]*Coolor, 100),
+	// 	Saved:  false,
+	// }
+  var c Coolors
+  // var ccs []Coolors
+	err := Store.FindOne(&c, bh.Where(bh.Key).Eq(key))
+	// fmt.Println("FUCK", c)
+	if err != nil {
+		if err == bh.ErrNotFound {
+			// oc.Saved = true
+			// oc.Save(false)
+			// fmt.Print("shit", err, c)
+		}
+			checkErrX(err)
+	}
+	c.Saved = true
+	// fmt.Println("foundshit", c)
+	return &c
 }
 
-func (ms *MetaService) Save() {
-  checkErrX(Store.Upsert("MetaService", &Store.MetaService))
+// func (ms *MetaService) Load(retry bool) {
+// 	// mms := NewMetadataService()
+// 	var c = Coolors{
+// 		Key:    "MetaService_Favorites",
+// 		Colors: make([]Coolor, 0),
+// 	}
+// 	//  var c []Coolors
+// 	err := Store.FindOne(&c, bh.Where("Coolors.Key").Eq("MetaService_Favorites"))
+// 	if err != nil {
+// 		if err == bh.ErrNotFound && !retry {
+// 			ms.Save(true)
+// 			ms.Load(true)
+// 			return
+// 		}
+// 		panic(err)
+// 	}
+// 	fmt.Println(c)
+// 	// ms.FavoriteColors = mms.FavoriteColors
+// 	// ms.RecentColors = mms.RecentColors
+// 	ms.FavoriteColors = c
+// }
+
+func (cs *Coolors) Save(insert bool) {
+  var err error
+  if len(cs.Colors) > 0 {
+  err = Store.Upsert("MetaService_Favorites", cs)
+  checkErr(err)
+
+  }
+}
+
+func (ms *MetaService) Save(insert bool) {
+	// var err error
+	if insert {
+    err := Store.Insert("MetaService_Favorites", &ms.FavoriteColors)
+    checkErr(err)
+	} else {
+    err := Store.Update("MetaService_Favorites", &ms.FavoriteColors)
+    checkErr(err)
+	}
+	// log.Println(err)
+}
+
+func (ms *MetaService) PaletteHistory(saved bool) []CoolorColorsPaletteMeta {
+  var ccpms []CoolorColorsPaletteMeta
+  savedQ := bh.Where("Started").Le(time.Now())
+	err := Store.Find(&ccpms, savedQ.SortBy("Started").Reverse())
+  if err != nil && err != bh.ErrNotFound {
+    panic(err)
+  }
+  return ccpms
 }
 
 func (ms *MetaService) LoadFavorites() *CoolorColors {
@@ -387,6 +518,74 @@ func (ms *MetaService) HandleEvent(o ObservableEvent) bool {
 	return true
 }
 
+var _ msgpack.CustomEncoder = (*CoolorColor)(nil)
+var _ msgpack.CustomDecoder = (*CoolorColor)(nil)
+
+func (s *Coolors) EncodeMsgpack(enc *msgpack.Encoder) error {
+	return enc.EncodeMulti(s.Key, s.Colors)
+}
+
+func (s *Coolors) DecodeMsgpack(dec *msgpack.Decoder) error {
+	// var err error
+	// fmt.Println(dec)
+	// buf := make([]byte, 1024)
+	// dec.ReadFull(buf)
+	// // var k string
+	var b []interface{}
+	// // b, err := dec.DecodeBytes()
+	// // err = dec.DecodeMulti(&b)
+	// checkErr(err)
+	// // slice, err := dec.DecodeSlice()
+	// // checkErr(err)
+	// return nil
+	err := dec.DecodeMulti(&s.Key, &b)
+	colors := make([]*Coolor, 0)
+	for _, v := range b {
+		fmt.Printf("\n\n******%v ", v)
+		fmt.Printf("\n\n******%T", v)
+		for kk, vv := range v.(map[string]interface{}) {
+			fmt.Printf("\n\n******%T %T %v %v", kk, vv, kk, vv)
+			c := &Coolor{
+				Color: tcell.Color(vv.(uint64)),
+			}
+			colors = append(colors, c)
+		}
+	}
+  s.Colors = colors
+	fmt.Println(colors)
+  fmt.Printf("\n***** %T %v", s, s)
+	return err
+}
+
+//
+// func (s *Coolor) EncodeMsgpack(enc *msgpack.Encoder) error {
+// 	return enc.EncodeUint64(uint64(s.Color))
+// }
+//
+// func (s *Coolor) DecodeMsgpack(dec *msgpack.Decoder) error {
+//   u64, err := dec.DecodeUint64()
+//   if err != nil {
+//     return err
+//   }
+// 	s.Color = tcell.Color(u64)
+//   return nil
+// }
+//
+
+// func (v Vector) MarshalBinary() ([]byte, error) {
+// 	// A simple encoding: plain text.
+// 	var b bytes.Buffer
+// 	fmt.Fprintln(&b, v.x, v.y, v.z)
+// 	return b.Bytes(), nil
+// }
+
+// UnmarshalBinary modifies the receiver so it must take a pointer receiver.
+// func (v *Vector) UnmarshalBinary(data []byte) error {
+// 	// A simple encoding: plain text.
+// 	b := bytes.NewBuffer(data)
+// 	_, err := fmt.Fscanln(b, &v.x, &v.y, &v.z)
+// 	return err
+// }
 func (s *CoolorColor) EncodeMsgpack(enc *msgpack.Encoder) error {
 	return enc.EncodeMulti(s.Color)
 }
@@ -404,7 +603,7 @@ func (cc *CoolorData) FindNamedPalette(name string) *CoolorColorsPaletteMeta {
 	err := GetStore().FindOne(&ccm, bh.Where("Named").Eq(name))
 	if err != nil {
 		if err == bh.ErrNotFound {
-			fmt.Println("not found", err, name)
+			// fmt.Println("not found", err, name)
 			return nil
 		}
 	}
@@ -412,6 +611,7 @@ func (cc *CoolorData) FindNamedPalette(name string) *CoolorColorsPaletteMeta {
 }
 
 func (cc *CoolorMeta) UpdateSeent(t time.Time) {
+  return
 	if cc.Seent.Time.IsZero() {
 		cc.Seent.Time = time.Now()
 	}
@@ -467,11 +667,11 @@ func (cc CoolorColors) Contains(c *CoolorColor) bool {
 
 func (cc *CoolorColor) Favorite() bool {
 	_, ok := GetStore().MetaService.FavoriteColors.Contains(cc)
-  return ok >= 0
+	return ok >= 0
 }
 
 func (cc *CoolorColor) GetMeta() *CoolorMeta {
-  GetStore().MetaService.RecentColors.Add(cc)
+	GetStore().MetaService.RecentColors.Add(cc)
 	var cm CoolorMeta
 	k := uint64(cc.Color.TrueColor())
 	err := Store.FindOne(&cm, bh.Where(bh.Key).Eq(k))
@@ -481,7 +681,7 @@ func (cc *CoolorColor) GetMeta() *CoolorMeta {
 		}
 		cm = NewCoolorMeta(cc)
 	}
-	if _, ok := GetStore().FavoriteColors.Contains(cc); ok>=0 {
+	if _, ok := GetStore().FavoriteColors.Contains(cc); ok >= 0 {
 		cm.Best = true
 	} else {
 		cm.Best = false
@@ -497,24 +697,29 @@ func (cc *CoolorColorsPalette) GetMeta() *CoolorColorsPaletteMeta {
 	var ccm CoolorColorsPaletteMeta
 	// ccm.Current = cc
 	current := bh.Where("Current.Hash").Eq(cc.Hash)
-	version := bh.Where("Versions").Contains(cc.Hash)
+	// version := bh.Where("Versions").Contains(cc.Hash)
 	err := Store.FindOne(&ccm, current)
 	if err != nil {
 		fmt.Println("not found", err)
+    doCallers()
 		if err == bh.ErrNotFound {
 			var ccms []CoolorColorsPaletteMeta
-			err := Store.Find(&ccms, current.Or(version))
+			err := Store.Find(&ccms, current)
 			if err != nil {
 				fmt.Println(err)
 				panic(err)
 			}
 			for _, p := range ccms {
-				if p.Current.Hash == ccm.Current.Hash {
+        fmt.Println("pals:", p)
+				if p.Current.HashColors() == ccm.Current.HashColors() {
 					return &p
 				}
 			}
-      cc.UpdateHash()
-			ccm = NewCoolorColorsPaletteMeta(Generator().WithSeed(int64(cc.Hash)).GenerateName(2), cc)
+			cc.UpdateHash()
+			ccm = NewCoolorColorsPaletteMeta(
+				Generator().WithSeed(int64(cc.Hash)).GenerateName(2),
+				cc,
+			)
 		} else {
 			panic(err)
 		}
@@ -523,13 +728,28 @@ func (cc *CoolorColorsPalette) GetMeta() *CoolorColorsPaletteMeta {
 	return &ccm
 }
 
-func (cc *CoolorColorsPaletteMeta) Update(clean bool) {
+func (cc *CoolorColorsPaletteMeta) Update() {
 	var err error
+  if cc == nil || cc.Current == nil || len(cc.Current.Colors) == 0 {
+    return 
+  }
 	if cc.ID == 0 {
-		err = Store.Insert(bh.NextSequence(), cc)
-	} else {
-		err = Store.Upsert(cc.ID, cc)
+    var ccpm CoolorColorsPaletteMeta
+    q := bh.Where("Named").Eq(cc.Named)
+    err = Store.FindOne(&ccpm, q)
+    if err != nil && err == bh.ErrNotFound {
+      err = Store.Insert(bh.NextSequence(), cc)
+      if checkErrX(err) {
+        fmt.Println(cc.ID)
+        // cc = &ccpm
+      }
+    } else if err != nil {
+      checkErrX(err)
+    } else {
+      cc = &ccpm
+    }
 	}
+		err = Store.Upsert(cc.ID, cc)
 	if err != nil {
 		panic(err)
 	}
@@ -552,13 +772,22 @@ func (cc *CoolorColorsPalette) Update(clean bool) {
 
 var Store *CoolorData
 
+func (ccs CoolorPaletteTagsMeta) String() string {
+  str := ""
+  for k, col := range ccs.TaggedColors {
+    str = fmt.Sprintf("%s %s", str, fmt.Sprintf("%s %s", k, col.Escalate().TerminalPreview()))
+    
+  }
+  return str
+}
 func (ccs CoolorColorsPaletteMeta) String() string {
 	str := ""
+  str = fmt.Sprintf("%d %s %s", ccs.ID, ccs.Named,ccs.Started.Format(time.RFC3339))
 	if ccs.Current == nil {
 		return "nil"
 	}
 	for _, v := range ccs.Current.Colors {
-		str = fmt.Sprintf("%s %s", str, v.TerminalPreview())
+		str = fmt.Sprintf("%s %s", str, v.Escalate().TerminalPreview())
 	}
 	return str
 	// return fmt.Sprintf("%s %s", )
@@ -584,40 +813,43 @@ func (ccs CoolorsMeta) String() string {
 }
 
 func seedbolt(store *bh.Store) {
-	err := store.Bolt().Update(func(tx *bbolt.Tx) error {
-		if tx.Cursor().Bucket().Stats().KeyN == 0 {
-			pals := errAss[*bbolt.Bucket](
-				tx.CreateBucketIfNotExists([]byte("Palettes")),
-			)
-			colors := errAss[*bbolt.Bucket](
-				tx.CreateBucketIfNotExists([]byte("Coolors")),
-			)
-			seent := errAss[*bbolt.Bucket](
-				colors.CreateBucketIfNotExists([]byte("Seent")),
-			)
-			favs := errAss[*bbolt.Bucket](
-				colors.CreateBucketIfNotExists([]byte("Favorites")),
-			)
-			recents := errAss[*bbolt.Bucket](
-				pals.CreateBucketIfNotExists([]byte("Recents")),
-			)
-			anon := errAss[*bbolt.Bucket](
-				pals.CreateBucketIfNotExists([]byte("Anonymous")),
-			)
-			user := errAss[*bbolt.Bucket](
-				pals.CreateBucketIfNotExists([]byte("User")),
-			)
-			_, _, _, _, _ = seent, anon, user, favs, recents
-		}
-		return nil
-	})
-	checkErr(err)
+	// err := store.Bolt().Update(func(tx *bbolt.Tx) error {
+	// 	if tx.Cursor().Bucket().Stats().KeyN == 0 {
+	// 		pals := errAss[*bbolt.Bucket](
+	// 			tx.CreateBucketIfNotExists([]byte("Palettes")),
+	// 		)
+	// 		colors := errAss[*bbolt.Bucket](
+	// 			tx.CreateBucketIfNotExists([]byte("Coolors")),
+	// 		)
+	// 		seent := errAss[*bbolt.Bucket](
+	// 			colors.CreateBucketIfNotExists([]byte("Seent")),
+	// 		)
+	// 		favs := errAss[*bbolt.Bucket](
+	// 			colors.CreateBucketIfNotExists([]byte("Favorites")),
+	// 		)
+	// 		recents := errAss[*bbolt.Bucket](
+	// 			pals.CreateBucketIfNotExists([]byte("Recents")),
+	// 		)
+	// 		anon := errAss[*bbolt.Bucket](
+	// 			pals.CreateBucketIfNotExists([]byte("Anonymous")),
+	// 		)
+	// 		user := errAss[*bbolt.Bucket](
+	// 			pals.CreateBucketIfNotExists([]byte("User")),
+	// 		)
+	// 		_, _, _, _, _ = seent, anon, user, favs, recents
+	// 	}
+	// 	return nil
+	// })
+	// checkErr(err)
 }
 
 func openbolt() *bh.Store {
 	store, err := bh.Open("testfile", 0o666, &bh.Options{
-		Encoder: bh.EncodeFunc(enc),
-		Decoder: bh.DecodeFunc(dec),
+		// Encoder: bh.EncodeFunc(enc),
+		// Decoder: bh.DecodeFunc(dec),
+		Options: &bbolt.Options{
+			FreelistType: bbolt.FreelistMapType,
+		},
 	})
 	checkErr(err)
 	go Store.MetaService.Service()
@@ -657,23 +889,41 @@ func openbolt() *bh.Store {
 // }
 
 //
-// func (i *Coolor) Type() string { return "Coolor" }
-// func (i *Coolor) Indexes() map[string]bh.Index {
+// func (i *Coolors) Type() string { return "Coolors" }
+// func (i *Coolors) Indexes() map[string]bh.Index {
 // 	return map[string]bh.Index{
-// 		"Color": {
-// 			IndexFunc: func(_ string, value interface{}) ([]byte, error) {
+// 		"Key": {
+// 			IndexFunc: func(n string, value interface{}) ([]byte, error) {
 // 				// If the upsert wants to delete an existing value first,
 // 				// value could be a **Item instead of *Item
 // 				// panic: interface conversion: interface {} is **Item, not *Item
-//         fmt.Println(value)
-// 				v := value.(*Color).Hex()
-//         fmt.Println(v)
+// 				v := value.(*Coolors).Key
 // 				return bh.DefaultEncode(v)
 // 			},
 // 			Unique: true,
 // 		},
 // 	}
 // }
+// func (i *Coolors) SliceIndexes() map[string]bh.SliceIndex {
+// 	return map[string]bh.SliceIndex{
+// 		// "Colors": func(name string, value interface{}) ([][]byte, error) {
+// 		// 	cols, ok := value.(*Coolors)
+// 		// 	keys := make([][]byte, len(cols.Colors))
+// 		// 	if ok {
+// 		// 		for i, v := range cols.Colors {
+// 		// 			keys[i] = errAss[[]byte](enc(v.Color.Hex()))
+// 		// 		}
+// 		// 		return keys, nil
+// 		// 	}
+// 		// 	return keys, fmt.Errorf(
+// 		// 		"Error casting to proper slice %v type %v",
+// 		// 		cols,
+// 		// 		ok,
+// 		// 	)
+// 		// },
+// 	}
+// }
+
 // func (i *CoolorColorsPaletteMeta) Type() string { return "CoolorColorsPaletteMeta" }
 // func (i *CoolorColorsPaletteMeta) Indexes() map[string]bh.Index {
 // 	return map[string]bh.Index{

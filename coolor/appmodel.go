@@ -75,16 +75,6 @@ func StartApp() {
 		AddItem(AppModel.helpbar, 1, 1, false).
 		AddItem(AppModel.pages, 0, 10, true).
 		AddItem(AppModel.status, 1, 1, false)
-	AppModel.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		ch := event.Rune()
-		// kp := event.Key()
-		switch ch {
-		case 'Q':
-			AppModel.app.Stop()
-			return nil
-		}
-		return event
-	})
 	if err := AppModel.app.SetRoot(AppModel.rootView, true).Run(); err != nil {
 		panic(err)
 	}

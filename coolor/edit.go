@@ -517,6 +517,9 @@ func (cce *CoolorColorEditor) InputHandler() func(event *tcell.EventKey, setFocu
 	})
 }
 
+func (cce *CoolorColorEditor) Name() string {
+return fmt.Sprintf("%s", "editor")
+}
 func (cce *CoolorColorEditor) HandleEvent(oe ObservableEvent) bool {
   switch oe.Type {
   case PaletteColorSelectedEvent:

@@ -1,0 +1,28 @@
+    ┌────────────────────┬────────────────────┬────────────────────┐
+    │default bg          │iso black bg        │iso white bg        │
+    │[2m[38;5;7mxxxxxxxxxxxxxxxxxxxx[0m[39m[49m│[2m[38;5;7m[40mxxxxxxxxxxxxxxxxxxxx[0m[39m[49m│[2m[38;5;7m[47mxxxxxxxxxxxxxxxxxxxx[0m[39m[49m│
+    │[2m[38;5;7mxxxxxxxxxxxxxxxxxxxx[0m[39m[49m│[2m[38;5;7m[40mxxxxxxxxxxxxxxxxxxxx[0m[39m[49m│[2m[38;5;7m[47mxxxxxxxxxxxxxxxxxxxx[0m[39m[49m│
+    │[2m[38;5;7mxxxxxxxxxxxxxxxxxxxx[0m[39m[49m│[2m[38;5;7m[40mxxxxxxxxxxxxxxxxxxxx[0m[39m[49m│[2m[38;5;7m[47mxxxxxxxxxxxxxxxxxxxx[0m[39m[49m│
+    │default fg          │iso black fg        │iso white fg        │
+    │[2m[48;5;7mxxxxxxxxxxxxxxxxxxxx[0m[39m[49m│[2m[30m[48;5;7mxxxxxxxxxxxxxxxxxxxx[0m[39m[49m│[2m[37m[48;5;7mxxxxxxxxxxxxxxxxxxxx[0m[39m[49m│
+    │[2m[48;5;7mxxxxxxxxxxxxxxxxxxxx[0m[39m[49m│[2m[30m[48;5;7mxxxxxxxxxxxxxxxxxxxx[0m[39m[49m│[2m[37m[48;5;7mxxxxxxxxxxxxxxxxxxxx[0m[39m[49m│
+    │[2m[48;5;7mxxxxxxxxxxxxxxxxxxxx[0m[39m[49m│[2m[30m[48;5;7mxxxxxxxxxxxxxxxxxxxx[0m[39m[49m│[2m[37m[48;5;7mxxxxxxxxxxxxxxxxxxxx[0m[39m[49m│
+    └────────────────────┴────────────────────┴────────────────────┘
+
+      keys: mode g/G, format b/k/i/u/S/r, bar #, exit Q
+            color +/- (q/e), bright 1/3 (z/c), reset 0
+
+     color: [[38;5;0m####[38;5;1m####[38;5;2m####[38;5;3m####[38;5;4m####[38;5;5m####[38;5;6m####[38;5;7m####[39m] 7   (keys: +/- or q/e)
+                                         ^^^^
+    bright: [[38;5;7m################[38;5;15m################[39m] 0   (keys: 1/3 or z/c)
+             ^^^^^^^^^^^^^^^^                
+      mode: 256-color pallette – ansicolor subset
+      code: \e[2m\e[38;5;7m (fg), \e[2m\e[48;5;7m (bg)
+      name: dark + color7
+
+      favs: 1[48;5;12m    [49m, 2[48;5;13m    [49m, 3[48;5;3m    [49m, 4[48;5;1m    [49m, 5[48;5;4m    [49m, 
+            add F, jump f + index
+
+
+
+

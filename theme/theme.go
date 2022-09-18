@@ -24,16 +24,19 @@ type Theme struct {
 
 var theme *Theme
 
+// func NewHexColor() tcell.Color {
+//
+// }
 func init() {
 	theme = &Theme{ //0x303030
-		HeaderBackground: tcell.NewHexColor(0x1C1C1C),
-		GrayerBackground: tcell.NewHexColor(0x303030),
-		SidebarBackground: tcell.NewHexColor(0x21252B),
-		SidebarLines:      tcell.NewHexColor(0x5c6370),
-		ContentBackground: tcell.NewHexColor(0x282c34),
-		Border:            tcell.NewHexColor(0x5c6370),
-		TopbarBorder:      tcell.NewHexColor(0x5c6370),
-		InfoLabel:         tcell.NewHexColor(0x5c6370),
+		HeaderBackground: tcell.GetColor("#1C1C1C"),
+		GrayerBackground: tcell.GetColor("#303030"),
+		SidebarBackground: tcell.GetColor("#21252B"),
+		ContentBackground: tcell.GetColor("#282c34"),
+		SidebarLines:      tcell.GetColor("#5c6370"),
+		Border:            tcell.GetColor("#1C1C1C"),
+		TopbarBorder:      tcell.GetColor("#5c6370"),
+		InfoLabel:         tcell.GetColor("#5c6370"),
 		Styles:            make(map[string]tcell.Style),
 	}
 	theme.SetStyleFgBgAttr(

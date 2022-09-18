@@ -431,16 +431,26 @@ func (cc *CoolorColor) Html() string {
 	return strings.ToUpper(fmt.Sprintf("#%06x", cc.Color.Hex()))
 }
 
-func (cc *CoolorColor) TVPreview() string {
+func (cc *CoolorColor) TVCSSString(spaces bool) string {
 	if cc == nil || cc.Color == nil {
 		return "#000000"
 	}
+  space := " "
+  if !spaces {
+    space = ""
+  }
 	return strings.ToUpper(fmt.Sprintf(
-		"[#%06x:#%06x:-] #%06x [-:-:-]",
+		"[#%06x:#%06x:-]%s#%06x%s[-:-:-]",
 		cc.GetFgColor().Hex(),
 		cc.Color.Hex(),
+    space,
 		cc.Color.Hex(),
+    space,
 	))
+}
+
+func (cc *CoolorColor) TVPreview() string {
+  return cc.TVCSSString(true)
 }
 
 func (cc *CoolorColor) TerminalPreview() string {
@@ -480,9 +490,8 @@ func (cc *CoolorColor) updateStyle() {
 	}
 	if cc.selected || cc.centered {
 		inverse := cc.GetFgColor()
-		cc.Box.
-			SetBorder(true).
-			SetBorderAttributes(tcell.AttrBold).
+		cc.Box.SetBorderAttributes(tcell.AttrBold).
+      SetBorder(true).
 			SetBorderPadding(0, 0, 0, 0).
 			SetBorderColor(inverse).
 			SetTitleColor(inverse)
@@ -492,7 +501,6 @@ func (cc *CoolorColor) updateStyle() {
 		cc.SetBorder(false)
 		cc.Blur()
 	}
-	// })
 }
 
 func (cc *CoolorColor) Draw(screen tcell.Screen) {

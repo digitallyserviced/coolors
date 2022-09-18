@@ -2,6 +2,7 @@ package coolor
 
 import (
 	"fmt"
+	"log"
 	"math/rand"
 	"os"
 	"os/signal"
@@ -10,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
 	"github.com/gookit/goutil/dump"
 	"github.com/gookit/goutil/errorx"
@@ -68,6 +70,7 @@ type ColorRepParserFunc func(cr *ColorRep) *Color
 // Color representations hsl(n,n,n), #7bafcd, rgba(0.6,0.6,0.6,255)
 // assume only need at most 4 value to make it in the color model/space
 type ColorRep struct {
+	found          map[string]int
 	parseRegex     *regexp.Regexp
 	scanFormat     string
 	v1, v2, v3, v4 float64
@@ -105,6 +108,7 @@ func (cr *ColorRep) Matches(s string) bool {
 func NewColorRep(regex, scanFormat string, p ColorRepParserFunc) *ColorRep {
 	rx := regexp.MustCompile(regex)
 	cr := &ColorRep{
+		found:      make(map[string]int),
 		parseRegex: rx,
 		scanFormat: scanFormat,
 		v1:         0,
@@ -115,8 +119,6 @@ func NewColorRep(regex, scanFormat string, p ColorRepParserFunc) *ColorRep {
 	}
 	return cr
 }
-
-
 
 func StringColorizer(s string) (string, *CoolorColorsPalette) {
 	for _, v := range []*ColorRep{CssHex6} {
@@ -134,8 +136,14 @@ func (cr *ColorRep) FindAndColorize(sc string) (string, *CoolorColorsPalette) {
 	cols := NewCoolorColorsPalette()
 	newsc := cr.parseRegex.ReplaceAllStringFunc(sc, func(s string) string {
 		col := NewCoolorColor(s)
-		cols.AddCoolorColor(col)
-		return col.TVPreview()
+		colnum, exists := cr.found[s]
+		if exists {
+			cr.found[s] = colnum + 1
+		} else {
+			cols.AddCoolorColor(col)
+			cr.found[s] = 1
+		}
+		return col.TVCSSString(false)
 	})
 	return newsc, cols
 	// if matchIdxs := cr.parseRegex.FindAllStringSubmatchIndex(sc, -1); len(matchIdxs) > 0 {
@@ -221,7 +229,7 @@ func errAss[R any](v R, e error) R {
 
 func checkErrX(err error, vars ...interface{}) bool {
 	if err != nil {
-		doLog(errorx.WithPrevf(err, "%V", vars))
+		doLog(errorx.WithPrevf(errorx.Traced(err), "%T %v", err, vars))
 		return false
 	}
 	return true
@@ -233,7 +241,6 @@ func checkErr(err error) {
 		panic(err)
 	}
 }
-
 
 func handleSignals() {
 	signal_chan := make(chan os.Signal, 1)
@@ -271,13 +278,13 @@ func startBoltStats() {
 		// Grab the initial stats.
 		// prev := Store.Bolt().Stats()
 		tick := time.NewTicker(10 * time.Second)
-    tick.Reset(1000 * time.Millisecond)
+		tick.Reset(1000 * time.Millisecond)
 
 		for {
 			// Wait for 10s.
 			select {
 			case <-tick.C:
-			TrimSeentCoolors(RecentCoolorsMax)
+				TrimSeentCoolors(RecentCoolorsMax)
 				// stats := Store.Bolt().Stats()
 				// diff := stats.Sub(&prev)
 
@@ -296,14 +303,16 @@ func SeentColor(from string, cc *CoolorColor, src Referenced) {
 	if MainC == nil || MainC.eventNotifier == nil {
 		return
 	}
-	MainC.eventNotifier.Notify(*MainC.eventNotifier.NewObservableEvent(ColorSeentEvent, from, cc, src))
+	MainC.eventNotifier.Notify(
+		*MainC.eventNotifier.NewObservableEvent(ColorSeentEvent, from, cc, src),
+	)
 }
 
-func IfElse[T any](b bool, a,c T) T {
-  if b {
-    return a
-  }
-  return c
+func IfElse[T any](b bool, a, c T) T {
+	if b {
+		return a
+	}
+	return c
 }
 
 var IfElseStr = IfElse[string]
@@ -324,9 +333,6 @@ func enc(value interface{}) ([]byte, error) {
 // var _ msgpack.CustomEncoder = (*CoolorColorPalette)(nil)
 // var _ msgpack.CustomDecoder = (*CoolorColorPalette)(nil)
 //
-var _ msgpack.CustomEncoder = (*CoolorColor)(nil)
-var _ msgpack.CustomDecoder = (*CoolorColor)(nil)
-
 // Debug message categories.
 // const (
 // 	LogConn  = LogMask(1 << iota)   // Connection events
@@ -378,4 +384,184 @@ func enumString(v uint32, names []enumName, goSyntax bool) string {
 	}
 	return s + "0x" + strconv.FormatUint(uint64(v), 16)
 }
+
+var Shortcuts []*Shortcut
+var scopes []*Scope
+
+func addShortcut(
+	identifier, name string,
+	scope *Scope,
+	event *tcell.EventKey,
+) *Shortcut {
+	shortcut := &Shortcut{
+		Identifier:   identifier,
+		Name:         name,
+		Scope:        scope,
+		Event:        event,
+		defaultEvent: event,
+	}
+
+	Shortcuts = append(Shortcuts, shortcut)
+
+	return shortcut
+}
+
+// EventsEqual compares the given events, respecting everything except for the
+// When field.
+func EventsEqual(eventOne, eventTwo *tcell.EventKey) bool {
+	if (eventOne == nil && eventTwo != nil) ||
+		(eventOne != nil && eventTwo == nil) {
+		return false
+	}
+
+	return eventOne.Rune() == eventTwo.Rune() &&
+		eventOne.Modifiers() == eventTwo.Modifiers() &&
+		eventOne.Key() == eventTwo.Key()
+}
+
+// Scope is what describes a shortcuts scope within the application. Usually
+// a scope can only have a specific shortcut once and a children scope will
+// overwrite that shortcut, since that lower scope has the upper hand.
+type Scope struct {
+	// Parent is this scopes upper Scope, which may be null, in case this is a
+	// root scope.
+	Parent *Scope
+
+	// Identifier will be used for persistence and should never change
+	Identifier string
+
+	// Name will be shown on the UI
+	Name string
+}
+
+// ShortcutDataRepresentation represents a shortcut configured by the user.
+// This prevents redundancy of scopes.
+type ShortcutDataRepresentation struct {
+	Identifier      string
+	ScopeIdentifier string
+	EventKey        tcell.Key
+	EventMod        tcell.ModMask
+	EventRune       rune
+}
+
+// Shortcut defines a shortcut within the application. The scope might for
+// example be a widget or situation in which the user is.
+type Shortcut struct {
+	// Identifier will be used for persistence and should never change
+	Identifier string
+
+	// Name will be shown on the UI
+	Name string
+
+	// The Scope will be omitted, as this needed be persisted anyway.
+	Scope *Scope
+
+	// Event is the shortcut expressed as it's resulting tcell Event.
+	Event *tcell.EventKey
+
+	//This shortcuts default, in order to be able to reset it.
+	defaultEvent *tcell.EventKey
+}
+
+// Equals compares the given EventKey with the Shortcuts Event.
+func (shortcut *Shortcut) Equals(event *tcell.EventKey) bool {
+	return EventsEqual(shortcut.Event, event)
+}
+
+var (
+	globalScope = addScope("global", "Application wide", nil)
+	FocusUp     = addShortcut("focus_up", "Focus the next widget above",
+		globalScope, tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModShift))
+	FocusDown = addShortcut("focus_down", "Focus the next widget below",
+		globalScope, tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModShift))
+	FocusLeft = addShortcut("focus_left", "Focus the next widget to the left",
+		globalScope, tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModShift))
+	FocusRight = addShortcut("focus_right", "Focus the next widget to the right",
+		globalScope, tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModShift))
+)
+
+func DirectionalFocusHandling(
+	event *tcell.EventKey,
+	app *tview.Application,
+) *tcell.EventKey {
+	focused := app.GetFocus()
+
+	if FocusUp.Equals(event) {
+		FocusNextIfPossible(tview.Up, app, focused)
+	} else if FocusDown.Equals(event) {
+		FocusNextIfPossible(tview.Down, app, focused)
+	} else if FocusLeft.Equals(event) {
+		FocusNextIfPossible(tview.Left, app, focused)
+	} else if FocusRight.Equals(event) {
+		FocusNextIfPossible(tview.Right, app, focused)
+	} else {
+		return event
+	}
+	return nil
+}
+
+func addScope(identifier, name string, parent *Scope) *Scope {
+	scope := &Scope{
+		Parent:     parent,
+		Identifier: identifier,
+		Name:       name,
+	}
+
+	scopes = append(scopes, scope)
+
+	return scope
+}
+
+func FocusNextIfPossible(
+	direction tview.FocusDirection,
+	app *tview.Application,
+	focused tview.Primitive,
+) {
+	if focused == nil {
+		return
+	}
+
+	log.Printf("%v %T", direction, focused)
+	focusNext := focused.NextFocusableComponent(direction)
+	log.Printf("%v %T -> %T", direction, focused, focusNext)
+	if focusNext != nil {
+		app.SetFocus(focusNext)
+	}
+}
+
+type Stack []interface{}
+
+// Create a new stack
+func New() *Stack {
+	return &Stack{}
+}
+
+// Get size of stack
+func (this *Stack) Len() int {
+	return len(*this)
+}
+
+// View the top item on the stack
+func (this *Stack) Peek() interface{} {
+	if len(*this) == 0 {
+		return nil
+	}
+	return (*this)[0]
+}
+
+// Pop the top item of the stack and return it
+func (this *Stack) Pop() interface{} {
+	if len(*this) == 0 {
+		return nil
+	}
+	elem := this.Peek()
+	*this = (*this)[:(len(*this) - 1)]
+	return elem
+}
+
+// Push a value onto the top of the stack
+func (this *Stack) Push(elem interface{}) {
+	*this = append(*this, elem)
+}
+
 // vim: ts=2 sw=2 et ft=go

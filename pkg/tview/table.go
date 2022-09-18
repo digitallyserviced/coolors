@@ -1109,6 +1109,7 @@ func (t *Table) Draw(screen tcell.Screen) {
 	if t.borders {
 		columnX++
 	}
+  overflown := false
 	for columnIndex, column := range columns {
 		columnWidth := widths[columnIndex]
 		for rowY, row := range rows {
@@ -1131,6 +1132,7 @@ func (t *Table) Draw(screen tcell.Screen) {
 				drawBorder(columnX-1, rowY, ch)
 				rowY++
 				if rowY >= height || y+rowY >= totalHeight {
+          overflown = true
 					break // No space for the text anymore.
 				}
 				drawBorder(columnX-1, rowY, Borders.Vertical)
@@ -1178,7 +1180,9 @@ func (t *Table) Draw(screen tcell.Screen) {
 
 		columnX += columnWidth + 1
 	}
-
+if overflown {
+    defer t.DrawOverflow(screen, t.rowOffset != 0, !t.trackEnd)
+  }
 	// Draw right border.
 	columnX--
 	if t.borders && len(rows) > 0 && len(columns) > 0 && columnX < width {
@@ -1233,6 +1237,9 @@ func (t *Table) Draw(screen tcell.Screen) {
 						a = attr
 					}
 					style = style.Background(bg).Foreground(fg).Attributes(a)
+          if textColor == 0 {
+            style = style.Background(bg)
+          }
 				}
 				screen.SetContent(fromX+bx, fromY+by, m, c, style)
 			}
@@ -1296,9 +1303,15 @@ func (t *Table) Draw(screen tcell.Screen) {
 		for _, info := range entries {
 			if info.selected {
 				if t.selectedStyle != (tcell.Style{}) {
+          if selFg == 0 {
+					defer colorBackground(info.x, info.y, info.w, info.h, selBg, selFg, false, true, 0, false)
+
+          } else {
+
 					defer colorBackground(info.x, info.y, info.w, info.h, selBg, selFg, false, false, selAttr, false)
+          }
 				} else {
-					defer colorBackground(info.x, info.y, info.w, info.h, bgColor, info.cell.Color, false, false, 0, true)
+					defer colorBackground(info.x, info.y, info.w, info.h, bgColor, info.cell.Color, true, true, 0, true)
 				}
 			} else {
 				colorBackground(info.x, info.y, info.w, info.h, bgColor, info.cell.Color, info.cell.Transparent, true, 0, false)
@@ -1322,7 +1335,7 @@ func (t *Table) InputHandler() func(event *tcell.EventKey, setFocus func(p Primi
 			if t.done != nil {
 				t.done(key)
 			}
-			return
+			return 
 		}
 
 		// Movement functions.

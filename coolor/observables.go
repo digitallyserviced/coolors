@@ -91,6 +91,7 @@ type (
 
 	Observer interface {
 		// tcell.Event
+  Name() string
 		HandleEvent(ObservableEvent) bool
 	}
 	Referenced interface {
@@ -110,9 +111,14 @@ func NewEventObserver(name string) *eventObserver {
 }
 
 func (o *ObservableEvent) String() string {
-	return fmt.Sprintf("%d", o.Type)
+	return fmt.Sprintf("anon  %s %s %s %v %v %d", o.EventTime, o.Type.String(),o.Note,o.Ref,o.Src,o.seqNo)
 }
 
+func (o *eventObserver) Name() string {
+  return fmt.Sprintf("%s @ #%d", o.observerName, o.seqNo)
+	// fmt.Printf("*** Observer %d received: \n", o.observerName)
+	// return true
+}
 func (o *eventObserver) HandleEvent(e ObservableEvent) bool {
 	// fmt.Printf("*** Observer %d received: \n", o.observerName)
 	return true

@@ -10,6 +10,7 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/gookit/goutil/arrutil"
+	"github.com/gookit/goutil/dump"
 
 	// "github.com/gookit/goutil/dump"
 
@@ -53,11 +54,11 @@ func (pd PaletteData) GetPalette() *CoolorColorsPalette {
 type WezPaletteData struct {
 	Foreground    string   `koanf:"foreground"`
 	Background    string   `koanf:"background"`
-	Cursor_bg     string   `koanf:"cursor_bg"`
-	Cursor_border string   `koanf:"cursor_border"`
-	Cursor_fg     string   `koanf:"cursor_fg"`
-	Selection_bg  string   `koanf:"selection_bg"`
-	Selection_fg  string   `koanf:"selection_fg"`
+	CursorBg     string   `koanf:"cursor_bg"`
+	CursorFg     string   `koanf:"cursor_fg"`
+	CursorBorder string   `koanf:"cursor_border"`
+	SelectionBg  string   `koanf:"selection_bg"`
+	SelectionFg  string   `koanf:"selection_fg"`
 	Ansi          []string `koanf:"ansi"`
 	Brights       []string `koanf:"brights"`
 }
@@ -126,6 +127,19 @@ func (pdc *HistoryDataConfig) LoadPalette(s string) Palette {
 	return nil
 }
 
+// func LoadConfigFrom(path string) *HistoryDataConfig {
+// 	if fsutil.IsDir(path) {
+// 		return nil
+// 	}
+// 	pdc := NewPaletteHistoryData()
+// 	err := pdc.LoadConfigFromFile(path, true)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	// dump.P(pdc.data)
+// 	return pdc
+// }
+//
 func LoadConfigFrom(path string) *HistoryDataConfig {
 	if fsutil.IsDir(path) {
 		return nil
@@ -275,7 +289,7 @@ func (pdc *HistoryDataConfig) UpdateFileVersion(i uint64) {
 }
 
 func (pdc *HistoryDataConfig) UpdateVersion(i uint64) {
-	// dump.P("pdc.version = %d and pdc.data.metadata.versionn = %d", pdc.version, pdc.data.Metadata.Version)
+	// dump.P ﱗ   ( "pdc.version = %d and pdc.data.metadata.versionn = %d", pdc.version, pdc.data.Metadata.Version)
 	pdc.version = i
 }
 
@@ -288,8 +302,8 @@ func (pdc *HistoryDataConfig) AddPalette(name string, p Palette) {
 	cp := p.GetPalette()
   cp.UpdateHash()
   ccm := cp.GetMeta()
-  fmt.Println(Generator().WithSeed(int64(cp.UpdateHash())).GenerateName(2),ccm.Current.Name, ccm.Named, ccm.String())
-  ccm.Update(false)
+  fmt.Println(Generator().WithSeed(int64(cp.UpdateHash())).GenerateName(2),ccm.Current.Key, ccm.Named, ccm.String())
+  ccm.Update()
   // fmt.Println(ccm)
 }
 
@@ -302,6 +316,14 @@ func (cp *CoolorColorsPalette) UpdateHash() uint64 {
   return cp.Hash
 }
 
+func (cp *Coolors) HashColors() uint64 {
+  hashed := lo.Reduce[*Coolor, uint64](cp.Colors, func(h uint64, c *Coolor, i int) uint64 {
+    return h + uint64(c.Color.Hex())
+  }, 0)
+  cp.Hash = hashed
+  return hashed
+}
+
 func (cp *CoolorColorsPalette) HashColors() uint64 {
 	// var hash uint64 = 0
   hashed := lo.Reduce[*CoolorColor, uint64](cp.Colors, func(h uint64, c *CoolorColor, i int) uint64 {
@@ -310,6 +332,7 @@ func (cp *CoolorColorsPalette) HashColors() uint64 {
 	// for _, v := range cp.Colors {
 	// 	hash += uint64(v.Color.Hex())
 	// }
+  cp.Hash = hashed
 	return hashed
 }
 
@@ -369,9 +392,12 @@ func GetTempFile(name string) string {
 func (pdc *HistoryDataConfig) LoadConfigFromFile(path string, overwrite bool) error {
 	pdc.Koanf = koanf.New(".")
 	err := k.Load(file.Provider(path), toml.Parser())
+  mapd := k.All()
 	if err != nil {
 		return errorx.Newf("error loading config: %s err: %v", path, err)
 	}
+  // mapd := k.MapKeys("")
+  dump.P(mapd)
 	err = k.Unmarshal("", pdc.data)
 	if err != nil {
 		return errorx.Stacked(errorx.Newf("error unmarshalling config: %s err: %v", path, err))

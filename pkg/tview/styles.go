@@ -4,10 +4,11 @@ import "github.com/gdamore/tcell/v2"
 
 // Theme defines the colors used when primitives are initialized.
 type Theme struct {
-	PrimitiveBackgroundColor    tcell.Color // Main background color for primitives.
+  PrimitiveBackgroundColor    tcell.Color // Main background color for primitives.
 	ContrastBackgroundColor     tcell.Color // Background color for contrasting elements.
 	MoreContrastBackgroundColor tcell.Color // Background color for even more contrasting elements.
 	BorderColor                 tcell.Color // Box borders.
+	BorderFocusColor            tcell.Color // Box borders when focused.
 	TitleColor                  tcell.Color // Box titles.
 	GraphicsColor               tcell.Color // Graphics.
 	PrimaryTextColor            tcell.Color // Primary text.
@@ -22,15 +23,16 @@ type Theme struct {
 // blue.
 var Styles = Theme{
 	// PrimitiveBackgroundColor:    tcell.GetColor("#101010").TrueColor(),
-	PrimitiveBackgroundColor:    tcell.Color234,
+  PrimitiveBackgroundColor:    tcell.ColorBlack,
 	ContrastBackgroundColor:     tcell.ColorBlue,
 	MoreContrastBackgroundColor: tcell.ColorGreen,
 	BorderColor:                 tcell.ColorWhite,
+	BorderFocusColor:            tcell.ColorBlue,
 	TitleColor:                  tcell.ColorWhite,
 	GraphicsColor:               tcell.ColorWhite,
 	PrimaryTextColor:            tcell.ColorWhite,
 	SecondaryTextColor:          tcell.ColorYellow,
 	TertiaryTextColor:           tcell.ColorGreen,
 	InverseTextColor:            tcell.ColorBlue,
-	ContrastSecondaryTextColor:  tcell.ColorDarkBlue,
+	ContrastSecondaryTextColor:  tcell.ColorDarkCyan,
 }
