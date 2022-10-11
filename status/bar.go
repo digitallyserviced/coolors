@@ -163,7 +163,7 @@ func NewStatusItem(name, format, content string, bar *StatusBar, done <-chan str
 		done := make(chan struct{})
 		defer close(done)
 
-		debouncedChan := debounce(50*time.Millisecond, 200*time.Millisecond, si.updates)
+		debouncedChan := debounce[*StatusUpdate](50*time.Millisecond, 200*time.Millisecond, si.updates)
 	Done:
 		for {
 			select {
@@ -191,12 +191,12 @@ func NewStatusItem(name, format, content string, bar *StatusBar, done <-chan str
 	return si
 }
 
-func debounce(min time.Duration, max time.Duration, input chan *StatusUpdate) chan *StatusUpdate {
-	output := make(chan *StatusUpdate)
+func debounce[T any](min time.Duration, max time.Duration, input chan T) chan T {
+	output := make(chan T)
 
 	go func() {
 		var (
-			buffer   *StatusUpdate
+			buffer   T
 			ok       bool
 			minTimer <-chan time.Time
 			maxTimer <-chan time.Time
@@ -231,7 +231,7 @@ func (s *StatusBar) Init() {
 	s.SetSeparator(' ')
 	pn := NewStatusItem("name", " ( %s ) ", "untitled", s, done)
 	sy := theme.GetTheme().Get("palette_name")
-	fmt.Printf("%v", sy)
+	// fmt.Printf("%v", sy)
 	pn.SetStyle(*sy)
 	pn.SetAlign(tview.AlignCenter)
 	s.AddStatusItem(pn)

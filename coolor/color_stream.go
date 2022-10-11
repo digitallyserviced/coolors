@@ -4,6 +4,8 @@ import (
 	"context"
 	"sync/atomic"
 	"time"
+
+	"github.com/digitallyserviced/coolors/coolor/util"
 )
 
 type ColorCount uint32
@@ -112,15 +114,19 @@ func (cs *ColorStream) Run(done <-chan struct{}) {
 	for i := 0; i < numRoutines; i++ {
 		generators = append(
 			generators,
-			takeFn(
-				done,
-				cs.Status,
-				asStream(done, genRandomSeededColor, time.Millisecond*10),
-				cs.Validator,
-			),
+			util.TakeFn(done, util.AsStream(done, func() interface{} {
+        cs.Status.Itrd()
+        return genRandomSeededColor()
+      }, time.Millisecond * 10), func(i interface{}) bool {
+          if cs.Validator(i) {
+            cs.Status.Validd()
+            return true
+          }
+          return false
+        }),
 		)
 	}
-	cs.OutColors = fanIn(generators...)
+	cs.OutColors = util.FanIn(generators...)
 }
 
 func StartColorStream(

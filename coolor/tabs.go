@@ -6,6 +6,7 @@ import (
 
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
+	"github.com/digitallyserviced/coolors/coolor/shortcuts"
 
 	"github.com/digitallyserviced/coolors/theme"
 )
@@ -22,7 +23,7 @@ type TabView struct {
 	Content TabViewContent
 	*TabLabel
 	*tview.Frame
-	*ScriptShortcut
+	*shortcuts.ScriptShortcut
 	*eventObserver
 	name  string
 	color tcell.Color
@@ -32,7 +33,7 @@ type TabbedView struct {
 	*tview.Flex
 	tabsView  *tview.Flex
 	Container *tview.Flex
-	*ScriptShortcuts
+	*shortcuts.ScriptShortcuts
 	*eventNotifier
 	name        string
 	tabs        []*TabView
@@ -41,7 +42,7 @@ type TabbedView struct {
 
 type TabLabel struct {
 	*tview.TextView
-	*ScriptShortcut
+	*shortcuts.ScriptShortcut
 	name, label           string
 	labelFmt, selectedFmt string
 	selected              bool
@@ -62,7 +63,8 @@ func (tl *TabLabel) UpdateView() {
 		shortR = string(tl.ScriptShortcut.Script())
 	}
 	tabTitle := fmt.Sprintf(lFmt, tl.name)
-	_, _, _, _, _, _, stringW := decomposeString(tabTitle, true, true)
+  stringW := tview.TaggedStringWidth(tabTitle)
+	// _, _, _, _, _, _, stringW := decomposeString(tabTitle, true, true)
 	tabMarker := fmt.Sprintf(lFmt, strings.Repeat("🮂", stringW+3))
 	bw := tl.BatchWriter()
 	defer bw.Close()
@@ -87,7 +89,7 @@ func NewTabLabel(name string) *TabLabel {
 	tv.SetToggleHighlights(false).SetRegions(true)
 	tv.
 		SetScrollable(false).
-		SetTextAlign(AlignCenter).
+		SetTextAlign(tview.AlignCenter).
 		SetWordWrap(false).
 		SetWrap(false)
 	tv.ScrollToBeginning()
@@ -97,7 +99,7 @@ func NewTabLabel(name string) *TabLabel {
 	return tl
 }
 
-func NewTabView(name string, shortcut ScriptShortcut, p TabViewContent) *TabView {
+func NewTabView(name string, shortcut shortcuts.ScriptShortcut, p TabViewContent) *TabView {
 	if p == nil {
 		return nil
 	}
@@ -117,7 +119,7 @@ func NewTabView(name string, shortcut ScriptShortcut, p TabViewContent) *TabView
   // tv.Frame.AddText("SHIT", false, AlignCenter, tcell.ColorRebeccaPurple)
   tv.Frame.SetBorderPadding(0, 0, 1, 1)
   tv.Frame.SetBackgroundColor(theme.GetTheme().ContentBackground)
-  tv.Frame.AddText(" ", false, AlignCenter, theme.GetTheme().InfoLabel)
+  tv.Frame.AddText(" ", false, tview.AlignCenter, theme.GetTheme().InfoLabel)
 	return tv
 }
 
@@ -129,7 +131,7 @@ func NewTabbedView() *TabbedView {
 		name:            "tabview",
 		tabs:            make([]*TabView, 0),
 		selectedIdx:     0,
-		ScriptShortcuts: NewSuperScriptShortcuts(),
+		ScriptShortcuts: shortcuts.NewSuperScriptShortcuts(),
 		eventNotifier:   NewEventNotifier("tabs"),
 	}
 

@@ -190,7 +190,7 @@ func (cm *ColorMod) makeGrad(above bool) []CoolorColor {
 	if above {
 		num = (-math.Abs(cm.size))
 	}
-	fmt.Println(cm.size, cm.increment)
+	// fmt.Println(cm.size, cm.increment)
 	colors := cm.ChannelMod.RangePct(&cm.current, cm.increment, num)
 	return colors
 }
@@ -235,6 +235,21 @@ func clamped(val, min, max float64) (float64, bool) {
 		clampd = true
 	}
 	return clamp(val, min, max), clampd
+}
+func imax(a,b int) int {
+  if a > b {
+    return a
+  }
+  return b
+}
+func imin(a,b int) int {
+  if a < b {
+    return a
+  }
+  return b
+}
+func iclamp(val, min, max int) int {
+	return imax(min, imin(val, max))
 }
 func clamp(val, min, max float64) float64 {
 	return math.Max(min, math.Min(val, max))

@@ -1,24 +1,28 @@
 package coolor
 
 import (
+	// "encoding/json"
 	"flag"
 	"fmt"
-	"log"
-	"os"
-	"os/exec"
+
+	// "fmt"
+
+	// "os/exec"
 	"strings"
+
+	// "time"
 
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
 	"github.com/gookit/goutil/dump"
 	"github.com/gookit/goutil/structs"
-	"go.kuoruan.net/v8go-polyfills/console"
 
-	"rogchap.com/v8go"
+	// "go.kuoruan.net/v8go-polyfills/console"
+
+	// "rogchap.com/v8go"
 
 	"github.com/digitallyserviced/coolors/status"
 	ct "github.com/digitallyserviced/coolors/theme"
-	"github.com/digitallyserviced/coolors/tree"
 	// "github.com/rivo/tview"
 	// "github.com/josa42/term-finder/tree"
 )
@@ -36,102 +40,20 @@ type MainContainer struct {
 	floater    Floater
 	preview    *Square
 	fileviewer *CoolorFileView
+	filetree *PaletteFileTree
 	pages      *tview.Pages
-	sidebar    *FixedFloater
-	main       *tview.Flex
-	app        *tview.Application
-	options    *structs.MapDataStore
-	conf       *HistoryDataConfig
-  current tview.Primitive
+	// anims *tview.Pages
+	sidebar *FixedFloater
+	main    *tview.Flex
+	app     *tview.Application
+	options *structs.Data
+	conf    *HistoryDataConfig
+	current tview.Primitive
+  inputSwallowed bool
 	*eventNotifier
 }
 
 var MainC *MainContainer
-
-type CoolorFileView struct {
-	*tview.Grid
-	Detail      *tview.Grid
-	treeView    *tree.FileTree
-	contentView *PaletteFileView
-}
-
-func (mc *MainContainer) NewFileViewer() *CoolorFileView {
-	setupLogging()
-	pwd, _ := os.Getwd()
-	log.Printf("open: %s", pwd)
-
-	theme := tree.GetTheme()
-	tt := ct.GetTheme()
-
-	topgrid := tview.NewGrid().
-		SetBordersColor(theme.Border).
-		SetBorders(theme.Border != 0).
-		SetColumns(25, 0)
-
-	rightgrid := tview.NewGrid().
-		SetBordersColor(theme.Border).
-		SetBorders(theme.Border != 0).
-		SetRows(0)
-  tv := tree.NewFileTree(theme)
-
-	cfv := &CoolorFileView{
-		Grid:        topgrid,
-		Detail:      rightgrid,
-		treeView:    tv,
-		contentView: NewPaletteFileView(tt),
-	}
-  
-  fm := tview.NewFocusManager(func(p tview.Primitive) {
-    MainC.app.SetFocus(p)
-  })
-  fm.Add(cfv.treeView, cfv.contentView.colorsView, cfv.contentView.contentView)
-
-  cfv.SetFocusManager(fm)
-
-  cfv.treeView.SetNextFocusableComponents(tview.Right, cfv.contentView.colorsView)
-  cfv.treeView.SetNextFocusableComponents(tview.Down, cfv.contentView.contentView)
-  cfv.contentView.contentView.SetNextFocusableComponents(tview.Left, cfv.treeView)
-  cfv.contentView.colorsView.SetNextFocusableComponents(tview.Down, cfv.contentView.contentView)
-  cfv.contentView.colorsView.SetNextFocusableComponents(tview.Left, cfv.treeView)
-  cfv.contentView.contentView.SetNextFocusableComponents(tview.Up, cfv.contentView.colorsView)
-
-	cfv.treeView.OnChanged(func(fsnode *tree.FSNode) {
-		MainC.app.QueueUpdateDraw(func() {
-			cfv.contentView.SetPreview(fsnode)
-		})
-	})
-
-	cfv.treeView.OnSelect(func(node *tree.FSNode) {
-		// cfv.contentView.SetPreview(fsnode)
-	})
-
-	cfv.treeView.OnOpen(func(node *tree.FSNode) {
-		go func() {
-			exec.Command("open", node.Path)
-		}()
-	})
-
-	configPath, _, _, _ := GetDataDirs()
-	cfv.treeView.Load(configPath)
-
-	MainC.app.SetAfterDrawFunc(func(screen tcell.Screen) {
-		var x func()
-		for len(cfv.treeView.AfterDraw) > 0 {
-			x, cfv.treeView.AfterDraw = cfv.treeView.AfterDraw[0], cfv.treeView.AfterDraw[1:]
-			x()
-		}
-	})
-
-	cfv.Grid.
-		AddItem(cfv.treeView, 0, 0, 1, 20, 1, 1, true).
-		AddItem(cfv.Detail, 0, 20, 1, 60, 1, 1, false)
-
-	cfv.Detail.
-		AddItem(cfv.contentView, 0, 0, 1, 1, 1, 1, false)
-
-	return cfv
-}
-
 var cpName = flag.String("palette", "", "Palette name to open")
 
 func CreateStartupPalette() *CoolorMainPalette {
@@ -149,7 +71,7 @@ func CreateStartupPalette() *CoolorMainPalette {
 	if len(values) > 0 {
 		colsize = len(values)
 	} else {
-		colsize = 8
+		colsize = 16
 	}
 
 	var colors *CoolorMainPalette
@@ -159,7 +81,7 @@ func CreateStartupPalette() *CoolorMainPalette {
 	} else {
 		colors = NewCoolorPaletteWithColors(GenerateRandomColors(colsize))
 	}
-  fmt.Println(colors.GetPalette().TagsKeys(true))
+	// fmt.Println(colors.GetPalette().TagsKeys(true))
 
 	// colors.UpdateHash()
 	// // p := colors.Hash
@@ -171,15 +93,16 @@ func CreateStartupPalette() *CoolorMainPalette {
 
 func NewMainContainer(app *tview.Application) *MainContainer {
 	MainC = &MainContainer{
-		Flex:          tview.NewFlex(),
-		floater:       nil,
-		pages:         tview.NewPages(),
+		Flex:    tview.NewFlex(),
+		floater: nil,
+		pages:   tview.NewPages(),
+		// anims:         tview.NewPages(),
 		main:          tview.NewFlex(),
 		app:           app,
 		options:       ActionOptions,
 		conf:          NewPaletteHistoryFile(),
 		eventNotifier: NewEventNotifier("main"),
-    current: nil,
+		current:       nil,
 	}
 
 	// if GetStore().Store != nil {
@@ -200,7 +123,8 @@ func NewMainContainer(app *tview.Application) *MainContainer {
 	MainC.palette.Register(PaletteColorSelectedEvent, MainC.menu)
 	MainC.editor = NewCoolorEditor(app, MainC.palette)
 	MainC.preview = NewRecursiveSquare(MainC.palette.GetPalette(), 5)
-	MainC.fileviewer = MainC.NewFileViewer()
+	// MainC.fileviewer = NewFileViewer()
+  MainC.filetree = NewPaletteFileTree()
 	MainC.Init()
 	return MainC
 }
@@ -209,115 +133,65 @@ func (mc *MainContainer) CloseConfig() {
 	mc.conf.ref.Close()
 }
 
-type V8ColorObject struct {
-  *Coolor
-  VM *v8go.Isolate
-  Ctx *v8go.Context
-  Obj *v8go.Object
-}
-type ObjFnCallback func(info *v8go.FunctionCallbackInfo) *v8go.Value
-
-type ObjFn struct {
-tpl *v8go.ObjectTemplate
-  name string
-  fn *ObjFnCallback
-}
-
-type V8CoolorObjTpl struct {
-  *v8go.ObjectTemplate
-}
-type V8CoolorObj struct {
-  *v8go.Object
-}
-
-type V8CoolorColor struct {
-  *V8CoolorObj
-  Color *Coolor
-}
-
-func (tpl *V8CoolorObjTpl) RegisterObjFn(name string, fn ObjFnCallback) {
-  tpl.Set(name, fn, v8go.ReadOnly)
-}
-
-func ColorConstructor(iso *v8go.Isolate, ctx *v8go.Context) *v8go.FunctionTemplate {
-  var col Color
-  ctor, err := v8go.NewFunctionTemplate(iso, func(info *v8go.FunctionCallbackInfo) *v8go.Value {
-    if len(info.Args())>0{
-      cstr := info.Args()[0].String()
-log.Println(cstr)
-      col, _ = Hex(cstr)
-    }
-    co := errAss[*v8go.ObjectTemplate](v8go.NewObjectTemplate(iso))
-
-    so, err := GoStructToV8Object(ctx, col)
-    checkErr(err)
-    // co.Set("color", col.Hex(), v8go.ReadOnly)
-    // checkErr(co.Set(, val interface{}, attributes ...v8go.PropertyAttribute))
-
-    ci := errAss[*v8go.Object](co.NewInstance(ctx))
-    return ci.Value
-  })
-  checkErr(err)
-  return ctor
-
-}
-// func MakeColorObject(iso *v8go.Isolate, ctx *v8go.Context) *V8ColorObject {
-//   ot, err := v8go.NewObjectTemplate(ctx.Isolate())
-//   ot.Set("css", "#000000", v8go.DontDelete)
-//   // checkErr(err)
-//   // co := &V8ColorObject{
-//   // 	ObjectTemplate: ot,
-//   // }
-//   // randColor, err := v8go.NewFunctionTemplate(iso, func(info *v8go.FunctionCallbackInfo) *v8go.Value {
-//   //
-//   // })
-//   // AddObjectToGloabl(, proxyTpl, "proxy")
-//   return co
-// }
-//
-func jsapi() {
-  iso, _ := v8go.NewIsolate()
-  ctx, _ := v8go.NewContext(iso)
-  if err := console.InjectTo(ctx); err != nil {
-    panic(err)
-  }
-  _, err := ctx.RunScript("console.log('Hello shit')", "console.js")
-  checkErr(err)
-
-}
-
-
 func (mc *MainContainer) Init() {
-  go jsapi()
-  // go shite()
+  InitPlugins()
+	// go jsapi()
+	// go shite()
 	mc.SetBackgroundColor(ct.GetTheme().SidebarBackground)
 	mc.SetDirection(tview.FlexColumn)
 	mc.AddItem(mc.pages, 0, 80, false)
 	mc.pages.AddPage("editor", mc.editor, true, false)
-	mc.pages.AddPage("fileviewer", mc.fileviewer, true, false)
+	// mc.pages.AddPage("fileviewer", mc.fileviewer, true, false)
 	mc.pages.AddPage("preview", mc.preview, true, true)
 	mc.pages.AddAndSwitchToPage("palette", mc.palette, true)
+	mc.pages.AddPage("filetree", mc.filetree, false, false)
 	mc.pages.SetChangedFunc(func() {
 		name, page := mc.pages.GetFrontPage()
-    mc.current = page
+		mc.current = page
 		status.NewStatusUpdate("action", name)
 	})
-
+	getAnimator()
+	// w,h := AppModel.scr.Size()
+	// spaceB := tview.NewBox()
+	// spaceB.SetDontClear(true)
+	// spaceB.SetRect(0, 0, w, h)
+	// AppModel.anims.AddPage("spacer", spaceB, true, true)
+	// // AppModel.anims.ShowPage("spacer")
+	// // AppModel.anims.HidePage("spacer")
+	// AppModel.pages.ShowPage("animation")
+	// AppModel.anims.SetRect(0, 0, w, h)
+	// AppModel.anims.SetVisible(true)
+	// AppModel.pages.ShowPage("animation")
 
 	AppModel.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		ch := event.Rune()
-    if event.Modifiers() == tcell.ModShift {
-      dump.P(mc.fileviewer.GetFocusManager())
-      if mc.fileviewer.GetFocusManager() != nil {
-        if ch == 'O' {
-          mc.fileviewer.GetFocusManager().FocusNext()
-        }
-        return event
+      if event.Key() == tcell.KeyF40 {
+        mc.inputSwallowed = true
+      } else if event.Key() == tcell.KeyF41 {
+        mc.inputSwallowed = false
       }
-      // if DirectionalFocusHandling(event, AppModel.app) == nil {
-      //   return nil
-      // }
+    
+    // fmt.Printf("swallow:%v", mc.inputSwallowed, event)
+    if mc.inputSwallowed {
+    fmt.Printf("swallow:%v", mc.inputSwallowed, event)
+      p := MainC.app.GetFocus()
+      p.InputHandler()(event, func(tp tview.Primitive) {
+        MainC.app.SetFocus(tp)
+      })
+      return nil
     }
+
+		ch := event.Rune()
+		if event.Modifiers() == tcell.ModShift {
+			// if mc.fileviewer.GetFocusManager() != nil {
+			// 	if ch == 'O' {
+			// 		mc.fileviewer.GetFocusManager().FocusNext()
+			// 	}
+			// 	return event
+			// }
+			// if DirectionalFocusHandling(event, AppModel.app) == nil {
+			//   return nil
+			// }
+		}
 		switch ch {
 		case 'Q':
 			AppModel.app.Stop()
@@ -325,53 +199,6 @@ func (mc *MainContainer) Init() {
 		}
 		return event
 	})
-}
-
-type AnonymousObserver struct {
-	*eventObserver
-	Callbacks []Observer
-}
-
-type AnonymousHandler struct {
-	Callback func(e ObservableEvent) bool
-}
-
-func (ah *AnonymousHandler) Name() string {
-	return fmt.Sprintf("%s @ #%d", "Anon handler", 1)
-}
-func (ah *AnonymousHandler) HandleEvent(e ObservableEvent) bool {
-	// fmt.Println("anon", e)
-	ah.Callback(e)
-	return true
-}
-
-func NewAnonymousHandlerFunc(f func(e ObservableEvent) bool) *AnonymousHandler {
-	ahh := &AnonymousHandler{
-		Callback: f,
-	}
-	return ahh
-}
-
-func (ah *AnonymousObserver) ObserverFunc(
-	n Notifier,
-	t ObservableEventType,
-	f func(e ObservableEvent) bool,
-) *AnonymousObserver {
-	ahh := &AnonymousHandler{
-		Callback: func(e ObservableEvent) bool {
-			return f(e)
-		},
-	}
-	n.Register(t, ahh)
-	ah.Callbacks = append(ah.Callbacks, ahh)
-	return ah
-}
-
-func NewAnonymousHandler(callbacks []Observer) *AnonymousObserver {
-	ah := &AnonymousObserver{
-		eventObserver: NewEventObserver("anon"),
-	}
-	return ah
 }
 
 // InputHandler returns the handler for this primitive.
@@ -445,30 +272,32 @@ func (mc *MainContainer) InputHandler() func(event *tcell.EventKey, setFocus fun
 						ccstv.SetBackgroundColor(ct.GetTheme().GrayerBackground)
 						f := NewAnonymousHandlerFunc(func(e ObservableEvent) bool {
 							switch {
-							case e.Type & ColorSelectedEvent != 0:
+							case e.Type&ColorSelectedEvent != 0:
 								col, ok := e.Ref.(*CoolorColor)
-								if ok {
+								if ok && col != nil {
 									ccstv.Frame.Clear().
-										AddText(col.GetMeta().String(), false, AlignCenter, tcell.ColorRed)
+										AddText(col.GetMeta().String(), false, tview.AlignCenter, tcell.ColorRed)
 									return true
 								}
-							case e.Type & ColorSelectionEvent != 0:
+							case e.Type&ColorSelectionEvent != 0:
 								col, ok := e.Ref.(*CoolorColor)
 								if ok {
 									MainC.palette.AddCoolorColor(col)
 									return true
 								}
-							case e.Type & PaletteColorSelectionEvent != 0 || e.Type & PaletteColorSelectedEvent!=0:
+							case e.Type&PaletteColorSelectionEvent != 0 || e.Type&PaletteColorSelectedEvent != 0:
 								pal, ok := e.Ref.(*CoolorColorsPalette)
 
-                sqs:=fmt.Sprintf(" %s ", strings.Join(pal.GetPalette().MakeSquarePalette(false), " "))
+								sqs := fmt.Sprintf(
+									" %s ",
+									strings.Join(pal.GetPalette().MakeSquarePalette(false), " "),
+								)
 								if ok {
 									ccpstv.Frame.Clear().
-										AddText(sqs, false, AlignCenter, tcell.ColorRed)
-
+										AddText(sqs, false, tview.AlignCenter, tcell.ColorRed)
 								}
-              default:
-              fmt.Println(e)
+							default:
+								fmt.Println(e)
 
 							}
 							return true
@@ -500,7 +329,7 @@ func (mc *MainContainer) InputHandler() func(event *tcell.EventKey, setFocus fun
 			case 'i':
 				cc, _ := mc.palette.GetSelected()
 				if mc.info == nil {
-					mc.info = NewCoolorColorInfoFloater(cc)
+					mc.info = NewCoolorColorFloater(cc)
 					mc.pages.AddPage("info", mc.info, true, false)
 					mc.pages.ShowPage("info")
 				} else {
@@ -515,6 +344,14 @@ func (mc *MainContainer) InputHandler() func(event *tcell.EventKey, setFocus fun
 					}
 					AppModel.helpbar.SetTable("info")
 				}
+			case '$':
+				name, _ := mc.pages.GetFrontPage()
+				if name == "tagView" {
+				} else {
+					mc.pages.RemovePage("tagView")
+				}
+				tf := NewTagEditFloater(MainC.GetPalette())
+				mc.pages.AddAndSwitchToPage("tagView", tf, true)
 			case '#':
 				if mc.scratch == nil {
 					p := NewCoolorPaletteWithColors(GenerateRandomColors(8))
@@ -533,10 +370,20 @@ func (mc *MainContainer) InputHandler() func(event *tcell.EventKey, setFocus fun
 					}
 					AppModel.helpbar.SetTable("scratch")
 				}
-			case 'F':
-				mc.pages.SwitchToPage("fileviewer") // .HidePage("editor")
-        mc.app.SetFocus(mc.fileviewer.treeView)
-				AppModel.helpbar.SetTable("fileviewer")
+			case 'f':
+        if name != "filetree" {
+          mc.pages.ShowPage("filetree") // .HidePage("editor")
+          mc.app.SetFocus(mc.filetree)
+          AppModel.helpbar.SetTable("filetree")
+        } else {
+          mc.pages.HidePage("filetree") // .HidePage("editor")
+          mc.app.SetFocus(mc.palette)
+          AppModel.helpbar.SetTable("palette")
+        }
+			// case 'F':
+			// 	mc.pages.SwitchToPage("fileviewer") // .HidePage("editor")
+			// 	mc.app.SetFocus(mc.fileviewer.treeView)
+			// 	AppModel.helpbar.SetTable("fileviewer")
 			case 'S':
 				mc.pages.SwitchToPage("shades") // .HidePage("editor")
 				AppModel.helpbar.SetTable("shades")
@@ -558,6 +405,27 @@ func (mc *MainContainer) InputHandler() func(event *tcell.EventKey, setFocus fun
 			case 'e':
 				mc.pages.SwitchToPage("editor") //.HidePage("palette")
 				AppModel.helpbar.SetTable("editor")
+			case 'V':
+        ani := NewFrameAnimator()
+        go ani.Start()
+				bFrequency -= 0.1
+			case 'v':
+				bFrequency += 0.1
+			case 'G':
+				bDamping += 0.1
+			case 'g':
+				bDamping -= 0.1
+			case 'u':
+				noti := getAnimator().GetAnimation("notif")
+				if noti == nil {
+					NewNotification("SHIT", "This is a test notification of the notification broadcastsing systems.\n!!")
+				} else {
+					go noti.Start()
+				}
+				// noti.Start()
+
+				// })
+				// MainC.pages.AddPage("anim", tview.NewP, resize bool, visible bool)
 			}
 
 			if page == nil {
@@ -599,40 +467,16 @@ func (mc *MainContainer) InputHandler() func(event *tcell.EventKey, setFocus fun
 	)
 }
 
-func GetColorTagItems() []TagListItem {
-	tis := make([]TagListItem, 0)
-	tis = append(
-		tis,
-		*NewTagListItem("foreground", "default foreground color", 'f'),
-	)
-	return tis
-}
-
-func (cfv *CoolorFileView) InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
-	return cfv.WrapInputHandler(func(event *tcell.EventKey, f func(p tview.Primitive)) {
-    if event.Modifiers() == tcell.ModShift {
-      if DirectionalFocusHandling(event, AppModel.app) == nil {
-          return 
-        }
-    }
-    cfv.Grid.InputHandler()(event,f)
-  })
-}
-
-func (cfv *CoolorFileView) Focus(delegate func(p tview.Primitive)) {
-	// cfv.treeView.Focus(delegate)
-}
-
 func (mc *MainContainer) NewShades(base *CoolorColor) {
 	// mc.app.QueueUpdateDraw(func() {
-		if mc.pages.HasPage("shades") && mc.shades != nil {
-			mc.shades.UpdateColors(base)
-		} else {
-			mc.shades = BlankCoolorShadePalette(base, 8)
-			mc.shades.SetMenu(MainC.menu)
-			mc.pages.AddPage("shades", mc.shades, true, false)
-		}
-		mc.pages.SwitchToPage("shades") // .HidePage("editor")
+	if mc.pages.HasPage("shades") && mc.shades != nil {
+		mc.shades.UpdateColors(base)
+	} else {
+		mc.shades = BlankCoolorShadePalette(base, 8)
+		mc.shades.SetMenu(MainC.menu)
+		mc.pages.AddPage("shades", mc.shades, true, false)
+	}
+	mc.pages.SwitchToPage("shades") // .HidePage("editor")
 	mc.pages.HidePage("palette")
 	mc.palette.Blur()
 	mc.palette.ColorContainer.Blur()

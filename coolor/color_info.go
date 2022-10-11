@@ -225,30 +225,30 @@ func getBaseAnsiClusterColors() ClusterPalettes {
 	return cps
 }
 
-func getCoolorClusterColors() ClusterPalettes {
-	return ClusterPalettes{
-		NewCluster("red", 255, 0, 0),
-		NewCluster("orange", 255, 128, 0),
-		NewCluster("yellow", 255, 255, 0),
-		NewCluster("chartreuse", 128, 255, 0),
-		NewCluster("puke", 128, 128, 0),
-		NewCluster("green", 0, 255, 0),
-		NewCluster("cerulean", 0, 128, 128),
-		NewCluster("spring green", 0, 255, 128),
-		NewCluster("navy green", 80, 190, 128),
-		NewCluster("cyan", 0, 255, 255),
-		NewCluster("azure", 0, 127, 255),
-		NewCluster("blue", 0, 0, 255),
-		NewCluster("violet", 127, 0, 255),
-		NewCluster("magenta", 255, 0, 255),
-		NewCluster("purple", 90, 0, 90),
-		NewCluster("rose", 255, 0, 128),
-		NewCluster("brown", 160, 40, 40),
-		NewCluster("black", 0, 0, 0),
-		NewCluster("grey", 200, 200, 200),
-		// NewCluster("white", 255, 255, 255),
-	}
-}
+// func getCoolorClusterColors() ClusterPalettes {
+// 	return ClusterPalettes{
+// 		NewCluster("red", 255, 0, 0),
+// 		NewCluster("orange", 255, 128, 0),
+// 		NewCluster("yellow", 255, 255, 0),
+// 		NewCluster("chartreuse", 128, 255, 0),
+// 		NewCluster("puke", 128, 128, 0),
+// 		NewCluster("green", 0, 255, 0),
+// 		NewCluster("cerulean", 0, 128, 128),
+// 		NewCluster("spring green", 0, 255, 128),
+// 		NewCluster("navy green", 80, 190, 128),
+// 		NewCluster("cyan", 0, 255, 255),
+// 		NewCluster("azure", 0, 127, 255),
+// 		NewCluster("blue", 0, 0, 255),
+// 		NewCluster("violet", 127, 0, 255),
+// 		NewCluster("magenta", 255, 0, 255),
+// 		NewCluster("purple", 90, 0, 90),
+// 		NewCluster("rose", 255, 0, 128),
+// 		NewCluster("brown", 160, 40, 40),
+// 		NewCluster("black", 0, 0, 0),
+// 		NewCluster("grey", 200, 200, 200),
+// 		// NewCluster("white", 255, 255, 255),
+// 	}
+// }
 
 func NewClusterFromCss(s, css string) *CoolorColorCluster {
 	col, err := Hex(css)

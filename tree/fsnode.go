@@ -14,11 +14,17 @@ import (
 
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
+	"github.com/gookit/goutil/dump"
+	// "github.com/gookit/goutil/dump"
+	// "github.com/gookit/goutil/fsutil"
 )
 
 type FSNode struct {
 	Name     string
+  Virtual bool
+  Children func(*FSNode) []*FSNode
 	Path     string
+  Icon string
 	IsDir    bool
 	Size     int64
 	Node     *tview.TreeNode
@@ -42,19 +48,37 @@ func NewRootNode(path string) *tview.TreeNode {
 
 	return fsnode.Node
 }
+// 
+// '▀', '▁', '▂', '▃', '▅', '▆' , '▇', '█', '▉', '▊', '▋', '▌', '▍', '▎', '▏', 
+//'▐', '░', '▒', '▓', '▔', '▕', '▖', '▗', '▘', '▙', '▚', '▛', '▜', '▝', '▞', '▟', '🭰', '🭱', '🭲', '🭳', '🭴', '🭶', '🭷', '🭸', '🭹', '🭺', '🭻', '🭼', '🭽', '🭾', '🭿', '🮀', '🮁', '🮂', '🮃', '🮄', '🮅', '🮆', '🮇', '🮈', '🮉', '🮊', '🮋', '🮌', '🮍', '🮎', '🮏', '🮐', '🮑', '🮒', '■', '□', '▢', '▣', '▥', '▦', '▧', '▨', '▩', '▪', '▫', '▬', '▭', '▮', '▯', '▰', '▱', '▲', '△', '▴', '▵', '▶', '▷', '▸', '▹', '►', '▻', '▼', '▽', '▾', '▿', '◀', '◁', '◂', '◃', '◄', '◅', '◆', '◇', '◈', '◉', '◊', '○', '◌', '◍', '◎', '●', '◐', '◑', '◒', '◓', '◔', '◕', '◖', '◗', '◘', '◙', '◚', '◛', '◜', '◝', '◞', '◟', '◠', '◡', '◢', '◣', '◤', '◥', '◦', '◧', '◨', '◩', '◪', '◫', '◬', '◭', '◮', '◯', '◰', '◱', '◲', '◳', '◴', '◵', '◶', '◷', '◸', '◹', '◺', '◻', '◼', '◽', '◾', '◿', '⑀', '⑁', '⑂', '⑃', '⑄', '⑅', '⑆', '⑇', '⑈', '⑉', '⑊', 
+
+func NewVirtualNode(name, icon, path string) *FSNode {
+  return newVirtualNode(name, icon, path, nil)
+}
+func newVirtualNode(name, icon, path string, children []*FSNode) *FSNode {
+	fsnode := &FSNode{
+      Virtual: true,
+		Name:     name,
+    Icon: icon,
+    IsDir: true,
+		Path:     path,
+		Size:     -1,
+	}
+	node := tview.NewTreeNode("").
+		SetSelectable(true)
+
+	node.SetExpanded(true)
+
+
+  fsnode.Node = node
+  node.SetReference(fsnode)
+  node.SetText(fsnode.Title())
+    return fsnode
+}
 
 func newFsnode(parentPath string, stat fs.FileInfo) *FSNode {
-
 	name := stat.Name()
 	fpath := filepath.Join(parentPath, name)
-
-	file, _ := os.Open(fpath)
-
-	mime := ""
-	if !stat.IsDir() {
-		mime, _ = getFileContentType(file)
-		defer file.Close()
-	}
 
 	fsnode := &FSNode{
 		Name:     name,
@@ -63,7 +87,7 @@ func newFsnode(parentPath string, stat fs.FileInfo) *FSNode {
 		Size:     -1,
 		Mode:     stat.Mode(),
 		ModTime:  stat.ModTime(),
-		MimeType: mime,
+		// MimeType: mime,
 	}
 
 	if !stat.IsDir() {
@@ -80,6 +104,7 @@ func newFsnode(parentPath string, stat fs.FileInfo) *FSNode {
 
 	return fsnode
 }
+
 
 func NewNode(parentPath string, file fs.FileInfo) *tview.TreeNode {
 	fsnode := newFsnode(parentPath, file)
@@ -103,6 +128,9 @@ func (n *FSNode) IsExpanded() bool {
 }
 
 func (n *FSNode) readChildren(node *FSNode) {
+  if n.Virtual && n.Path == "" {
+    return
+  }
 	if n.IsDir {
 		n.Node.ClearChildren()
 
@@ -114,10 +142,7 @@ func (n *FSNode) readChildren(node *FSNode) {
 		nodes := []*tview.TreeNode{}
 
 		for _, file := range files {
-			// if strings.HasPrefix(file.Name(), ".") {
-			// 	continue
-			// }
-
+  dump.P(file.Name())
 			fpath := filepath.Join(n.Path, file.Name())
 
 			if node != nil && node.Path == fpath {
@@ -141,6 +166,7 @@ func (n *FSNode) readChildren(node *FSNode) {
 		for _, node := range nodes {
 			n.Node.AddChild(node)
 		}
+    n.Node.SetExpanded(true)
 	}
 }
 
@@ -164,7 +190,7 @@ func (n *FSNode) CreateParent() *FSNode {
 	return rnode
 }
 
-func (n *FSNode) Title() string {
+func (n *FSNode) Title(args... string) string {
 	icon := "  "
 	if n.IsDir {
 		if n.IsExpanded() {
@@ -173,7 +199,20 @@ func (n *FSNode) Title() string {
 			icon = " "
 		}
 	}
-	return fmt.Sprintf("%s %s%s", icon, n.Name, strings.Repeat(" ", 50))
+  if n.Virtual && n.Icon != "" {
+    eicon := ""
+		if n.IsExpanded() {
+			eicon = ""
+		}
+    icon = fmt.Sprintf("%s %s", eicon, n.Icon)
+  } else if n.Virtual {
+    icon = "  "
+  }
+  str := n.Name
+  if len(args) > 0 {
+    str = strings.Join(args, " ")
+  }
+	return fmt.Sprintf("%s %s%s", icon, str, strings.Repeat(" ", 50))
 }
 
 func createNode(n *FSNode) *tview.TreeNode {
@@ -185,7 +224,7 @@ func createNode(n *FSNode) *tview.TreeNode {
 		node.SetColor(tcell.ColorBlue)
 	}
 
-	node.SetExpanded(false)
+	node.SetExpanded(true)
 
 	return node
 }

@@ -54,7 +54,7 @@ func NewPaletteTableCell(cc *CoolorColor) *PaletteTableCell {
 		TableCell: tview.NewTableCell(""),
 		Color:     cc,
 	}
-	tc.SetAlign(AlignCenter)
+	tc.SetAlign(tview.AlignCenter)
 	tc.SetStyle(
 		tcell.StyleDefault.Background(cc.GetFgColor()).Foreground(*cc.Color),
 	)

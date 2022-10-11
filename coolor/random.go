@@ -1,7 +1,7 @@
 package coolor // import "github.com/docker/docker/pkg/namesgenerator"
 
 import (
-	"log"
+	// "log"
 	"math/rand"
 	"strings"
 )
@@ -70,7 +70,7 @@ func init() {
   	Rand: rand.New(rand.NewSource(0)),
   	sv:   0,
   }
-  log.Printf("%s", rg.GenerateName(3))
+  // log.Printf("%s", rg.GenerateName(3))
 }
 func Sample[T comparable](r *rand.Rand, col []T, n int) []T {
 vars := make([]T, 0)

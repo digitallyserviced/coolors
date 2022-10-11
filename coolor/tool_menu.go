@@ -5,6 +5,8 @@ import (
 	"math"
 
 	"github.com/digitallyserviced/coolors/status"
+	"github.com/digitallyserviced/coolors/coolor/lister"
+	"github.com/digitallyserviced/coolors/coolor/shortcuts"
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
 
@@ -13,7 +15,7 @@ import (
 
 type CoolorToolMenu struct {
 	*tview.Flex
-	list          *Lister
+	list          *lister.Lister
 	mc            *MainContainer
 	app           *tview.Application
 	selectedColor *CoolorColor
@@ -70,7 +72,7 @@ func NewButtonMenuItem(
 func NewCoolorColorMainMenu(app *tview.Application) *CoolorToolMenu {
 	cmm := &CoolorToolMenu{
 		Flex:             tview.NewFlex(),
-		list:             &Lister{},
+		list:             &lister.Lister{},
 		mc:               MainC,
 		app:              app,
 		selectedColor:    &CoolorColor{},
@@ -81,13 +83,13 @@ func NewCoolorColorMainMenu(app *tview.Application) *CoolorToolMenu {
 		activeActionFlag: 0,
 	}
 	cmm.SetDirection(tview.FlexRow)
-	cmm.list = NewLister()
+	cmm.list = lister.NewLister()
   // cmm.list.highlightType=ListerHighlightBars
 	cmm.list.SetItemLister(cmm.GetListItems)
-  cmm.list.SetHandlers(func(idx int, i interface{}, lis []*ListItem) {
-    fmt.Println(idx,i)
-  }, func(idx int, selected bool, i interface{}, lis []*ListItem) {
-    fmt.Println("chg",idx,selected,i)
+  cmm.list.SetHandlers(func(idx int, i interface{}, lis []*lister.ListItem) {
+    // fmt.Println(idx,i)
+  }, func(idx int, selected bool, i interface{}, lis []*lister.ListItem) {
+    // fmt.Println("chg",idx,selected,i)
 
     })
   cmm.SetDrawFunc(func(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
@@ -113,15 +115,15 @@ func (cc CoolorButtonMenuItem) SecondaryText() string {
 	return ""
 }
 
-func (cc CoolorButtonMenuItem) Shortcut() ScriptShortcut {
-	return NewScriptShortcut(rune(0), rune(0))
+func (cc CoolorButtonMenuItem) Shortcut() shortcuts.ScriptShortcut {
+	return shortcuts.NewScriptShortcut(rune(0), rune(0))
 }
 
 func (cc CoolorButtonMenuItem) Changed(
 	idx int,
 	selected bool,
 	i interface{},
-	lis []*ListItem,
+	lis []*lister.ListItem,
 ) {
   cc.selected=selected
   // fmt.Println(idx,selected,i)
@@ -136,21 +138,21 @@ func (cc CoolorButtonMenuItem) Changed(
 	cc.menu.UpdateActionStatus(&cc)
 }
 
-func (cc CoolorButtonMenuItem) Visibility() ListItemsVisibility {
+func (cc CoolorButtonMenuItem) Visibility() lister.ListItemsVisibility {
 	// dump.P(cc.menu.activeActionFlag&cc.action.flag, cc.menu.activeActionFlag, cc.action.flag, cc.action.actionSet)
 	if cc.menu.activeActionFlag == 0 {
-		return ListItemDefault
+		return lister.ListItemDefault
 	}
 	if cc.menu.activeActionFlag&cc.action.flag != 0 {
-		return ListItemVisible
+		return lister.ListItemVisible
 	}
-	return ListItemHidden
+	return lister.ListItemHidden
 }
 
 func (cc CoolorButtonMenuItem) Cancelled(
 	idx int,
 	i interface{},
-	lis []*ListItem,
+	lis []*lister.ListItem,
 ) {
 	MainC.app.QueueUpdateDraw(func() {
 		cc.action.Cancel()
@@ -160,7 +162,7 @@ func (cc CoolorButtonMenuItem) Cancelled(
 func (cc CoolorButtonMenuItem) Selected(
 	idx int,
 	i interface{},
-	lis []*ListItem,
+	lis []*lister.ListItem,
 ) {
 	cc.action.Before(cc.menu.selectedColor.pallette, cc.menu.selectedColor)
 	MainC.app.QueueUpdate(func() {
@@ -199,10 +201,10 @@ func (cc *CoolorToolMenu) GetSelectedStyle() tcell.Style {
 	return tcell.StyleDefault.Foreground(fcol).Background(*tcol)
 }
 
-func (f *CoolorToolMenu) GetListItems() []*ListItem {
-	lits := make([]*ListItem, 0)
+func (f *CoolorToolMenu) GetListItems() []*lister.ListItem {
+	lits := make([]*lister.ListItem, 0)
 	for _, v := range f.visibleItems {
-		var li ListItem = ListItem(v)
+		var li lister.ListItem = lister.ListItem(v)
 		lits = append(lits, &li)
 	}
 	return lits
@@ -637,8 +639,8 @@ func (ctm *CoolorToolMenu) ActorDispatchor() {
 func (cmm *CoolorToolMenu) AddItem(b *CoolorButtonMenuItem) {
 	cmm.menuItems = append(cmm.menuItems, b)
 	cmm.visibleItems = cmm.menuItems[0:]
-	litem := ListItem(b)
-	var li *ListItem = &litem
+	litem := lister.ListItem(b)
+	var li *lister.ListItem = &litem
 	cmm.list.AddItem(li)
 	// cmm.Flex.AddItem(b, 2, 0, false)
 	cmm.updateState()

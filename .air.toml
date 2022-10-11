@@ -5,14 +5,14 @@ tmp_dir = "tmp"
 [build]
   args_bin = []
   bin = "./tmp/coolors"
-  cmd = "go mod vendor; go build -o ./tmp/coolors ."
+  cmd = "go build -o ./tmp/coolors ."
   delay =2000 
-  exclude_dir = ["assets", "tmp", "vendor", "testdata"]
+  exclude_dir = ["assets", "tmp", "testdata"]
   exclude_file = []
   exclude_regex = ["_test.go"]
   exclude_unchanged = false
   follow_symlink = false
-  full_bin = "killall coolors; COLUMNS=134 LINES=32 GOTTY=/tmp/devpts ./tmp/coolors > out.txt 2>&1"
+  full_bin = "killall coolors; TERM=xterm-256color COLORTERM=truecolor COLUMNS=150 LINES=30 GOTTY=/tmp/devpts ./tmp/coolors > out.txt 2>&1"
   include_dir = []
   include_ext = ["go", "tpl", "tmpl", "html"]
   kill_delay = "0s"

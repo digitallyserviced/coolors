@@ -1,7 +1,7 @@
 package tview
 
 import (
-	"log"
+	// "log"
 	"math"
 
 	"github.com/gdamore/tcell/v2"
@@ -576,7 +576,7 @@ func (g *Grid) Draw(screen tcell.Screen) {
 		g.columnOffset = to
 	}
 
-  log.Printf("%v %v %v %v %v %v %v %v %v %v", g.rowOffset,g.columnOffset, columnPos,columnWidth, columnX, columns, rowPos, rowHeight, rowY, rows)
+  // log.Printf("%v %v %v %v %v %v %v %v %v %v", g.rowOffset,g.columnOffset, columnPos,columnWidth, columnX, columns, rowPos, rowHeight, rowY, rows)
 	// Draw primitives and borders.
 	borderStyle := tcell.StyleDefault.Background(g.backgroundColor).Foreground(g.bordersColor)
 	for primitive, item := range items {

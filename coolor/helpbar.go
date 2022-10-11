@@ -4,22 +4,29 @@ import (
 	// "fmt"
 
 	"fmt"
+	"math/rand"
 	"strings"
+	"time"
+
+	"github.com/digitallyserviced/tview"
+	"github.com/gdamore/tcell/v2"
+	// "github.com/gookit/color"
+	"github.com/gookit/goutil/maputil"
+	// "github.com/samber/lo"
 
 	"github.com/digitallyserviced/coolors/theme"
-	"github.com/digitallyserviced/tview"
-	"github.com/gookit/color"
-	"github.com/gookit/goutil/maputil"
 )
 
 type HelpBar struct {
-	*tview.TextView
+  *tview.Flex
+	helpTextView *tview.TextView
 	app *tview.Application
 }
 
 func NewHelpBar(app *tview.Application) *HelpBar {
 	hb := &HelpBar{
-		TextView: tview.NewTextView(),
+    Flex: tview.NewFlex(),
+		helpTextView: tview.NewTextView(),
 		app:      app,
 	}
 	hb.Init()
@@ -46,19 +53,8 @@ func NewShortcut(key rune, icon, name, desc string) *shortcut {
 	return sc
 }
 
-func (sc shortcut) String() string {
-	return tview.TranslateANSI(color.Render(fmt.Sprintf(" <sckey>%c</> <scicon>%s</> <scname>%s</> ", sc.key, sc.icon, sc.name)))
-}
-
-//     ﮜ         
-// ﰯ ﰬ ﰵ ﰲ                       
-//                            
-//                            
-//                            
-//               
-// 
 const (
-	mainTable    = "palette"
+	mainTable    = "main"
 	paletteTable = "palette"
 	editTable    = "editor"
 )
@@ -70,14 +66,20 @@ type (
 
 var (
 	paletteKeys keyMap
+	mainKeys keyMap
 	editKeys    keyMap
 	table       keyTables
 )
 
 func init() {
 	table = make(keyTables)
+  mainKeys = make(keyMap, 0)
 	paletteKeys = make(keyMap, 0)
 	editKeys = make(keyMap, 0)
+
+	mainKeys = append(mainKeys, NewShortcut('', "", "toggle help", " toggle help"))
+	mainKeys = append(mainKeys, NewShortcut('q', "", "quit", " quit"))
+	table[mainTable] = mainKeys
 
 	paletteKeys = append(paletteKeys, NewShortcut('h', "ﰯ", "colors", " colors"))
 	paletteKeys = append(paletteKeys, NewShortcut('l', "ﰲ", "colors", " colors"))
@@ -88,7 +90,6 @@ func init() {
 	paletteKeys = append(paletteKeys, NewShortcut('i', "", "info", " info"))
 	paletteKeys = append(paletteKeys, NewShortcut('e', "", "edit", " edit color"))
 	paletteKeys = append(paletteKeys, NewShortcut('*', "", "randomize", " randomize"))
-	// paletteKeys = append(paletteKeys, NewShortcut('Q', "", "quit", " quit"))
 	table[paletteTable] = paletteKeys
 	// 
 	editKeys = append(editKeys, NewShortcut('h', "ﰯ", "channel", " channel"))
@@ -98,10 +99,21 @@ func init() {
 	editKeys = append(editKeys, NewShortcut('>', "", "incr", " increments"))
 	editKeys = append(editKeys, NewShortcut('<', "", "decr", " increments"))
 	table[editTable] = editKeys
-	// keys = append(keys, NewShortcut('<spc>', "", "random", " randomize colors"))
-	// keys = append(keys, NewShortcut('e', "", "edit", " edit color"))
 	theme := theme.GetTheme()
 	_ = theme
+}
+
+//     ﮜ         
+// ﰯ ﰬ ﰵ ﰲ                       
+//                            
+//                            
+//                            
+//               
+// 
+var testTxt string = `[-:-:-][:#ababab:][black::][:#744241:r]|  |[:#8b4f4f:]| [black::r][#9e5a59::b][-:-:-]|[black::][-:-:-][-:-:-] [::r][#8b4f4f:-:-]|[#744241::] [black::][-:-:-][-:-:-] [::r][#744241::] [black::b][-:-:-][-:-:-][:#744241:] [black::r][#8b4f4f:-:-][-:-:-]|[#744241::] [black::][-:-:-][-:-:-] [::r][#9e5a59::b]|[black::][-:-:-][-:-:-] [1m[:#8b4f4f:]|[:#744241:]|  |
+`
+func (sc shortcut) String() string {
+  return fmt.Sprintf("[gray::]🮤[-:-:-] [blue::db]%s[-:-:-] [yellow::d]%s[-:-:-] [green::b]%c[-:-:-] [gray::]🮥[-:-:-]", sc.icon, sc.name, sc.key)
 }
 
 func (s *HelpBar) SetTable(t string) {
@@ -113,14 +125,34 @@ func (s *HelpBar) SetTable(t string) {
 		helpstr := v.String()
 		helpkeys = append(helpkeys, helpstr)
 	}
-	helptxt := strings.Join(helpkeys, " | ")
-  s.Clear()
-	s.SetText(helptxt)
+  s.helpTextView.SetDynamicColors(true)
+  s.helpTextView.SetTextColor(tcell.GetColor("#010101"))
+  // 🭲🭱🭱🭱🭰🭱🭲🭴🭵🭳🬦
+	helptxt := strings.Join(helpkeys, "   ")
+  s.helpTextView.Clear()
+	s.helpTextView.SetText(helptxt)
+}
+
+func coder() string {
+  rand.Seed(time.Now().UnixNano())
+  strs := `   [#744241::]|  |[#9e5a59::b]|[:black:] [black:#9e5a59:]|[:black:] [black:#9e5a59:]|[black:#744241:] [::-]`
+	// paletteKeys = append(paletteKeys, NewShortcut('b', "羅", coder(), "羅delete color"))
+	// paletteKeys = append(paletteKeys, NewShortcut('Q', "", "quit", " quit"))
+	// keys = append(keys, NewShortcut('<spc>', "", "random", " randomize colors"))
+	// keys = append(keys, NewShortcut('e', "", "edit", " edit color"))
+  // fmtstr := []string{"[#744241::] | [-:-:-]","[#744241::] | [-:-:-]","[#744241::r]|[-:-:-]","[#744241::r] |[-:-:-]","[::r] |[-:-:-]"}
+  // str := make([]string, 5)
+  // str := append(lo.Shuffle[string](fmtstr),lo.Shuffle[string](fmtstr)...)
+
+  // return strings.Join(str, " ")
+  return strs
 }
 
 func (s *HelpBar) Init() {
-	s.SetRegions(true).SetBorder(false).SetBorderPadding(0, 0, 0, 0)
-	s.SetDynamicColors(true).SetTextAlign(tview.AlignCenter)
+  s.Flex.AddItem(s.helpTextView, 0, 1, false)
+  s.Flex.AddItem(nil, 0, 1, false)
+	s.helpTextView.SetRegions(true).SetBorder(false).SetBorderPadding(0, 0, 0, 0)
+	s.helpTextView.SetDynamicColors(true).SetTextAlign(tview.AlignCenter)
 	s.SetTable(mainTable)
 	// , "/ ", "mixer"
 
@@ -133,7 +165,7 @@ func (s *HelpBar) Init() {
 }
 
 func (s *HelpBar) UpdateRegion(r string) {
-	s.Highlight(r)
+	s.helpTextView.Highlight(r)
 }
 
 // vim: ts=2 sw=2 et ft=go

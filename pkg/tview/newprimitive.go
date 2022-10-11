@@ -1,6 +1,8 @@
 package tview
 
-import tcell "github.com/gdamore/tcell/v2"
+import (
+	tcell "github.com/gdamore/tcell/v2"
+)
 
 // Primitive is the top-most interface for all graphical primitives.
 type Primitive interface {
@@ -73,6 +75,19 @@ type Primitive interface {
 	// NextFocusableComponent decides which component should receive focus next.
 	// If nil is returned, the focus is retained.
 	NextFocusableComponent(FocusDirection) Primitive
+}
+
+type PageSentDirection int
+
+const(
+  Front PageSentDirection = iota
+  Back
+)
+
+type Paged interface {
+  Shown(*Pages)
+  Hidden(*Pages)
+  Moved(*Pages, PageSentDirection)
 }
 
 type InputHandlerFunc func(*tcell.EventKey, func(p Primitive)) 

@@ -5,10 +5,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/digitallyserviced/coolors/status"
 	"github.com/digitallyserviced/tview"
 
-	"github.com/gookit/goutil/dump"
+	"github.com/digitallyserviced/coolors/coolor/lister"
+	"github.com/digitallyserviced/coolors/status"
+
+	// "github.com/gookit/goutil/dump"
 	"github.com/gookit/goutil/structs"
 )
 
@@ -86,7 +88,7 @@ type (
 )
 
 var (
-	ActionOptions  *structs.MapDataStore
+	ActionOptions  *structs.Data
 	actors         CoolorColorActors
 	GradientColor  CoolorColorAct
 	ShadeColor     CoolorColorAct
@@ -125,7 +127,7 @@ func NewCoolorColorAct(
 // ₐₑₒₓₕₖₗₘₙₚₛₜ₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎
 // aeoxhklmnpst0123456789+-=()
 func init() {
-	ActionOptions = structs.NewMapData()
+	ActionOptions = structs.NewData()
 	//  
 	AddColor = NewCoolorColorAct(
 		"add",
@@ -318,7 +320,7 @@ func (cca *CoolorColorActor) On(s string) bool {
 
 func (cca *CoolorColorActor) Has(s string) (interface{}, bool) {
 	d, ok := ActionOptions.Value(cca.makeKey(s)) // .BoolVal(cca.makeKey(s))
-	return d, ok
+    return  d, ok
 }
 
 func (cca *CoolorColorActor) Is(s string) bool {
@@ -1004,13 +1006,13 @@ func tagFunc() *CoolorColorActionFunctions {
 				mc.floater = NewSelectionFloater(
 					" Terminal ANSI Color Tag",
 					items.GetListItems,
-					func(lis ListItem, hdr *tview.TextView, ftr *tview.TextView) {
+					func(lis lister.ListItem, hdr *tview.TextView, ftr *tview.TextView) {
 						ccol, _ := MainC.palette.GetSelected()
 						ti := lis.(*TagItem)
 						MainC.palette.Each(func(cc *CoolorColor, i int) {
 							tags := MainC.palette.Colors[i].GetTags()
 							for _, v := range tags {
-								dump.P(ti, v)
+								// dump.P(ti, v)
 								if ti.MainText() == v.MainText() {
 									cc.ClearTags()
 								}
@@ -1022,7 +1024,7 @@ func tagFunc() *CoolorColorActionFunctions {
 						cca.Every(ccol)
 						cca.Finalize(cc)
 					},
-					func(lis ListItem, hdr *tview.TextView, ftr *tview.TextView) {
+					func(lis lister.ListItem, hdr *tview.TextView, ftr *tview.TextView) {
 						ftr.SetText(lis.MainText())
 					},
 				)
@@ -1136,7 +1138,7 @@ func favFunc() *CoolorColorActionFunctions {
 			if cc == nil {
 				return false
 			}
-			GetStore().MetaService.ToggleFavorite(cc)
+			// GetStore().MetaService.ToggleFavorite(cc)
 			cca.Finalize(cc)
 			return false
 		},

@@ -2,7 +2,7 @@ package coolor
 
 import (
 	"fmt"
-	"log"
+	// log "github.com/sirupsen/logrus"
 	"math/rand"
 	"os"
 	"os/signal"
@@ -14,8 +14,12 @@ import (
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
 	"github.com/gookit/goutil/dump"
-	"github.com/gookit/goutil/errorx"
+
+	"github.com/digitallyserviced/coolors/coolor/zzlog"
+
+	// "github.com/gookit/goutil/errorx"
 	msgpack "github.com/vmihailenco/msgpack/v5"
+	// "github.com/digitallyserviced/coolors/coolor/zzlog"
 )
 
 type (
@@ -81,7 +85,6 @@ type ColorRep struct {
 var (
 	CssHex6 *ColorRep
 )
-
 func init() {
 	CssHex6 = NewColorRep(hex6, "%s", func(cr *ColorRep) *Color {
 		return &Color{cr.v1 / 255.0, cr.v2 / 255.0, cr.v3 / 255.0}
@@ -178,6 +181,8 @@ func (cr *ColorRep) FindAndColorize(sc string) (string, *CoolorColorsPalette) {
 	// regexp.MustCompile(reg).FindAllSubmatch()
 }
 
+
+
 var colorRegexes = []string{rgb, rgba, hsl, hsla, hsv, hsva, hex3, hex6} //
 func genSimilarHslColor(
 	tcol Color,
@@ -202,34 +207,28 @@ func GetColorName(col tcell.Color) string {
 	return ""
 }
 
-func errAss[R any](v R, e error) R {
+func ErrorAssert[R any](v R, e error) R {
 	iserr := func(v interface{}) {
 		if v == nil {
 			return
 		}
 		e, ok := v.(error)
 		if ok {
-			doLog(errorx.WithPrevf(e, "%V", v))
+      zlog.Error(fmt.Sprintf("%T %v", v, e), zzlog.String("msg", e.Error()))
+			// doLog(errorx.WithPrevf(e, "%V", v))
 			panic(e)
 		}
-		return
+		// return
 	}
 	iserr(e)
-	// for _, v := range vars {
-	//   iserr(v)
-	//   r, ok := v.(R)
-	//   if ok {
-	//     return r
-	//   } else {
-	//     continue
-	//   }
-	// }
 	return v
 }
 
 func checkErrX(err error, vars ...interface{}) bool {
 	if err != nil {
-		doLog(errorx.WithPrevf(errorx.Traced(err), "%T %v", err, vars))
+    // zlog.Error(msg string, fields ...log.Field)
+    zlog.Error(fmt.Sprintf("checkErr: %T", err), zzlog.String("msg", err.Error()))
+		// doLog(errorx.WithPrevf(errorx.Traced(err), "%T %s", err, vars))
 		return false
 	}
 	return true
@@ -237,7 +236,7 @@ func checkErrX(err error, vars ...interface{}) bool {
 
 func checkErr(err error) {
 	if err != nil {
-		doLog(err)
+    zlog.Error(fmt.Sprintf("checkErr: %T", err), zzlog.String("msg", err.Error()))
 		panic(err)
 	}
 }
@@ -521,9 +520,10 @@ func FocusNextIfPossible(
 		return
 	}
 
-	log.Printf("%v %T", direction, focused)
+  zlog.Debug("focus_next", zzlog.Int("dir", int(direction)))
 	focusNext := focused.NextFocusableComponent(direction)
-	log.Printf("%v %T -> %T", direction, focused, focusNext)
+  // zlog.Debug("focus_next_orig", log.Int("dir", int(direction)))
+	// zlog.Printf("%v %T -> %T", direction, focused, focusNext)
 	if focusNext != nil {
 		app.SetFocus(focusNext)
 	}
@@ -564,4 +564,161 @@ func (this *Stack) Push(elem interface{}) {
 	*this = append(*this, elem)
 }
 
+func debounce[T any](min time.Duration, max time.Duration, input <-chan T) chan T {
+	output := make(chan T)
+
+	go func() {
+		var (
+			buffer   T
+			ok       bool
+			minTimer <-chan time.Time
+			maxTimer <-chan time.Time
+		)
+
+		// Start debouncing
+		for {
+			select {
+			case buffer, ok = <-input:
+				if !ok {
+					return
+				}
+				minTimer = time.After(min)
+				if maxTimer == nil {
+					maxTimer = time.After(max)
+				}
+			case <-minTimer:
+				minTimer, maxTimer = nil, nil
+				output <- buffer
+			case <-maxTimer:
+				minTimer, maxTimer = nil, nil
+				output <- buffer
+			}
+		}
+	}()
+
+	return output
+}
+//
+// type PrimitiveFrameHandler func(t time.Duration, step int)
+// type AnimatedUpdater func(p PrimitiveActor)
+
+// type Animated interface {
+//   Animate()
+// Update()
+// Start()
+// Begin()
+// OnTick(delta time.Duration)
+// SetDuration(t time.Duration)
+// SetTickCount(t int)
+// SetFrameHandler(f PrimitiveFrameHandler)
+// Stop()
+// End()
+// }
+//
+// type PrimitiveActor interface {
+// 	tview.Primitive
+// 	// Animated
+// }
+// type animationTimer func(timeStep float64) float64
+// type animationDraw func(frameIdx int, timeStep float64, scr tcell.Screen, p interface{})
+//
+// type Animator struct {
+// 	animating bool
+// 	frameIdx  int
+// 	start     time.Time
+// 	duration  time.Duration
+// 	timeStep  float64
+// 	timeFunc  animationTimer
+// 	draw      animationDraw
+// }
+//
+// type Animation interface {
+// 	WithOptions(f func(o interface{})) *Animation
+// 	WithDuration(d time.Duration) *Animation
+// 	Start(p tview.Primitive)
+// 	Update(frameIdx int, timeStep float64, scr tcell.Screen, p interface{})
+// }
+//
+// type Rect struct {
+// 	x, y, width, height int
+// }
+//
+// type BoxRectMover struct {
+// 	originalPos, currentPos Rect
+// 	targetPos               Rect
+//   Animator
+// }
+//
+// func OffsetMoverX(offset int) *Animator {
+//   brm := &BoxRectMover{
+//   	originalPos: Rect{
+//   		x:      0,
+//   		y:      0,
+//   		width:  0,
+//   		height: 0,
+//   	},
+//   	currentPos:  Rect{},
+//   	targetPos:   Rect{},
+//   }
+//   timer := func(frameIdx int, timeStep float64, scr tcell.Screen, p interface{}) {
+// 	//
+// 	}
+//
+//
+//   a := NewAnimator(timer, drawFn)
+// 	// return 
+// }
+//
+//
+// // Start implements Animation
+// func (brm *BoxRectMover) Start(p tview.Primitive, offset int) {
+//
+// }
+//
+// // Update implements Animation
+// func (brm *BoxRectMover) Update(frameIdx int, timeStep float64, scr tcell.Screen, p interface{}) {
+// 	panic("unimplemented")
+// }
+//
+// // WithDuration implements Animation
+// func (brm *BoxRectMover) WithDuration(d time.Duration) *Animation {
+// 	panic("unimplemented")
+// }
+//
+// // WithOptions implements Animation
+// func (brm *BoxRectMover) WithOptions(f func(o interface{})) *Animation {
+// 	panic("unimplemented")
+// }
+//
+// func (a *Animator) Start(p interface{}, frameIdx int) {
+//
+// 	var brm Animation = BoxRectMover{}
+//
+// }
+//
+// func AnimateTestBox() {
+// 	a := NewAnimator(MakeBoxItem("WHEEE", "#7f81aa"), func(timeStep float64) float64 {
+// 		return timeStep
+// 	}, OffsetMoverX(20))
+// }
+//
+// func NewAnimator(duration time.Duration, ease animationTimer, drawFunc animationDraw) *Animator {
+// 	a := &Animator{
+// 		start:    time.Now(),
+// 		duration: duration,
+// 		timeStep: 0,
+// 		timeFunc: ease,
+// 		draw:     drawFunc,
+// 	}
+//
+// 	return a
+// }
+//
+// type AnimatorModifier func(p interface{})
+//
+// type AnimatedBox struct {
+// 	*tview.Box
+// 	// Animators []AnimateCallback
+// }
+//
 // vim: ts=2 sw=2 et ft=go

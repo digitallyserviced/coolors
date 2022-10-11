@@ -59,7 +59,7 @@ func NewColorCell(col *CoolorColor) *tview.TableCell {
 	}
 
 	tc := tview.NewTableCell(fmt.Sprintf(" %s ", col.TVPreview()))
-	tc.SetAlign(AlignCenter)
+	tc.SetAlign(tview.AlignCenter)
 	tc.SetStyle(
 		tcell.StyleDefault.Background(col.GetFgColor()).Foreground(*col.Color),
 	)
@@ -256,7 +256,7 @@ func (ccs *CoolorColorSwatch) InputHandler() func(event *tcell.EventKey, setFocu
 					ccs.Notify(
 						*ccs.NewObservableEvent(ColorSelectedEvent, "favorited", col, ccs),
 					)
-					GetStore().MetaService.ToggleFavorite(col)
+					// GetStore().MetaService.ToggleFavorite(col)
 					return
 				}
 			}
@@ -285,7 +285,7 @@ func NewPaletteCell(pal *CoolorColorsPalette) *tview.TableCell {
 	)
   tc.SetStyle(tcell.StyleDefault.Background(tcell.Color234))
   tc.SetExpansion(1)
-	tc.SetAlign(AlignCenter)
+	tc.SetAlign(tview.AlignCenter)
 	// tc.SetStyle(
 	// 	tcell.StyleDefault.Background(tcell.Color100).Reverse(false),
 	// )
@@ -383,7 +383,8 @@ func (ccs *CoolorColorsPaletteSwatch) UpdateItems() {
   maxW := 0
   for _, pal := range ccs.Palettes {
     icons := fmt.Sprintf(" %s ", strings.Join(pal.GetPalette().MakeSquarePalette(false), " "))
-	_, _, _, _, _, _, stringW := decomposeString(icons, true, true)
+	// _, _, _, _, _, _, stringW := decomposeString(icons, true, true)
+    stringW := tview.TaggedStringWidth(icons)
     if maxW < stringW {
       maxW = stringW
     }

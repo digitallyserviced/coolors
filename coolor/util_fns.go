@@ -1,41 +1,142 @@
 package coolor
 
 import (
-	"log"
-	"os"
+	"expvar"
+	"fmt"
+
+	// "log"
+
+	"reflect"
 	"runtime"
 	"text/template"
+	"time"
 
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
 	"github.com/gookit/goutil/dump"
+	"github.com/samber/lo"
+
+	// "github.com/digitallyserviced/coolors/coolor/log"
+	"github.com/digitallyserviced/coolors/coolor/zzlog"
 )
 
-func doLog(args... interface{}) {
-  log.Printf("%v", args)
+var zlog *zzlog.Logger
+
+func doLog(args ...interface{}) {
+  
+  zlog.Info(fmt.Sprintf("%v", args),lo.Map[interface{}, zzlog.Field](args, func(i1 interface{}, i2 int) zzlog.Field {
+    return zzlog.String(fmt.Sprintf("arg_%d", i2),reflect.TypeOf(i1).Name())
+  })...)
+	// log.Printf("%v", args)
 }
 
+type expvars struct {
+	motionX   *expvar.Float
+	motionVel *expvar.Float
+	motionIdx *expvar.Int
+	motions   *expvar.Var
+	fromC     *expvar.Int
+	elapsed   *expvar.Int
+	toC       *expvar.Int
+	gr        *expvar.Int
+}
+
+var xp *expvars
+
+func setupExpVars() {
+	xp = &expvars{
+		motionX:   expvar.NewFloat("MotionX"),
+		motionVel: expvar.NewFloat("MotionVel"),
+		motionIdx: expvar.NewInt("MotionIdx"),
+		fromC:     expvar.NewInt("FromC"),
+		toC:       expvar.NewInt("ToC"),
+		gr:        expvar.NewInt("Goroutines"),
+		elapsed:   expvar.NewInt("Elapsed"),
+		// gr := expvar.NewInt("Goroutines")
+	}
+	go func() {
+		for range time.Tick(100 * time.Millisecond) {
+			xp.gr.Set(int64(runtime.NumGoroutine()))
+		}
+	}()
+}
 func doCallers() {
-  st := make([]uintptr, 10)
-  n := runtime.Callers(1, st)
-  st = st[:n]
-  f := runtime.CallersFrames(st)
-  for {
-    frame, more := f.Next()
-    dump.P(frame.Line, frame.Func.Name())
-    if !more {
-      break
-    }
-  }
+	st := make([]uintptr, 10)
+	n := runtime.Callers(1, st)
+	st = st[:n]
+	f := runtime.CallersFrames(st)
+	for {
+		f, more := f.Next()
+    dump.P(f.File, f.Function)
+		if !more {
+			break
+		}
+	}
 }
-func setupLogging() func() error {
-	f, _ := os.OpenFile("dumps", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o666)
-	// f, _ := os.OpenFile(os.DevNull, os.O_RDWR|os.O_APPEND, 0666)
 
-	log.SetOutput(f)
+func setupLogger(){
+  var tops = []zzlog.TeeOption{
+		{
+			Filename: "out.log",
+			Ropt: zzlog.RotateOptions{
+				MaxSize:    1,
+				MaxAge:     1,
+				MaxBackups: 1,
+			},
+			Lef: func(lvl zzlog.Level) bool {
+        return true
+				// return lvl <= zzlog.InfoLevel
+			},
+		},
+		// {
+		// 	Filename: "error.log",
+		// 	Ropt: zzlog.RotateOptions{
+		// 		MaxSize:    1,
+		// 		MaxAge:     1,
+		// 		MaxBackups: 3,
+		// 	},
+		// 	Lef: func(lvl zzlog.Level) bool {
+		// 		return lvl > zzlog.InfoLevel
+		// 	},
+		// },
+	}
 
-	return f.Close
+	logger := zzlog.NewTeeWithRotate(tops, zzlog.AddStacktrace(zzlog.InfoLevel),zzlog.WithCaller(true),zzlog.AddCallerSkip(1))
+  zlog = logger
+	zzlog.ResetDefault(logger)
+	//
+	// for i := 0; i < 20000; i++ {
+	// 	zzlog.Info("demo3:", zzlog.String("app", "start ok"),
+	// 		zzlog.Int("major version", 3))
+	// 	zzlog.Error("demo3:", zzlog.String("app", "crash"),
+	// 		zzlog.Int("reason", -1))
+	// }
+ //  logrus.TextFormatter
+ //  l := logrus.New()
+	// l.SetOutput(output)
+	// l.SetLevel(logrus.DebugLevel)
+	// l.SetFormatter(&.Formatter{
+	// 	NoColors:        true,
+	// 	TimestampFormat: "-",
+	// 	CallerFirst:     true,
+	// 	CustomCallerFormatter: func(f *runtime.Frame) string {
+	// 		s := strings.Split(f.Function, ".")
+	// 		funcName := s[len(s)-1]
+	// 		return fmt.Sprintf(" [%s:%d][%s()]", path.Base(f.File), f.Line, funcName)
+	// 	},
+	// })
+	// l.SetReportCaller(true)
 }
+
+// func setupLogging() func() error {
+// 	// f, _ := os.OpenFile("dumps", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o666)
+// 	// f, _ := os.OpenFile(os.DevNull, os.O_RDWR|os.O_APPEND, 0666)
+//
+// 	// log.SetOutput(f)
+//   setupLogger()
+//
+// 	return f.Close
+// }
 
 func MakeDebugDump(tp tview.Primitive) {
 	dump.P(tp)

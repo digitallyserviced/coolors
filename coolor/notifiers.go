@@ -3,8 +3,6 @@ package coolor
 import (
 	// "log"
 
-	"log"
-
 	"github.com/gdamore/tcell/v2"
 )
 
@@ -46,8 +44,8 @@ func (p *eventNotifier) Notify(e ObservableEvent) {
 	// 	e.Src,
 	// 	e.Note,
 	// )
-	for o, f := range p.observers {
-		log.Printf("notifier -- fns: %d  name: %s ev: %v flag: %d", len(p.observers), p.notifierName, e, e.Type&f)
+	for o, _ := range p.observers {
+		// log.Printf("notifier -- fns: %d  name: %s ev: %v flag: %d", len(p.observers), p.notifierName, e, e.Type&f)
 		// if e.Type&f == 0 {
 		// 	continue
 		// }

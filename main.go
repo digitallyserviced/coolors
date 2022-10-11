@@ -70,7 +70,6 @@ func getPosition() (int, int) {
 	return x, y
 }
 
-
 func main() {
 	go http.ListenAndServe(":1234", nil)
 	f, err := os.Create("dump")

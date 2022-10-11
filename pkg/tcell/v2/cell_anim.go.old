@@ -1,0 +1,728 @@
+// Copyright 2019 The TCell Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use file except in compliance with the License.
+// You may obtain a copy of the license at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package tcell
+
+import (
+	"fmt"
+	"strings"
+
+	runewidth "github.com/mattn/go-runewidth"
+)
+
+type cell struct {
+	currMain  rune
+	currComb  []rune
+	currStyle Style
+	lastMain  rune
+	lastStyle Style
+	lastComb  []rune
+	width     int
+}
+func (cb *CellBuffer) Iterator() ScreenIterator {
+	w := cb.w
+	it := ScreenIterator{
+		w:      w,
+		cells:  cb,
+		max:    Point{
+			X: cb.w,
+			Y: cb.h,
+		},// gd.Size().Shift(-1, -1),
+		rg:     cb.Rd.Rg,
+		nlstep: gd.Rg.Min.X + (w - gd.Rg.Max.X + 1),
+	}
+	it.Reset()
+	return it
+}
+func (it *ScreenIterator) Reset() {
+	it.p = Point{-1, 0}
+	it.i = it.rg.Min.Y*it.w + it.rg.Min.X - 1
+}
+func (gd CellBuffer) String() string {
+	b := strings.Builder{}
+	it := gd.Iterator()
+	for it.Next() {
+		b.WriteRune(it.Cell().Rune)
+		p := it.P()
+		if p.X == gd.Rg.Max.X-1 {
+			b.WriteRune('\n')
+		}
+	}
+	return b.String()
+}
+
+// Bounds returns the range that is covered by this grid slice within the
+// underlying original grid.
+func (gd CellBuffer) Bounds() Range {
+	return gd.Rg
+}
+
+// Range returns the range with Min set to (0,0) and Max set to gd.Size(). It
+// may be convenient when using Slice with a range Shift.
+func (gd CellBuffer) Range() Range {
+	return gd.Rg.Sub(gd.Rg.Min)
+}
+
+// Slice returns a rectangular slice of the grid given by a range relative to
+// the grid. If the range is out of bounds of the parent grid, it will be
+// reduced to fit to the available space. The returned grid shares memory with
+// the parent.
+//
+// This makes it easy to use relative coordinates when working with UI
+// elements.
+func (gd CellBuffer) Slice(rg Range) CellBuffer {
+	if rg.Min.X < 0 {
+		rg.Min.X = 0
+	}
+	if rg.Min.Y < 0 {
+		rg.Min.Y = 0
+	}
+	max := gd.Rg.Size()
+	if rg.Max.X > max.X {
+		rg.Max.X = max.X
+	}
+	if rg.Max.Y > max.Y {
+		rg.Max.Y = max.Y
+	}
+	min := gd.Rg.Min
+	rg.Min = rg.Min.Add(min)
+	rg.Max = rg.Max.Add(min)
+  cb := &CellBuffer{
+  	w:     0,
+  	h:     0,
+  	cells: []cell{},
+  	Rg:    rg,
+  }
+	return Grid{innerGrid{Ug: gd.Ug, Rg: rg}}
+}
+
+// Size returns the grid (width, height) in cells, and is a shorthand for
+// gd.Range().Size().
+func (gd CellBuffer) Size() Point {
+	return gd.Rg.Size()
+}
+//
+// // Resize is similar to Slice, but it only specifies new dimensions, and if the
+// // range goes beyond the underlying original grid range, it will grow the
+// // underlying grid. In case of growth, it preserves the content, and new cells
+// // are initialized to Cell{Rune: ' '}.
+// func (gd CellBuffer) Resize(w, h int) Grid {
+// 	max := gd.Size()
+// 	ow, oh := max.X, max.Y
+// 	if ow == w && oh == h {
+// 		return gd
+// 	}
+// 	if w <= 0 || h <= 0 {
+// 		gd.Rg.Max = gd.Rg.Min
+// 		return gd
+// 	}
+// 	if gd.Ug == nil {
+// 		gd.Ug = &grid{}
+// 	}
+// 	gd.Rg.Max = gd.Rg.Min.Shift(w, h)
+// 	if w+gd.Rg.Min.X > gd.w || h+gd.Rg.Min.Y > gd.Ug.Height {
+// 		ngd := NewGrid(w+gd.Rg.Min.X, h+gd.Rg.Min.Y)
+// 		ngd.Copy(Grid{innerGrid{Ug: gd.Ug, Rg: NewRange(0, 0, gd.w, gd.Ug.Height)}})
+// 		*gd.Ug = *ngd.Ug
+// 	}
+// 	return gd
+// }
+//
+type Cell struct {
+  Rune rune
+  Style
+}
+
+
+// Contains returns true if the given relative position is within the grid.
+func (gd CellBuffer) Contains(p Point) bool {
+	return p.Add(gd.Rg.Min).In(gd.Rg)
+}
+
+// Set draws cell content and styling at a given position in the grid. If the
+// position is out of range, the function does nothing.
+func (gd CellBuffer) Set(p Point, c Cell) {
+	q := p.Add(gd.Rg.Min)
+	if !q.In(gd.Rg) {
+		return
+	}
+	i := q.Y*gd.w + q.X
+	gd.Ug.Cells[i] = c
+}
+
+// At returns the cell content and styling at a given position. If the position
+// is out of range, it returns the zero value.
+func (gd CellBuffer) At(p Point) Cell {
+	q := p.Add(gd.Rg.Min)
+	if !q.In(gd.Rg) {
+		return Cell{}
+	}
+	i := q.Y*gd.w + q.X
+	return gd.Ug.Cells[i]
+}
+
+// Fill sets the given cell as content for all the grid positions.
+func (gd CellBuffer) Fill(c Cell) {
+	if gd.Ug == nil {
+		return
+	}
+	w := gd.Rg.Max.X - gd.Rg.Min.X
+	switch {
+	case w >= 8:
+		gd.fillcp(c)
+	case w == 1:
+		gd.fillv(c)
+	default:
+		gd.fill(c)
+	}
+}
+
+func (gd CellBuffer) fillcp(c Cell) {
+	w := gd.w
+	ymin := gd.Rg.Min.Y * w
+	gdw := gd.Rg.Max.X - gd.Rg.Min.X
+	cells := gd.Ug.Cells
+	for xi := ymin + gd.Rg.Min.X; xi < ymin+gd.Rg.Max.X; xi++ {
+		cells[xi] = c
+	}
+	idxmax := (gd.Rg.Max.Y-1)*w + gd.Rg.Max.X
+	for idx := ymin + w + gd.Rg.Min.X; idx < idxmax; idx += w {
+		copy(cells[idx:idx+gdw], cells[ymin+gd.Rg.Min.X:ymin+gd.Rg.Max.X])
+	}
+}
+
+func (gd CellBuffer) fill(c Cell) {
+	w := gd.w
+	cells := gd.Ug.Cells
+	yimax := gd.Rg.Max.Y * w
+	for yi := gd.Rg.Min.Y * w; yi < yimax; yi += w {
+		ximax := yi + gd.Rg.Max.X
+		for xi := yi + gd.Rg.Min.X; xi < ximax; xi++ {
+			cells[xi] = c
+		}
+	}
+}
+
+func (gd CellBuffer) fillv(c Cell) {
+	w := gd.w
+	cells := gd.Ug.Cells
+	ximax := gd.Rg.Max.Y*w + gd.Rg.Min.X
+	for xi := gd.Rg.Min.Y*w + gd.Rg.Min.X; xi < ximax; xi += w {
+		cells[xi] = c
+	}
+}
+
+// Iter iterates a function on all the grid positions and cells.
+func (gd CellBuffer) Iter(fn func(Point, Cell)) {
+	if gd.Ug == nil {
+		return
+	}
+	w := gd.w
+	yimax := gd.Rg.Max.Y * w
+	cells := gd.Ug.Cells
+	for y, yi := 0, gd.Rg.Min.Y*w; yi < yimax; y, yi = y+1, yi+w {
+		ximax := yi + gd.Rg.Max.X
+		for x, xi := 0, yi+gd.Rg.Min.X; xi < ximax; x, xi = x+1, xi+1 {
+			c := cells[xi]
+			p := Point{X: x, Y: y}
+			fn(p, c)
+		}
+	}
+}
+
+// Map updates the grid content using the given mapping function.
+func (gd CellBuffer) Map(fn func(Point, Cell) Cell) {
+	if gd.Ug == nil {
+		return
+	}
+	w := gd.w
+	cells := gd.Ug.Cells
+	yimax := gd.Rg.Max.Y * w
+	for y, yi := 0, gd.Rg.Min.Y*w; yi < yimax; y, yi = y+1, yi+w {
+		ximax := yi + gd.Rg.Max.X
+		for x, xi := 0, yi+gd.Rg.Min.X; xi < ximax; x, xi = x+1, xi+1 {
+			c := cells[xi]
+			p := Point{X: x, Y: y}
+			cells[xi] = fn(p, c)
+		}
+	}
+}
+
+// Copy copies elements from a source grid src into the destination grid gd,
+// and returns the copied grid-slice size, which is the minimum of both grids
+// for each dimension. The result is independent of whether the two grids
+// referenced memory overlaps or not.
+func (gd CellBuffer) Copy(src CellBuffer) Point {
+	if gd.Ug == nil {
+		return Point{}
+	}
+	if gd.Ug != src.Ug {
+		if src.Rg.Max.X-src.Rg.Min.X <= 4 {
+			return gd.cpv(src)
+		}
+		return gd.cp(src)
+	}
+	if gd.Rg == src.Rg {
+		return gd.Rg.Size()
+	}
+	if !gd.Rg.Overlaps(src.Rg) || gd.Rg.Min.Y <= src.Rg.Min.Y {
+		return gd.cp(src)
+	}
+	return gd.cprev(src)
+}
+
+func (gd CellBuffer) cp(src CellBuffer) Point {
+	w := gd.w
+	wsrc := src.Ug.Width
+	max := gd.Range().Intersect(src.Range()).Size()
+	idxmin := gd.Rg.Min.Y*w + gd.Rg.Min.X
+	idxsrcmin := src.Rg.Min.Y*w + src.Rg.Min.X
+	idxmax := (gd.Rg.Min.Y + max.Y) * w
+	for idx, idxsrc := idxmin, idxsrcmin; idx < idxmax; idx, idxsrc = idx+w, idxsrc+wsrc {
+		copy(gd.Ug.Cells[idx:idx+max.X], src.Ug.Cells[idxsrc:idxsrc+max.X])
+	}
+	return max
+}
+
+func (gd CellBuffer) cpv(src CellBuffer) Point {
+	w := gd.w
+	wsrc := src.Ug.Width
+	max := gd.Range().Intersect(src.Range()).Size()
+	yimax := (gd.Rg.Min.Y + max.Y) * w
+	cells := gd.Ug.Cells
+	srccells := src.Ug.Cells
+	for yi, yisrc := gd.Rg.Min.Y*w, src.Rg.Min.Y*wsrc; yi < yimax; yi, yisrc = yi+w, yisrc+wsrc {
+		ximax := yi + max.X
+		for xi, xisrc := yi+gd.Rg.Min.X, yisrc+src.Rg.Min.X; xi < ximax; xi, xisrc = xi+1, xisrc+1 {
+			cells[xi] = srccells[xisrc]
+		}
+	}
+	return max
+}
+
+func (gd CellBuffer) cprev(src CellBuffer) Point {
+	w := gd.w
+	wsrc := src.Ug.Width
+	max := gd.Range().Intersect(src.Range()).Size()
+	idxmax := (gd.Rg.Min.Y+max.Y-1)*w + gd.Rg.Min.X
+	idxsrcmax := (src.Rg.Min.Y+max.Y-1)*w + src.Rg.Min.X
+	idxmin := gd.Rg.Min.Y * w
+	for idx, idxsrc := idxmax, idxsrcmax; idx >= idxmin; idx, idxsrc = idx-w, idxsrc-wsrc {
+		copy(gd.Ug.Cells[idx:idx+max.X], src.Ug.Cells[idxsrc:idxsrc+max.X])
+	}
+	return max
+}
+
+// Next advances the iterator the next position in the grid.
+func (it *ScreenIterator) Next() bool {
+	if it.p.X < it.max.X {
+		it.p.X++
+		it.i++
+		return true
+	}
+	if it.p.Y < it.max.Y {
+		it.p.Y++
+		it.p.X = 0
+		it.i += it.nlstep
+		return true
+	}
+	return false
+}
+
+// P returns the iterator's current position.
+func (it *ScreenIterator) P() Point {
+	return it.p
+}
+
+// SetP sets the iterator's current position.
+func (it *ScreenIterator) SetP(p Point) {
+	q := p.Add(it.rg.Min)
+	if !q.In(it.rg) {
+		return
+	}
+	it.p = p
+	it.i = q.Y*it.w + q.X
+}
+
+// Cell returns the Cell in the grid at the iterator's current position.
+func (it *ScreenIterator) Cell() Cell {
+	return it.cells[it.i]
+}
+
+// SetCell updates the grid cell at the iterator's current position.
+func (it *ScreenIterator) SetCell(c Cell) {
+  // it.cells.SetContent(x int, y int, mainc rune, combc []rune, style Style)
+	// it.cells[it.i] = c
+}
+
+type Point struct {
+  X, Y int
+}
+type Range struct {
+	Min, Max Point
+}
+
+
+// String returns a string representation of the form "(x,y)".
+func (p Point) String() string {
+	return fmt.Sprintf("(%d,%d)", p.X, p.Y)
+}
+
+// Shift returns a new point with coordinates shifted by (x,y). It's a
+// shorthand for p.Add(Point{x,y}).
+func (p Point) Shift(x, y int) Point {
+	return Point{X: p.X + x, Y: p.Y + y}
+}
+
+// Add returns vector p+q.
+func (p Point) Add(q Point) Point {
+	return Point{X: p.X + q.X, Y: p.Y + q.Y}
+}
+
+// Sub returns vector p-q.
+func (p Point) Sub(q Point) Point {
+	return Point{X: p.X - q.X, Y: p.Y - q.Y}
+}
+
+// In reports whether the position is within the given range.
+func (p Point) In(rg Range) bool {
+	return p.X >= rg.Min.X && p.X < rg.Max.X && p.Y >= rg.Min.Y && p.Y < rg.Max.Y
+}
+
+// Mul returns the vector p*k.
+func (p Point) Mul(k int) Point {
+	return Point{X: p.X * k, Y: p.Y * k}
+}
+
+// Div returns the vector p/k.
+func (p Point) Div(k int) Point {
+	return Point{X: p.X / k, Y: p.Y / k}
+}
+// String returns a string representation of the form "(x0,y0)-(x1,y1)".
+func (rg Range) String() string {
+	return fmt.Sprintf("%s-%s", rg.Min, rg.Max)
+}
+
+// Size returns the (width, height) of the range in cells.
+func (rg Range) Size() Point {
+	return rg.Max.Sub(rg.Min)
+}
+
+// Shift returns a new range with coordinates shifted by (x0,y0) and (x1,y1).
+func (rg Range) Shift(x0, y0, x1, y1 int) Range {
+	rg = Range{Min: rg.Min.Shift(x0, y0), Max: rg.Max.Shift(x1, y1)}
+	if rg.Empty() {
+		return Range{}
+	}
+	return rg
+}
+
+// Line reduces the range to relative line y, or an empty range if out of
+// bounds.
+func (rg Range) Line(y int) Range {
+	if rg.Min.Shift(0, y).In(rg) {
+		rg.Min.Y = rg.Min.Y + y
+		rg.Max.Y = rg.Min.Y + 1
+	} else {
+		rg = Range{}
+	}
+	return rg
+}
+
+// Lines reduces the range to relative lines between y0 (included) and y1
+// (excluded), or an empty range if out of bounds.
+func (rg Range) Lines(y0, y1 int) Range {
+	nrg := rg
+	nrg.Min.Y = rg.Min.Y + y0
+	nrg.Max.Y = rg.Min.Y + y1
+	return rg.Intersect(nrg)
+}
+
+// Column reduces the range to relative column x, or an empty range if out of
+// bounds.
+func (rg Range) Column(x int) Range {
+	if rg.Min.Shift(x, 0).In(rg) {
+		rg.Min.X = rg.Min.X + x
+		rg.Max.X = rg.Min.X + 1
+	} else {
+		rg = Range{}
+	}
+	return rg
+}
+
+// Columns reduces the range to relative columns between x0 (included) and x1
+// (excluded), or an empty range if out of bounds.
+func (rg Range) Columns(x0, x1 int) Range {
+	nrg := rg
+	nrg.Min.X = rg.Min.X + x0
+	nrg.Max.X = rg.Min.X + x1
+	return rg.Intersect(nrg)
+}
+
+// Empty reports whether the range contains no positions.
+func (rg Range) Empty() bool {
+	return rg.Min.X >= rg.Max.X || rg.Min.Y >= rg.Max.Y
+}
+
+// Eq reports whether the two ranges containt the same set of points. All empty
+// ranges are considered equal.
+func (rg Range) Eq(r Range) bool {
+	return rg == r || rg.Empty() && r.Empty()
+}
+
+// Sub returns a range of same size translated by -p.
+func (rg Range) Sub(p Point) Range {
+	rg.Max = rg.Max.Sub(p)
+	rg.Min = rg.Min.Sub(p)
+	return rg
+}
+
+// Add returns a range of same size translated by +p.
+func (rg Range) Add(p Point) Range {
+	rg.Max = rg.Max.Add(p)
+	rg.Min = rg.Min.Add(p)
+	return rg
+}
+
+// RelMsg returns a range-relative version of messages defined by the gruid
+// package. Currently, it only affects mouse messages, which are given
+// positions relative to the range.
+// func (rg Range) RelMsg(msg Msg) Msg {
+	// if msg, ok := msg.(MsgMouse); ok {
+	// 	msg.P = msg.P.Sub(rg.Min)
+	// 	return msg
+	// }
+// 	return msg
+// }
+
+// Intersect returns the largest range contained both by rg and r. If the two
+// ranges do not overlap, the zero range will be returned.
+func (rg Range) Intersect(r Range) Range {
+	if rg.Max.X > r.Max.X {
+		rg.Max.X = r.Max.X
+	}
+	if rg.Max.Y > r.Max.Y {
+		rg.Max.Y = r.Max.Y
+	}
+	if rg.Min.X < r.Min.X {
+		rg.Min.X = r.Min.X
+	}
+	if rg.Min.Y < r.Min.Y {
+		rg.Min.Y = r.Min.Y
+	}
+	if rg.Min.X >= rg.Max.X || rg.Min.Y >= rg.Max.Y {
+		return Range{}
+	}
+	return rg
+}
+
+// Union returns the smallest range containing both rg and r.
+func (rg Range) Union(r Range) Range {
+	if rg.Max.X < r.Max.X {
+		rg.Max.X = r.Max.X
+	}
+	if rg.Max.Y < r.Max.Y {
+		rg.Max.Y = r.Max.Y
+	}
+	if rg.Min.X > r.Min.X {
+		rg.Min.X = r.Min.X
+	}
+	if rg.Min.Y > r.Min.Y {
+		rg.Min.Y = r.Min.Y
+	}
+	return rg
+}
+
+// Overlaps reports whether the two ranges have a non-zero intersection.
+func (rg Range) Overlaps(r Range) bool {
+	return !rg.Intersect(r).Empty()
+}
+
+// In reports whether range rg is completely contained in range r.
+func (rg Range) In(r Range) bool {
+	return rg.Intersect(r) == rg
+}
+
+// Iter calls a given function for all the positions of the range.
+func (rg Range) Iter(fn func(Point)) {
+	for y := rg.Min.Y; y < rg.Max.Y; y++ {
+		for x := rg.Min.X; x < rg.Max.X; x++ {
+			p := Point{X: x, Y: y}
+			fn(p)
+		}
+	}
+}
+
+type ScreenIterator struct {
+	cells  *CellBuffer // grid cells
+	p      Point  // iterator's current position
+	max    Point  // last position
+	i      int    // current position's index
+	w      int    // underlying grid's width
+	nlstep int    // newline step
+	// rg     Range  // grid range
+}
+
+
+
+
+// CellBuffer represents a two dimensional array of character cells.
+// This is primarily intended for use by Screen implementors; it
+// contains much of the common code they need.  To create one, just
+// declare a variable of its type; no explicit initialization is necessary.
+//
+// CellBuffer is not thread safe.
+type CellBuffer struct {
+	w     int
+	h     int
+	cells []cell
+  Rg Range
+}
+
+// SetContent sets the contents (primary rune, combining runes,
+// and style) for a cell at a given location.
+func (cb *CellBuffer) SetContent(x int, y int,
+	mainc rune, combc []rune, style Style) {
+
+	if x >= 0 && y >= 0 && x < cb.w && y < cb.h {
+		c := &cb.cells[(y*cb.w)+x]
+
+		c.currComb = append([]rune{}, combc...)
+
+		if c.currMain != mainc {
+			c.width = runewidth.RuneWidth(mainc)
+		}
+		c.currMain = mainc
+		c.currStyle = style
+	}
+}
+
+// GetContent returns the contents of a character cell, including the
+// primary rune, any combining character runes (which will usually be
+// nil), the style, and the display width in cells.  (The width can be
+// either 1, normally, or 2 for East Asian full-width characters.)
+func (cb *CellBuffer) GetContent(x, y int) (rune, []rune, Style, int) {
+	var mainc rune
+	var combc []rune
+	var style Style
+	var width int
+	if x >= 0 && y >= 0 && x < cb.w && y < cb.h {
+		c := &cb.cells[(y*cb.w)+x]
+		mainc, combc, style = c.currMain, c.currComb, c.currStyle
+		if width = c.width; width == 0 || mainc < ' ' {
+			width = 1
+			mainc = ' '
+		}
+	}
+	return mainc, combc, style, width
+}
+
+// Size returns the (width, height) in cells of the buffer.
+func (cb *CellBuffer) Size() (int, int) {
+	return cb.w, cb.h
+}
+
+// Invalidate marks all characters within the buffer as dirty.
+func (cb *CellBuffer) Invalidate() {
+	for i := range cb.cells {
+		cb.cells[i].lastMain = rune(0)
+	}
+}
+
+// Dirty checks if a character at the given location needs an
+// to be refreshed on the physical display.  This returns true
+// if the cell content is different since the last time it was
+// marked clean.
+func (cb *CellBuffer) Dirty(x, y int) bool {
+	if x >= 0 && y >= 0 && x < cb.w && y < cb.h {
+		c := &cb.cells[(y*cb.w)+x]
+		if c.lastMain == rune(0) {
+			return true
+		}
+		if c.lastMain != c.currMain {
+			return true
+		}
+		if c.lastStyle != c.currStyle {
+			return true
+		}
+		if len(c.lastComb) != len(c.currComb) {
+			return true
+		}
+		for i := range c.lastComb {
+			if c.lastComb[i] != c.currComb[i] {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// SetDirty is normally used to indicate that a cell has
+// been displayed (in which case dirty is false), or to manually
+// force a cell to be marked dirty.
+func (cb *CellBuffer) SetDirty(x, y int, dirty bool) {
+	if x >= 0 && y >= 0 && x < cb.w && y < cb.h {
+		c := &cb.cells[(y*cb.w)+x]
+		if dirty {
+			c.lastMain = rune(0)
+		} else {
+			if c.currMain == rune(0) {
+				c.currMain = ' '
+			}
+			c.lastMain = c.currMain
+			c.lastComb = c.currComb
+			c.lastStyle = c.currStyle
+		}
+	}
+}
+
+// Resize is used to resize the cells array, with different dimensions,
+// while preserving the original contents.  The cells will be invalidated
+// so that they can be redrawn.
+func (cb *CellBuffer) Resize(w, h int) {
+
+	if cb.h == h && cb.w == w {
+		return
+	}
+
+	newc := make([]cell, w*h)
+	for y := 0; y < h && y < cb.h; y++ {
+		for x := 0; x < w && x < cb.w; x++ {
+			oc := &cb.cells[(y*cb.w)+x]
+			nc := &newc[(y*w)+x]
+			nc.currMain = oc.currMain
+			nc.currComb = oc.currComb
+			nc.currStyle = oc.currStyle
+			nc.width = oc.width
+			nc.lastMain = rune(0)
+		}
+	}
+	cb.cells = newc
+	cb.h = h
+	cb.w = w
+}
+
+// Fill fills the entire cell buffer array with the specified character
+// and style.  Normally choose ' ' to clear the screen.  This API doesn't
+// support combining characters, or characters with a width larger than one.
+func (cb *CellBuffer) Fill(r rune, style Style) {
+	for i := range cb.cells {
+		c := &cb.cells[i]
+		c.currMain = r
+		c.currComb = nil
+		c.currStyle = style
+		c.width = 1
+	}
+}
+

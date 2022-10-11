@@ -11,6 +11,9 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/gookit/goutil/arrutil"
 	"github.com/gookit/goutil/dump"
+	"github.com/zyedidia/micro/cmd/micro/highlight"
+
+	// "github.com/zyedidia/micro/cmd/micro/highlight"
 
 	// "github.com/gookit/goutil/dump"
 
@@ -301,9 +304,9 @@ func (pdc *HistoryDataConfig) BumpVersion() {
 func (pdc *HistoryDataConfig) AddPalette(name string, p Palette) {
 	cp := p.GetPalette()
   cp.UpdateHash()
-  ccm := cp.GetMeta()
-  fmt.Println(Generator().WithSeed(int64(cp.UpdateHash())).GenerateName(2),ccm.Current.Key, ccm.Named, ccm.String())
-  ccm.Update()
+  // ccm := cp.GetMeta()
+  // fmt.Println(Generator().WithSeed(int64(cp.UpdateHash())).GenerateName(2),ccm.Current.Key, ccm.Named, ccm.String())
+  // ccm.Update()
   // fmt.Println(ccm)
 }
 
@@ -389,19 +392,57 @@ func GetTempFile(name string) string {
 	return path
 }
 
+  // string("colors.ansi"), #len=11
+  // string("colors.background"), #len=17
+  // string("colors.brights"), #len=14
+  // string("colors.compose_cursor"), #len=21
+  // string("colors.cursor_bg"), #len=16
+  // string("colors.cursor_border"), #len=20
+  // string("colors.cursor_fg"), #len=16
+  // string("colors.foreground"), #len=17
+  // string("metadata.author"), #len=15
+  // string("metadata.name"), #len=13
+  // string("metadata.origin_url"), #len=19
+
+type ColorSchemeFile struct {
+  schemeType ColorSchemeType
+  file *os.File
+  fileType string
+  syntaxDef highlight.Def
+}
+
+type ColorSchemeType string 
+type ColorSchemeTypes []ColorSchemeType
+
+var Types ColorSchemeTypes
+
+func init(){
+  Types = make(ColorSchemeTypes, 0)
+  Types = append(Types, ColorSchemeType("Wezterm"), ColorSchemeType("Unknown"), ColorSchemeType(""))
+}
+
+func LoadFile(path string) *koanf.Koanf {
+  koan:= koanf.New(".")
+  koan.Delete("")
+	err := koan.Load(file.Provider(path), toml.Parser())
+  checkErrX(err)
+  // RunJSForColorScheme(koan)
+  return koan
+}
 func (pdc *HistoryDataConfig) LoadConfigFromFile(path string, overwrite bool) error {
 	pdc.Koanf = koanf.New(".")
 	err := k.Load(file.Provider(path), toml.Parser())
-  mapd := k.All()
+  // mapd := k.All()
+  dump.P(k.Keys())
 	if err != nil {
 		return errorx.Newf("error loading config: %s err: %v", path, err)
 	}
   // mapd := k.MapKeys("")
-  dump.P(mapd)
-	err = k.Unmarshal("", pdc.data)
-	if err != nil {
-		return errorx.Stacked(errorx.Newf("error unmarshalling config: %s err: %v", path, err))
-	}
+  // dump.P(mapd)
+	// err = k.Unmarshal("", pdc.data)
+	// if err != nil {
+	// 	return errorx.Stacked(errorx.Newf("error unmarshalling config: %s err: %v", path, err))
+	// }
 	// dump.P(pdc.data)
 	// if pdc.GetFileVersion() == 0 {
 	// 	pdc.FixFileVersion()

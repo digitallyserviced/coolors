@@ -56,7 +56,7 @@ type (
 		XtermName string
 		UserNamed string
 		Hex       string
-		// Tags      []TagItem
+		tags      []TagItem
 		Seent
 		ID uint64 
 		Besty
@@ -70,6 +70,7 @@ type (
 	}
   TagsKeys []string
 	CoolorPaletteTagsMeta struct {
+    tagCount uint
     TaggedColors map[string]*Coolor
   }
 	CoolorColorsPaletteMeta struct {
@@ -107,10 +108,13 @@ type (
 	}
 )
 
+func FromTcell(col tcell.Color) *Coolor {
+  return MakeColorFromTcell(col).GetCC().Coolor()
+}
 func (ms *MetaService) Service() {
 	GetStore().FavoriteColors = *GetStore().FavoriteColors.Load("MetaService_Favorites")
-  ccpms := GetStore().PaletteHistory(false)
-  fmt.Println(ccpms)
+  // ccpms := GetStore().PaletteHistory(false)
+  // fmt.Println(ccpms)
 	// GetStore().ForEach(nil, func(r *){
 	//
 	// })
@@ -133,9 +137,9 @@ func GetStore() *CoolorData {
 			opts:        bh.Options{},
 			MetaService: NewMetadataService(),
 		}
-		Store.Store = openbolt()
-		seedbolt(Store.Store)
-		startBoltStats()
+		// Store.Store = openbolt()
+		// seedbolt(Store.Store)
+		// startBoltStats()
 	}
 	return Store
 }
@@ -384,23 +388,23 @@ func (oc *Coolors) GetPalette() *CoolorColorsPalette {
   return colors
 }
 func (oc *Coolors) Load(key string) *Coolors {
-	// var c = Coolors{
-	// 	Key:    key,
-	// 	Colors: make([]*Coolor, 100),
-	// 	Saved:  false,
-	// }
-  var c Coolors
+	var c = Coolors{
+		Key:    key,
+		Colors: make([]*Coolor, 100),
+		Saved:  false,
+	}
+  // var c Coolors
   // var ccs []Coolors
-	err := Store.FindOne(&c, bh.Where(bh.Key).Eq(key))
+	// err := Store.FindOne(&c, bh.Where(bh.Key).Eq(key))
 	// fmt.Println("FUCK", c)
-	if err != nil {
-		if err == bh.ErrNotFound {
+	// if err != nil {
+	// 	if err == bh.ErrNotFound {
 			// oc.Saved = true
 			// oc.Save(false)
 			// fmt.Print("shit", err, c)
-		}
-			checkErrX(err)
-	}
+	// 	}
+	// 		checkErrX(err)
+	// }
 	c.Saved = true
 	// fmt.Println("foundshit", c)
 	return &c
@@ -429,89 +433,89 @@ func (oc *Coolors) Load(key string) *Coolors {
 // }
 
 func (cs *Coolors) Save(insert bool) {
-  var err error
+  // var err error
   if len(cs.Colors) > 0 {
-  err = Store.Upsert("MetaService_Favorites", cs)
-  checkErr(err)
+  // err = Store.Upsert("MetaService_Favorites", cs)
+  // checkErr(err)
 
   }
 }
 
 func (ms *MetaService) Save(insert bool) {
 	// var err error
-	if insert {
-    err := Store.Insert("MetaService_Favorites", &ms.FavoriteColors)
-    checkErr(err)
-	} else {
-    err := Store.Update("MetaService_Favorites", &ms.FavoriteColors)
-    checkErr(err)
-	}
+	// if insert {
+ //    err := Store.Insert("MetaService_Favorites", &ms.FavoriteColors)
+ //    checkErr(err)
+	// } else {
+ //    err := Store.Update("MetaService_Favorites", &ms.FavoriteColors)
+ //    checkErr(err)
+	// }
 	// log.Println(err)
 }
 
 func (ms *MetaService) PaletteHistory(saved bool) []CoolorColorsPaletteMeta {
   var ccpms []CoolorColorsPaletteMeta
-  savedQ := bh.Where("Started").Le(time.Now())
-	err := Store.Find(&ccpms, savedQ.SortBy("Started").Reverse())
-  if err != nil && err != bh.ErrNotFound {
-    panic(err)
-  }
+ //  savedQ := bh.Where("Started").Le(time.Now())
+	// err := Store.Find(&ccpms, savedQ.SortBy("Started").Reverse())
+ //  if err != nil && err != bh.ErrNotFound {
+ //    panic(err)
+ //  }
   return ccpms
 }
 
 func (ms *MetaService) LoadFavorites() *CoolorColors {
 	colors := make(CoolorColors, 0)
-	Store.Store.Bolt().View(func(tx *bbolt.Tx) error {
-		var b, c *bbolt.Bucket
-		c = tx.Bucket([]byte("Coolors"))
-		b = c.Bucket([]byte("Favorites"))
-		err := b.ForEach(func(k, v []byte) error {
-			var ve uint64
-			e := dec(k, &ve)
-			checkErr(e)
-			colors = append(colors, NewIntCoolorColor(int32(ve)))
-			return nil
-		})
-		checkErr(err)
-		return nil
-	})
+	// Store.Store.Bolt().View(func(tx *bbolt.Tx) error {
+	// 	var b, c *bbolt.Bucket
+	// 	c = tx.Bucket([]byte("Coolors"))
+	// 	b = c.Bucket([]byte("Favorites"))
+	// 	err := b.ForEach(func(k, v []byte) error {
+	// 		var ve uint64
+	// 		e := dec(k, &ve)
+	// 		checkErr(e)
+	// 		colors = append(colors, NewIntCoolorColor(int32(ve)))
+	// 		return nil
+	// 	})
+	// 	checkErr(err)
+	// 	return nil
+	// })
 	return &colors
 }
 
 func (ms *MetaService) ColorHistory(t time.Duration) *CoolorColors {
 	colors := make(CoolorColors, 0)
-	Store.Store.Bolt().View(func(tx *bbolt.Tx) error {
-		var b, c *bbolt.Bucket
-		c = tx.Bucket([]byte("Coolors"))
-		b = c.Bucket([]byte("Seent"))
-		err := b.ForEach(func(k, v []byte) error {
-			var ve uint64
-			// var st uint64
-			// e := dec(k, &st)
-			// checkErr(e)
-			e := dec(v, &ve)
-			checkErr(e)
-			colors = append(colors, NewIntCoolorColor(int32(ve)))
-			return nil
-		})
-		checkErr(err)
-		return nil
-	})
+	// Store.Store.Bolt().View(func(tx *bbolt.Tx) error {
+	// 	var b, c *bbolt.Bucket
+	// 	c = tx.Bucket([]byte("Coolors"))
+	// 	b = c.Bucket([]byte("Seent"))
+	// 	err := b.ForEach(func(k, v []byte) error {
+	// 		var ve uint64
+	// 		// var st uint64
+	// 		// e := dec(k, &st)
+	// 		// checkErr(e)
+	// 		e := dec(v, &ve)
+	// 		checkErr(e)
+	// 		colors = append(colors, NewIntCoolorColor(int32(ve)))
+	// 		return nil
+	// 	})
+	// 	checkErr(err)
+	// 	return nil
+	// })
 	return &colors
 }
 
 func (ms *MetaService) HandleEvent(o ObservableEvent) bool {
 	if o.Type&(ColorSeentEvent|ColorEvent|SelectedEvent) != 0 {
-		col, ok := o.Ref.(*CoolorColor)
-		if !ok {
-			return true
-		}
-		cm, ok := ms.Cache.Contains(col)
-		if !ok {
-			cmm := ms.Cache.Add(col)
-			cm = &cmm
-		}
-		cm.Update(false)
+		// col, ok := o.Ref.(*CoolorColor)
+		// if !ok {
+		// 	return true
+		// }
+		// cm, ok := ms.Cache.Contains(col)
+		// if !ok {
+		// 	cmm := ms.Cache.Add(col)
+		// 	cm = &cmm
+		// }
+		// cm.Update(false)
 	}
 	// fmt.Printf("*** Data Observed %s %s received: %T  %T\n", o.Note,o.Type.String(), o.Ref, o.Src)
 	// Store.MetaService.ColorHistory(-24 * time.Hour)
@@ -541,10 +545,10 @@ func (s *Coolors) DecodeMsgpack(dec *msgpack.Decoder) error {
 	err := dec.DecodeMulti(&s.Key, &b)
 	colors := make([]*Coolor, 0)
 	for _, v := range b {
-		fmt.Printf("\n\n******%v ", v)
-		fmt.Printf("\n\n******%T", v)
-		for kk, vv := range v.(map[string]interface{}) {
-			fmt.Printf("\n\n******%T %T %v %v", kk, vv, kk, vv)
+		// fmt.Printf("\n\n******%v ", v)
+		// fmt.Printf("\n\n******%T", v)
+		for _, vv := range v.(map[string]interface{}) {
+			// fmt.Printf("\n\n******%T %T %v %v", kk, vv, kk, vv)
 			c := &Coolor{
 				Color: tcell.Color(vv.(uint64)),
 			}
@@ -552,8 +556,8 @@ func (s *Coolors) DecodeMsgpack(dec *msgpack.Decoder) error {
 		}
 	}
   s.Colors = colors
-	fmt.Println(colors)
-  fmt.Printf("\n***** %T %v", s, s)
+	// fmt.Println(colors)
+  // fmt.Printf("\n***** %T %v", s, s)
 	return err
 }
 
@@ -600,13 +604,13 @@ func (cc *Coolor) Escalate() *CoolorColor {
 
 func (cc *CoolorData) FindNamedPalette(name string) *CoolorColorsPaletteMeta {
 	var ccm CoolorColorsPaletteMeta
-	err := GetStore().FindOne(&ccm, bh.Where("Named").Eq(name))
-	if err != nil {
-		if err == bh.ErrNotFound {
-			// fmt.Println("not found", err, name)
-			return nil
-		}
-	}
+	// err := GetStore().FindOne(&ccm, bh.Where("Named").Eq(name))
+	// if err != nil {
+	// 	if err == bh.ErrNotFound {
+	// 		// fmt.Println("not found", err, name)
+	// 		return nil
+	// 	}
+	// }
 	return &ccm
 }
 
@@ -630,12 +634,12 @@ func (cc *CoolorMeta) UpdateSeent(t time.Time) {
 			if e != nil {
 				checkErr(e)
 			}
-			fmt.Println(NewIntCoolorColor(int32(hex)).TerminalPreview())
+			// fmt.Println(NewIntCoolorColor(int32(hex)).TerminalPreview())
 			b.Delete(seent)
 		}
 		// t.UnixMicro()
 		// newseent := t.Format(time.RFC3339)
-		newseent := errAss[[]byte](enc(t.UnixMicro()))
+		newseent := ErrorAssert[[]byte](enc(t.UnixMicro()))
 		be, _ := enc(cc.Color.Hex())
 		err := b.Put(newseent, be)
 		checkErr(err)
@@ -647,9 +651,9 @@ func (cc *CoolorMeta) UpdateSeent(t time.Time) {
 }
 
 func (cc *CoolorMeta) Update(clean bool) {
-	k := uint64(cc.Color.TrueColor())
-	err := Store.Upsert(k, &cc)
-	checkErr(err)
+	// k := uint64(cc.Color.TrueColor())
+	// err := Store.Upsert(k, &cc)
+	// checkErr(err)
 }
 
 func (cc CoolorColorsPaletteMeta) GetMeta() interface{} {
@@ -666,93 +670,94 @@ func (cc CoolorColors) Contains(c *CoolorColor) bool {
 }
 
 func (cc *CoolorColor) Favorite() bool {
-	_, ok := GetStore().MetaService.FavoriteColors.Contains(cc)
-	return ok >= 0
+	// _, ok := GetStore().MetaService.FavoriteColors.Contains(cc)
+	// return ok >= 0
+  return false
 }
 
 func (cc *CoolorColor) GetMeta() *CoolorMeta {
-	GetStore().MetaService.RecentColors.Add(cc)
+	// GetStore().MetaService.RecentColors.Add(cc)
 	var cm CoolorMeta
-	k := uint64(cc.Color.TrueColor())
-	err := Store.FindOne(&cm, bh.Where(bh.Key).Eq(k))
-	if err != nil {
-		if err != bh.ErrNotFound {
-			checkErr(err)
-		}
-		cm = NewCoolorMeta(cc)
-	}
-	if _, ok := GetStore().FavoriteColors.Contains(cc); ok >= 0 {
-		cm.Best = true
-	} else {
-		cm.Best = false
-	}
-	cm.Update(false)
+	// k := uint64(cc.Color.TrueColor())
+	// err := Store.FindOne(&cm, bh.Where(bh.Key).Eq(k))
+	// if err != nil {
+	// 	if err != bh.ErrNotFound {
+	// 		checkErr(err)
+	// 	}
+	// 	cm = NewCoolorMeta(cc)
+	// }
+	// if _, ok := GetStore().FavoriteColors.Contains(cc); ok >= 0 {
+	// 	cm.Best = true
+	// } else {
+	// 	cm.Best = false
+	// }
+	// cm.Update(false)
 	return &cm
 }
 
 func (cc *CoolorColorsPalette) GetMeta() *CoolorColorsPaletteMeta {
-	cc.UpdateHash()
+	// cc.UpdateHash()
 	// var pals []CoolorColorsPaletteMeta
 	// ccm := NewCoolorColorsPaletteMeta(cc)
 	var ccm CoolorColorsPaletteMeta
 	// ccm.Current = cc
-	current := bh.Where("Current.Hash").Eq(cc.Hash)
+	// current := bh.Where("Current.Hash").Eq(cc.Hash)
 	// version := bh.Where("Versions").Contains(cc.Hash)
-	err := Store.FindOne(&ccm, current)
-	if err != nil {
-		fmt.Println("not found", err)
-    doCallers()
-		if err == bh.ErrNotFound {
-			var ccms []CoolorColorsPaletteMeta
-			err := Store.Find(&ccms, current)
-			if err != nil {
-				fmt.Println(err)
-				panic(err)
-			}
-			for _, p := range ccms {
-        fmt.Println("pals:", p)
-				if p.Current.HashColors() == ccm.Current.HashColors() {
-					return &p
-				}
-			}
-			cc.UpdateHash()
-			ccm = NewCoolorColorsPaletteMeta(
-				Generator().WithSeed(int64(cc.Hash)).GenerateName(2),
-				cc,
-			)
-		} else {
-			panic(err)
-		}
-	}
+	// err := Store.FindOne(&ccm, current)
+	// if err != nil {
+	// 	// fmt.Println("not found", err)
+ //    // doCallers()
+	// 	if err == bh.ErrNotFound {
+	// 		var ccms []CoolorColorsPaletteMeta
+	// 		err := Store.Find(&ccms, current)
+	// 		if err != nil {
+	// 			// fmt.Println(err)
+	// 			panic(err)
+	// 		}
+	// 		for _, p := range ccms {
+ //        // fmt.Println("pals:", p)
+	// 			if p.Current.HashColors() == ccm.Current.HashColors() {
+	// 				return &p
+	// 			}
+	// 		}
+	// 		cc.UpdateHash()
+	// 		ccm = NewCoolorColorsPaletteMeta(
+	// 			Generator().WithSeed(int64(cc.Hash)).GenerateName(2),
+	// 			cc,
+	// 		)
+	// 	} else {
+	// 		panic(err)
+	// 	}
+	// }
 	// fmt.Println(ccm)
 	return &ccm
 }
 
 func (cc *CoolorColorsPaletteMeta) Update() {
-	var err error
-  if cc == nil || cc.Current == nil || len(cc.Current.Colors) == 0 {
-    return 
-  }
-	if cc.ID == 0 {
-    var ccpm CoolorColorsPaletteMeta
-    q := bh.Where("Named").Eq(cc.Named)
-    err = Store.FindOne(&ccpm, q)
-    if err != nil && err == bh.ErrNotFound {
-      err = Store.Insert(bh.NextSequence(), cc)
-      if checkErrX(err) {
-        fmt.Println(cc.ID)
-        // cc = &ccpm
-      }
-    } else if err != nil {
-      checkErrX(err)
-    } else {
-      cc = &ccpm
-    }
-	}
-		err = Store.Upsert(cc.ID, cc)
-	if err != nil {
-		panic(err)
-	}
+	// var err error
+ //  if cc == nil || cc.Current == nil || len(cc.Current.Colors) == 0 {
+ //    return 
+ //  }
+	// if cc.ID == 0 {
+ //    var ccpm CoolorColorsPaletteMeta
+ //    q := bh.Where("Named").Eq(cc.Named)
+ //    err = Store.FindOne(&ccpm, q)
+ //    if err != nil && err == bh.ErrNotFound {
+ //      err = Store.Insert(bh.NextSequence(), cc)
+ //      if checkErrX(err) {
+ //        // fmt.Println(cc.ID)
+ //        // cc = &ccpm
+ //      }
+ //    } else if err != nil {
+ //      checkErrX(err)
+ //    } else {
+ //      cc = &ccpm
+ //    }
+	// }
+	// 	err = Store.Upsert(cc.ID, cc)
+	// if err != nil {
+	// 	panic(err)
+	// }
 }
 
 func (cc *CoolorColorsPalette) Update(clean bool) {
@@ -764,10 +769,10 @@ func (cc *CoolorColorsPalette) Update(clean bool) {
 		cc.UpdateHash()
 	}
 
-	err := Store.Upsert(cc.Hash, &cc)
-	if err != nil {
-		panic(err)
-	}
+	// err := Store.Upsert(cc.Hash, &cc)
+	// if err != nil {
+	// 	panic(err)
+	// }
 }
 
 var Store *CoolorData
@@ -852,8 +857,8 @@ func openbolt() *bh.Store {
 		},
 	})
 	checkErr(err)
-	go Store.MetaService.Service()
-	go handleSignals()
+	// go Store.MetaService.Service()
+	// go handleSignals()
 
 	return store
 }

@@ -71,6 +71,14 @@ func (f *Frame) Clear() *Frame {
 	return f
 }
 
+func (f *Frame) SetFramed(p Primitive) {
+  f.primitive = p
+}
+
+func (f *Frame) GetFramed() Primitive {
+  return f.primitive
+}
+
 // SetBorders sets the width of the frame borders as well as "header" and
 // "footer", the vertical space between the header and footer text and the
 // contained primitive (does not apply if there is no text).

@@ -11,6 +11,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 
 	// "github.com/gookit/goutil/dump"
+	"github.com/samber/lo"
 	_ "github.com/samber/lo"
 
 	// "github.com/gookit/color"
@@ -387,6 +388,12 @@ func (cc *CoolorColor) SetSelected(s bool) {
 	cc.l.Unlock()
 }
 
+func (cc *CoolorColor) GetFgColorFade(a float64) tcell.Color {
+	tcol, _ := MakeColor(cc)
+  ncc := tcol.BlendLuvLCh(MakeColorFromTcell(cc.GetFgColorShade()), a)
+  return *ncc.GetCC().Color
+}
+
 func (cc *CoolorColor) GetFgColorShade() tcell.Color {
 	tcol, _ := MakeColor(cc)
 	r, g, b := tcol.RGB255()
@@ -538,4 +545,13 @@ func (cc *CoolorColor) Draw(screen tcell.Screen) {
 	// cc.pallette.menu.updateState()
 }
 
+func (cc CoolorColors) Strings() []string {
+  cssStrings := lo.Map[*CoolorColor, string](cc, func(cc *CoolorColor, i int) string {
+    return cc.Html()
+  })
+  return cssStrings
+}
+func (cc *CoolorColor) GetRef() interface{} {
+	return cc
+}
 // vim: ts=2 sw=2 et ft=go

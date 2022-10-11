@@ -5,9 +5,11 @@ import (
 	"reflect"
 
 	// "strings"
+	"github.com/digitallyserviced/coolors/coolor/lister"
+	"github.com/digitallyserviced/coolors/coolor/shortcuts"
 
 	"github.com/gdamore/tcell/v2"
-	"github.com/gookit/goutil/dump"
+	// "github.com/gookit/goutil/dump"
 )
 
 type (
@@ -42,6 +44,7 @@ TagTypes map[string]TagType = make(map[string]TagType)
 	TagName        TagTypeField = NewTagTypeField("name", "tag name", reflect.TypeOf(""), ListMainTextField)
 	TagDescription TagTypeField = NewTagTypeField("description", "tag description", reflect.TypeOf(""), ListSecondaryTextField)
 	TagRequired    TagTypeField = NewTagTypeField("required", "field required", reflect.TypeOf(false), FieldRequired)
+	TagDynamic    TagTypeField = NewTagTypeField("dynamic", "field dynamic", reflect.TypeOf(true), FieldDynamic|FieldRequired)
 	options        []string     = []string{"one", "two"}
 	TagOptions     TagTypeField = NewTagTypeField("options", options, reflect.TypeOf(options), FieldOptions)
 	Base16Tags     TagType
@@ -51,7 +54,7 @@ TagTypes map[string]TagType = make(map[string]TagType)
 func init() {
 	TagTypes = make(map[string]TagType)
 	Base16Tags = NewTagTypeInfo("base16", "base16 color scheme tags", true, []TagTypeField{
-		TagKey, TagName, TagDescription, TagRequired,
+		TagKey, TagName, TagDescription, TagRequired, TagDynamic,
 	})
 }
 
@@ -102,7 +105,7 @@ type TagListItems struct {
 type TagList struct {
 	*TagListItems
 	*TagType
-	*ScriptShortcuts
+	*shortcuts.ScriptShortcuts
 	name string
 }
 
@@ -131,7 +134,7 @@ type TagTypeCallbacks struct {
 type TagItem struct {
 	*TagItemData
 	*TagType
-	*ScriptShortcut
+	*shortcuts.ScriptShortcut
 	idx int
 }
 type TagTypeFieldValue struct {
@@ -193,7 +196,7 @@ func (tti *TagType) NewTagList(name string) *TagList {
 	tl := &TagList{
 		TagListItems:    &TagListItems{items: make([]*TagItem, 0)},
 		TagType:     tti,
-		ScriptShortcuts: NewSubScriptShortcuts(),
+		ScriptShortcuts: shortcuts.NewSubScriptShortcuts(),
 		name:            name,
 	}
 	tti.tagList = tl
@@ -220,7 +223,7 @@ func (f TagItem) SecondaryText() string {
 
 func (f TagItem) GetKey() string {
 	ttf := f.GetFlag(FieldKey)
-	dump.P(ttf, MainTextField)
+	// dump.P(ttf, MainTextField)
 	return f.data[ttf.name].(string)
 }
 
@@ -230,23 +233,23 @@ func (f TagItem) MainText() string {
 	return f.data[ttf.name].(string)
 }
 
-func (ti *TagItem) Shortcut() ScriptShortcut {
+func (ti *TagItem) Shortcut() shortcuts.ScriptShortcut {
 	return *ti.ScriptShortcut
 }
 
-func (*TagItem) Cancelled(idx int, i interface{}, lis []*ListItem) {
+func (*TagItem) Cancelled(idx int, i interface{}, lis []*lister.ListItem) {
 }
 
-func (*TagItem) Changed(idx int, selected bool, i interface{}, lis []*ListItem) {
+func (*TagItem) Changed(idx int, selected bool, i interface{}, lis []*lister.ListItem) {
 	// dump.P(idx, selected, i, lis)
 }
 
 // Selected implements ListItem
-func (ti *TagItem) Selected(idx int, i interface{}, lis []*ListItem) {
+func (ti *TagItem) Selected(idx int, i interface{}, lis []*lister.ListItem) {
 }
 
-func (*TagItem) Visibility() ListItemsVisibility {
-	return ListItemVisible
+func (*TagItem) Visibility() lister.ListItemsVisibility {
+	return lister.ListItemVisible
 }
 
 func (tti *TagList) AddItem(ti *TagItem) {
@@ -265,10 +268,10 @@ func (tti *TagList) AddTagItemWithData(args ...interface{}) *TagItem {
 	return ti
 }
 
-func (lis *TagList) GetListItems() []*ListItem {
-	lits := make([]*ListItem, 0)
+func (lis *TagList) GetListItems() []*lister.ListItem {
+	lits := make([]*lister.ListItem, 0)
 	for _, v := range lis.items {
-		litem := ListItem(v)
+		litem := lister.ListItem(v)
 		li := &litem
 		lits = append(lits, li)
 	}
@@ -436,14 +439,13 @@ func GetTerminalColorsAnsiTags() *TagList {
 	items := Base16Tags.NewTagList("base16 color scheme")
   Base16Tags.SetCallback("set", func(tti *TagType, ti *TagItem, tgd *Tagged) {
 
-
   })
-	items.AddTagItemWithData("fg", "foreground", "default foreground", true)
-	items.AddTagItemWithData("bg", "background", "default background", true)
-	items.AddTagItemWithData("cursor", "cursor", "cursor color", true)
+	items.AddTagItemWithData("fg", "foreground", "default foreground", true, true)
+	items.AddTagItemWithData("bg", "background", "default background", true, true)
+	items.AddTagItemWithData("cursor", "cursor", "cursor color", true, true)
 	for i, name := range baseXtermAnsiColorNames {
 		desc := fmt.Sprintf("4-bit color (%d) [%s]", i, name)
-		items.AddTagItemWithData(name, name, desc, false)
+		items.AddTagItemWithData(name, name, desc, true, false)
 	}
 	return items
 }

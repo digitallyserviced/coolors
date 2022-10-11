@@ -94,6 +94,13 @@ type Application struct {
 	// be forwarded).
 	inputCapture func(event *tcell.EventKey) *tcell.EventKey
 
+  // An optional callback function which is invoked before the application's
+	// focus changes.
+	beforeFocus func(p Primitive) bool
+	// An optional callback function which is invoked after the application's
+	// focus changes.
+	afterFocus func(p Primitive)
+
 	// An optional callback function which is invoked just before the root
 	// primitive is drawn.
 	beforeDraw func(screen tcell.Screen) bool
@@ -623,10 +630,32 @@ func (a *Application) Suspend(f func()) bool {
 // deadlock your application if you call it from the main thread (e.g. in a
 // callback function of a widget). Please see
 // https://github.com/rivo/tview/wiki/Concurrency for details.
-func (a *Application) Draw() *Application {
-	a.QueueUpdate(func() {
-		a.draw()
+func (a *Application) DrawTo(scr tcell.Screen,p ...Primitive) *Application {
+  a.QueueUpdate(func() {
+		if len(p) == 0 {
+			a.draw()
+			return
+		}
+		a.Lock()
+		if scr != nil {
+			for _, primitive := range p {
+				primitive.Draw(scr)
+			}
+			// a.screen.Show()
+		}
+		a.Unlock()
 	})
+	return a
+}
+
+// Draw refreshes the screen (during the next update cycle). It calls the Draw()
+// function of the application's root primitive and then syncs the screen
+// buffer. It is almost never necessary to call this function. It can actually
+// deadlock your application if you call it from the main thread (e.g. in a
+// callback function of a widget). Please see
+// https://github.com/rivo/tview/wiki/Concurrency for details.
+func (a *Application) Draw(p ...Primitive) *Application {
+  a.DrawTo(a.screen, p...)
 	return a
 }
 
@@ -782,6 +811,14 @@ func (a *Application) ResizeToFullScreen(p Primitive) *Application {
 // called on the new primitive.
 func (a *Application) SetFocus(p Primitive) *Application {
 	a.Lock()
+	if a.beforeFocus != nil {
+		a.Unlock()
+		ok := a.beforeFocus(p)
+		if !ok {
+			return a
+		}
+		a.Lock()
+	}
 	if a.focus != nil {
 		a.focus.Blur()
 	}
@@ -789,7 +826,12 @@ func (a *Application) SetFocus(p Primitive) *Application {
 	if a.screen != nil {
 		a.screen.HideCursor()
 	}
-	a.Unlock()
+	if a.afterFocus != nil {
+		a.Unlock()
+		a.afterFocus(p)
+	} else {
+		a.Unlock()
+	}
 	if p != nil {
 		p.Focus(func(p Primitive) {
 			a.SetFocus(p)
@@ -805,6 +847,25 @@ func (a *Application) GetFocus() Primitive {
 	a.RLock()
 	defer a.RUnlock()
 	return a.focus
+}
+
+// SetBeforeFocusFunc installs a callback function which is invoked before the
+// application's focus changes. Return false to maintain the current focus.
+//
+// Provide nil to uninstall the callback function.
+func (a *Application) SetBeforeFocusFunc(handler func(p Primitive) bool) {
+	a.Lock()
+	defer a.Unlock()
+	a.beforeFocus = handler
+}
+// SetAfterFocusFunc installs a callback function which is invoked after the
+// application's focus changes.
+//
+// Provide nil to uninstall the callback function.
+func (a *Application) SetAfterFocusFunc(handler func(p Primitive)) {
+	a.Lock()
+	defer a.Unlock()
+	a.afterFocus = handler
 }
 
 // QueueUpdate is used to synchronize access to primitives from non-main
