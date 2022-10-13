@@ -380,7 +380,6 @@ func getColorsFromArray(m []interface{}) (strs []string) {
 }
 
 func getColorsFromMap(mapd map[string]interface{}) (strs []string) {
-	dump.P(mapd)
 	for _, v := range mapd {
 		switch m := v.(type) {
 		case string:

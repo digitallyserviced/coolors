@@ -26,6 +26,8 @@ const (
 )
 
 type Field = zap.Field
+type ObjectMarshaler = zapcore.ObjectMarshaler
+type ObjectMarshalerFunc = zapcore.ObjectMarshalerFunc
 
 func (l *Logger) Debug(msg string, fields ...Field) {
 	l.l.Debug(msg, fields...)
@@ -110,6 +112,7 @@ var (
 	Duration    = zap.Duration
 	Durationp   = zap.Durationp
 	Any         = zap.Any
+  Object = zap.Object
 
 	Info   = std.Info
 	Warn   = std.Warn

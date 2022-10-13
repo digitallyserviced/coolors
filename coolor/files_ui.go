@@ -361,8 +361,8 @@ func NewFileViewer() *CoolorFileView {
 		// }()
 	})
 
-	// configPath, _, _, _ := GetDataDirs()
-	// cfv.treeView.LoadFiltered(configPath, PluginManager.SupportedFilenames())
+	configPath, _, _, _ := GetDataDirs()
+	cfv.treeView.LoadFiltered(configPath, PluginManager.SupportedFilenames())
 
 	MainC.app.SetAfterDrawFunc(func(screen tcell.Screen) {
 		var x func(*tree.FileTree)

@@ -3,6 +3,7 @@ package coolor
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 
 	// "log"
 	"net/url"
@@ -14,15 +15,21 @@ import (
 
 	"github.com/evanw/esbuild/pkg/api"
 	"github.com/fsnotify/fsnotify"
+	"github.com/knadh/koanf"
+	// "github.com/knadh/koanf/parsers/toml"
+	"github.com/knadh/koanf/providers/rawbytes"
 
 	// "github.com/gookit/goutil/dump"
 	// "github.com/gookit/goutil/dump"
 	"github.com/gookit/goutil/errorx"
+	"github.com/gookit/goutil/fsutil"
 	"github.com/gookit/goutil/fsutil/finder"
 	"github.com/samber/lo"
 	"rogchap.com/v8go"
 
 	// "github.com/digitallyserviced/coolors/coolor/zzlog"
+	"github.com/digitallyserviced/tview"
+
 	"github.com/digitallyserviced/coolors/coolor/plugin"
 	"github.com/digitallyserviced/coolors/coolor/util"
 	"github.com/digitallyserviced/coolors/coolor/zzlog"
@@ -30,30 +37,6 @@ import (
 )
 
 var PluginManager *PluginsManager
-
-func SetPluginMetaTypes(ctx *v8go.Context, iso *v8go.Isolate) {
-	obTpl := v8go.NewObjectTemplate(iso)
-	for _, v := range PluginTypes {
-		obTpl.Set(v.s, v.v, v8go.None)
-	}
-	peTpl := v8go.NewObjectTemplate(iso)
-	for _, v := range PluginEventTypes {
-		peTpl.Set(v.s, v.v, v8go.None)
-	}
-	pdTpl := v8go.NewObjectTemplate(iso)
-	for _, v := range PluginDetectionTypes {
-		pdTpl.Set(v.s, v.v, v8go.None)
-	}
-	if err := ctx.Global().Set("pluginEventTypes", eajs(peTpl.NewInstance(ctx))); err != nil {
-		panic(err)
-	}
-	if err := ctx.Global().Set("pluginDetectionTypes", eajs(pdTpl.NewInstance(ctx))); err != nil {
-		panic(err)
-	}
-	if err := ctx.Global().Set("pluginTypes", eajs(obTpl.NewInstance(ctx))); err != nil {
-		panic(err)
-	}
-}
 
 func NewPluginEvent(ev PluginEventType, name string, p *Plugin) *PluginEvent {
 	pe := &PluginEvent{
@@ -238,14 +221,128 @@ func (p *Plugin) Bundle() (string, api.BuildResult) {
 	}
 }
 
-func (p *Plugin) getFileViewerFeatures() []*tree.FSNode {
-  nodes := make([]*tree.FSNode, 0)
-
-  // if len(p.Pl)
-
-  return nodes
+func (p *Plugin) getFilenameFilters() []fsutil.FilterFunc {
+	filters := make([]fsutil.FilterFunc, 0)
+	for _, v := range p.Filenames {
+		filters = append(filters, func(fPath string, fi os.FileInfo) bool {
+			return ErrorAssert(filepath.Match(v, fPath))
+		})
+	}
+	return filters
 }
 
+func (p *Plugin) FindColorSchemes(path string) []*tview.TreeNode {
+	schemes := make([]*tview.TreeNode, 0)
+	filters := p.getFilenameFilters()
+	fsutil.FindInDir(
+		fsutil.Expand(path),
+		func(fPath string, fi os.FileInfo) error {
+			if !fi.IsDir() {
+				node := tree.NewNode(fPath, fi)
+				schemes = append(schemes, node)
+			}
+			return nil
+		},
+		filters...)
+	return schemes
+}
+
+func (p *Plugin) findPluginInterests() []*tview.TreeNode {
+	nodes := make([]*tview.TreeNode, 0)
+
+	if len(p.PluginData.ConfigurationPaths) > 0 {
+		expanded := lo.Map[string, string](
+			p.PluginData.ConfigurationPaths,
+			func(s string, i int) string {
+				return fsutil.Expand(s)
+			},
+		)
+		f := finder.NewFinder(expanded)
+		f.ExcludeDotDir(false).ExcludeDotFile(false)
+		f.AddFilter(finder.GlobFilterFunc(p.PluginData.Filenames, true))
+		// f.Each(func(fi os.FileInfo, filePath string) {
+		//
+		// })
+		f.EachFile(func(sf *os.File) {
+      psf := p.ParseScheme(sf)
+      if psf.ConfigData != nil {
+
+      }
+		})
+
+		// for _, v := range p.PluginData.ConfigurationPaths {
+		//   // finder.NewFinder(dirPaths []string, filePaths ...string)
+		//   nodes = append(nodes, p.FindColorSchemes(v)...)
+		// }
+	}
+
+	return nodes
+}
+
+// func (p *Plugin) GetDecoder(psf *PluginSchemeFile) {
+//
+// }
+
+func (pd *PluginData) GetDecoder() koanf.Parser {
+  for _, v := range pd.Decoder {
+    dec, ok := plugin.PluginSchemeFileDecoders[v]
+    if ok {
+      return dec
+    }
+  }
+  return nil
+}
+
+func (p *Plugin) ParseScheme(f *os.File) *PluginSchemeFile {
+  psf := p.LoadSchemeFile(f)
+  return psf
+}
+
+func (p *Plugin) LoadSchemeFile(f *os.File) *PluginSchemeFile {
+	defer f.Close()
+	psf := &PluginSchemeFile{
+		Plugin: p,
+		PluginSchemeMeta: PluginSchemeMeta{
+			Name:      "",
+			Author:    "",
+			OriginUrl: "",
+		},
+		file: f,
+		Data: koanf.New("."),
+
+	}
+	parser := p.PluginData.GetDecoder()
+	if parser == nil {
+  zlog.Info("no decoder", PluginLogFields.Plugin.With(zzlog.Object("scheme_file", psf))...)
+		return psf
+	}
+	err := psf.Data.Load(
+		rawbytes.Provider(ErrorAssert(ioutil.ReadAll(f))),
+		parser,
+	)
+	if !checkErrX(err) {
+		return nil
+	}
+
+  if p.HasMatchingKeys(psf) {
+    zlog.Info("scheme file detected", PluginLogFields.Plugin.With(zzlog.Object("scheme_file", psf))...)
+    psf.ConfigData = psf.Data.All()
+  }
+	return psf
+}
+
+func (p *Plugin) HasMatchingKeys(psf *PluginSchemeFile) bool {
+	hasKeys := false
+	if p.DetectionType.Is(ConfigKeysDetection) {
+    zlog.Info("check config keys", PluginLogFields.Plugin.With(zzlog.Object("scheme_file", psf), zzlog.Object("scheme_file", p.PluginData))...)
+		for _, k := range p.PluginData.ConfigKeys {
+			hasKeys = psf.Data.Exists(k)
+		}
+	} else {
+		hasKeys = true
+	}
+	return hasKeys
+}
 func (p *Plugin) getPluginPath() string {
 	return filepath.Join(p.Path, "index.js")
 }
@@ -260,17 +357,25 @@ func (p *Plugin) LoadBundle() error {
 	gov8 := plugin.NewGoV8(func(gv8 *plugin.GoV8Env) error {
 		gv8.VM = v8go.NewIsolate()
 		gv8.Ctx = v8go.NewContext(gv8.VM)
-		SetPluginMetaTypes(gv8.Ctx, gv8.VM)
+		SetupContexts(gv8.Ctx, gv8.VM)
 		return nil
 	})
-	gov8.DoBindings()
 	defer func() {
 		if err := recover(); err != nil {
-			zlog.Error(
-				"js script recovered",
-				PluginLogFields.Plugin.With(zzlog.String("plugin", p.String()))...)
+			e, ok := err.(error)
+			if ok {
+				eajs([]string{}, e)
+				zlog.Error(
+					"js script recovered",
+					PluginLogFields.Plugin.With(
+						zzlog.String("plugin", p.String()),
+					)...)
+
+			}
 		}
 	}()
+	// SetupContexts(gov8.Ctx, gov8.VM)
+	gov8.DoBindings()
 	zlog.Info(
 		"load bundle",
 		PluginLogFields.Plugin.With(
@@ -306,7 +411,7 @@ func (p *Plugin) LoadMeta() error {
 		return err
 	}
 
-	SetPluginMetaTypes(p.manager.gv8.Ctx, p.manager.gv8.VM)
+	SetupContexts(p.manager.gv8.Ctx, p.manager.gv8.VM)
 
 	val := eajs(p.manager.gv8.Ctx.RunModule(string(metaSrc), "meta.js"))
 
@@ -388,19 +493,19 @@ func (pm *PluginsManager) SupportedFilenames() []string {
 			if p.PluginData == nil {
 				return []string{}
 			}
-			fmt.Println(p.PluginData.Filenames)
-			return p.PluginData.Filenames
-		}),
+      names := p.PluginData.Filenames
+			return 	names	
+    }),
 	)
 }
 
-func (pm *PluginsManager) GetTreeEntries() func(f *tree.FSNode) []*tree.FSNode {
-	return func(f *tree.FSNode) []*tree.FSNode {
-		nodes := make([]*tree.FSNode, 0)
+func (pm *PluginsManager) GetTreeEntries() func(f *tview.TreeNode) []*tview.TreeNode {
+	return func(f *tview.TreeNode) []*tview.TreeNode {
+		nodes := make([]*tview.TreeNode, 0)
 		for _, v := range PluginManager.Plugins {
 			vn := tree.NewVirtualNode(v.Name, "", "")
-			nodes = append(nodes, vn)
-
+			vn.Node.SetChildren(v.findPluginInterests())
+			nodes = append(nodes, vn.Node)
 		}
 		return nodes
 	}
@@ -472,13 +577,10 @@ func (pm *PluginsManager) Watching() finder.FilterFunc {
 func (pm *PluginsManager) Scan(path string) error {
 	jsff := finder.EmptyFinder()
 	jsff.AddDir(pluginsPath).
-		// ExcludeDotFile(true).
-		// ExcludeDotDir(true).
-		// AddFilter(pm.Watching()).
 		AddDirFilter(finder.DirNameFilterFunc([]string{".bundle"}, false)).
-		// AddFilter(finder.GlobFilterFunc([]string{"*.bundle*"}, false)).
 		AddFileFilter(finder.SuffixFilterFunc([]string{"meta.js", "index.js"}, true))
 	jsff.Each(func(filePath string) {
+		zlog.Info("scanner found", zzlog.String("found", filePath))
 		if ErrorAssert(filepath.Match("js/plugins/*/meta.js", filePath)) {
 			pm.InitPlugin(filepath.Dir(filePath))
 		}
@@ -527,7 +629,6 @@ func (pm *PluginsManager) StartPluginMonitor() error {
 					pm.Scan("js/plugins")
 				} else {
 					e := NewPluginEvent(PluginModified, "fsmods", p)
-					// fmt.Printf("fsmod: %s %v\n", p.Path, e)
 					m <- *e
 				}
 			}
@@ -556,8 +657,15 @@ func (pm *PluginsManager) InitPlugin(ppath string) error {
 		Path:       ppath,
 		OriginUrl:  url.URL{},
 		PluginType: 0,
-		manager:    pm,
-		monitor:    monitor,
+		PluginData: &PluginData{
+			ConfigKeys:         make([]string, 0),
+			Handlers:           make([]string, 0),
+			Filenames:          make([]string, 0),
+			ConfigurationPaths: make([]string, 0),
+			Decoder:            make([]string, 0),
+		},
+		manager: pm,
+		monitor: monitor,
 	}
 
 	pm.monitors = append(pm.monitors, monitor)
@@ -567,6 +675,9 @@ func (pm *PluginsManager) InitPlugin(ppath string) error {
 	p.StartMonitor()
 
 	pm.Plugins = append(pm.Plugins, p)
+
+	p, m := pm.getPluginByPath(ppath)
+	m <- *NewPluginEvent(PluginModified, "modded", p)
 
 	return nil
 }

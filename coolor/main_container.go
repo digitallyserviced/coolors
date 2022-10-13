@@ -22,6 +22,7 @@ import (
 	// "rogchap.com/v8go"
 
 	"github.com/digitallyserviced/coolors/status"
+	// "github.com/digitallyserviced/coolors/theme"
 	ct "github.com/digitallyserviced/coolors/theme"
 	// "github.com/rivo/tview"
 	// "github.com/josa42/term-finder/tree"
@@ -133,18 +134,73 @@ func (mc *MainContainer) CloseConfig() {
 	mc.conf.ref.Close()
 }
 
+// half_bar_right = "╸"
+// half_bar_left = "╺━╸━ ╺"
+// bar = "━"
+//
+// width = self.width or options.max_width
+// start, end = self.highlight_range
+//
+// start = max(start, 0)
+// end = min(end, width)
+//
+// output_bar = Text("", end="")
+//
+// if start == end == 0 or end < 0 or start > end:
+//     output_bar.append(Text(bar * width, style=background_style, end=""))
+//     yield output_bar
+//     return
+//
+// # Round start and end to nearest half
+// start = round(start * 2) / 2
+// end = round(end * 2) / 2
+//
+// # Check if we start/end on a number that rounds to a .5
+// half_start = start - int(start) > 0
+// half_end = end - int(end) > 0
 func (mc *MainContainer) Init() {
   InitPlugins()
 	// go jsapi()
 	// go shite()
 	mc.SetBackgroundColor(ct.GetTheme().SidebarBackground)
-	mc.SetDirection(tview.FlexColumn)
+	mc.SetDirection(tview.FlexRow)
+  btmLine := MakeBoxItem("", "")
+  btmLine.SetBorder(false).SetBorderPadding(0, 0, 0, 0)
+  btmLine.SetDontClear(true)
+  btmLine.SetBackgroundColor(ct.GetTheme().ContentBackground)
+  btmLine.SetDrawFunc(func(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
+    mid := (width - 2 - 3) / 2
+    fullBar, leftHalfBar, rightHalfBar := '━', '╸', '╺'
+    for i := 1; i < width - 2; i++ {
+      glyph := fullBar
+      col := tcell.Color238
+      //  ━━━━━━━━━━━━━━━━━╸╺━━━━━━━━━━━━━━━━━━━━━━ 
+      if i == mid -1 {
+        col = tcell.GetColor("#abcdef")
+        glyph = rightHalfBar
+      }
+      if i >= mid -1 && i < mid + 1 {
+        col = tcell.GetColor("#abcdef")
+      }
+      if i == mid + 1 {
+        glyph = leftHalfBar
+        col = tcell.GetColor("#abcdef")
+      }
+      screen.SetContent(x + i, y, glyph, nil, tcell.StyleDefault.Foreground(col).Background(tcell.ColorBlack))
+      // tview.Print
+      
+    }
+    return x,y,width,height
+// ╺━╸
+  })
+	mc.AddItem(MakeBoxItem("", ""), 1, 0, false)
 	mc.AddItem(mc.pages, 0, 80, false)
+	mc.AddItem(btmLine, 1, 0, false)
 	mc.pages.AddPage("editor", mc.editor, true, false)
-	// mc.pages.AddPage("fileviewer", mc.fileviewer, true, false)
 	mc.pages.AddPage("preview", mc.preview, true, true)
-	mc.pages.AddAndSwitchToPage("palette", mc.palette, true)
 	mc.pages.AddPage("filetree", mc.filetree, false, false)
+	mc.pages.AddAndSwitchToPage("palette", mc.palette, true)
+	// mc.pages.AddPage("fileviewer", mc.fileviewer, true, false)
 	mc.pages.SetChangedFunc(func() {
 		name, page := mc.pages.GetFrontPage()
 		mc.current = page
@@ -373,10 +429,12 @@ func (mc *MainContainer) InputHandler() func(event *tcell.EventKey, setFocus fun
 			case 'f':
         if name != "filetree" {
           mc.pages.ShowPage("filetree") // .HidePage("editor")
+          mc.pages.SendToFront("filetree") // .HidePage("editor")
           mc.app.SetFocus(mc.filetree)
           AppModel.helpbar.SetTable("filetree")
         } else {
           mc.pages.HidePage("filetree") // .HidePage("editor")
+          mc.pages.SendToBack("filetree")
           mc.app.SetFocus(mc.palette)
           AppModel.helpbar.SetTable("palette")
         }

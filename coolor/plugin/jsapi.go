@@ -14,6 +14,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/gookit/goutil/errorx"
 	"github.com/knadh/koanf"
+	"github.com/knadh/koanf/parsers/toml"
 
 	"rogchap.com/v8go"
 )
@@ -256,9 +257,14 @@ func getMainScript(iso *v8go.Isolate, ctx *v8go.Context) (*v8go.Value, error) {
 	// }
 	return nil, fmt.Errorf("no function returned %v ", err)
 }
+
+var (
+  PluginSchemeFileDecoders map[string]koanf.Parser
+)
+
 func init() {
-  // ansitags := tview.TranslateANSI(testTxt)
-  // fmt.Println(ansitags)
+  PluginSchemeFileDecoders = make(map[string]koanf.Parser)
+  PluginSchemeFileDecoders["toml"] = toml.Parser()
 }
 func (gov8 *GoV8Env) InitForSnapshot(f func(gv8 *GoV8Env) error) {
   // tview.TranslateANSI

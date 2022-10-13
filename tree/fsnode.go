@@ -22,7 +22,7 @@ import (
 type FSNode struct {
 	Name     string
   Virtual bool
-  Children func(*FSNode) []*FSNode
+  Children func(*tview.TreeNode) []*tview.TreeNode
 	Path     string
   Icon string
 	IsDir    bool
@@ -41,7 +41,7 @@ func newRootFsnode(path string) *FSNode {
 func NewRootNode(path string) *tview.TreeNode {
 	fsnode := newRootFsnode(path)
 
-	if !fsnode.Node.IsExpanded() {
+	if !fsnode.Node.IsExpanded() && fsnode.IsDir {
 		fsnode.Node.Expand()
 		fsnode.ReadChildren()
 	}
@@ -129,6 +129,10 @@ func (n *FSNode) IsExpanded() bool {
 
 func (n *FSNode) readChildren(node *FSNode) {
   if n.Virtual && n.Path == "" {
+    if n.Children != nil {
+      n.Node.ClearChildren()
+      n.Node.SetChildren(n.Children(n.Node))
+    }
     return
   }
 	if n.IsDir {

@@ -3,13 +3,19 @@ package coolor
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
 
+	"github.com/rakyll/autopprof"
+
 	"github.com/digitallyserviced/coolors/status"
 	// "github.com/gdamore/tcell/v2/terminfo"
 )
+
+// import {WezTerm} from "./wezterm"
+
 
 type Model struct {
 	app      *tview.Application
@@ -68,12 +74,9 @@ func StartApp() {
     tty, _ := tcell.NewDevTtyFromDev(tty)
     scr, _ = tcell.NewTerminfoScreenFromTty(tty)
   }
-  // simscr := tcell.NewSimulationScreen("")
-  // AppModel.simscr = simscr
-
-	// if err != nil {
-	// 	panic(err)
-	// }
+autopprof.Capture(autopprof.CPUProfile{
+    Duration: 15 * time.Second,
+})
   zlog.Info("SHIT")
   setupExpVars()
   err := scr.Init()
@@ -113,14 +116,6 @@ func StartApp() {
   AppModel.pages.ShowPage("animation")
   AppModel.anims.SetRect(0, 0, AppModel.w, AppModel.h)
   AppModel.anims.SetVisible(true)
-// AppModel.anims.Box.
-//   spaceB := tview.NewBox()
-//   spaceB.SetDontClear(false)
-//   spaceB.SetBorder(true)
-//   AppModel.anims.AddPage("spacer", spaceB, true, true)
-//   AppModel.pages.ShowPage("spacer")
-//   spaceB.SetRect(0, 0, w, h)
-//   AppModel.anims.HidePage("spacer")
 	if err := AppModel.app.SetRoot(AppModel.pages, true).Run(); err != nil {
 		panic(err)
 	}
@@ -128,9 +123,32 @@ func StartApp() {
 	AppModel.main.CloseConfig()
 	colors := AppModel.main.GetPalette()
   fmt.Println(colors)
-	// for i := 0; i < colors.GetItemCount(); i++ {
-	// 	pcol := colors.GetItem(i)
-	// 	fmt.Printf("%s\n", pcol)
-	// }
 }
+
+// sp_block_l_begin='▌'         ; sp_block_l_middl=''       ; sp_block_l_close='▐'
+// sp_pentagon_begin=''        ; sp_pentagon_middl=''      ; sp_pentagon_close=''
+// sp_tiny_begin=' '            ; sp_tiny_middl=' '          ; sp_tiny_close=' '
+// sp_blank_begin='  '           ; sp_blank_middl='  '         ; sp_blank_close='  '            ;
+// sp_block_l_begin=''         ; sp_block_l_middl=''       ; sp_block_l_close=''
+// sp_block_c_begin='█'         ; sp_block_c_middl=''       ; sp_block_c_close='█'
+// sp_block_d_begin='█'         ; sp_block_d_middl='██'     ; sp_block_d_close='█'
+// sp_block_e_begin='▆ '         ; sp_block_e_middl='▆ '       ; sp_block_e_close='▆'
+// sp_block_r_begin=''         ; sp_block_r_middl=''       ; sp_block_r_close=''
+// sp_line_top_begin='┏╸━'       ; sp_line_top_middl='━╸'      ; sp_line_top_close='━━╸━┓'
+// sp_line_begin='╺╸'           ; sp_line_middl='··'         ; sp_line_close='·╺╸'
+// sp_line_top_begin='┏╸'       ; sp_line_top_middl='·'      ; sp_line_top_close='·╺┓'       ; #   
+// sp_cross_begin=' '           ; sp_cross_middl=' '         ; sp_cross_close=' '
+// sp_dot_begin=' '             ; sp_dot_middl=' '           ; sp_dot_close=' '
+// sp_lash_begin='●'            ; sp_lash_middl='●'          ; sp_lash_close='●●'
+// sp_dotline_begin='╸⏽'         ; sp_dotline_middl='●⏽'       ; sp_dotline_close='╺'
+// sp_lash_begin='╸⏽'           ; sp_lash_middl='●⏽'          ; sp_lash_close='●╺'
+// sp_box_slant_begin='█┣╸●'    ; sp_box_slant_middl=' '     ; sp_box_slant_close=' ●╺┫█'
+// sp_circle_slant_begin='█┣ ●' ; sp_circle_slant_middl=' '  ; sp_circle_slant_close=' ● ┫█'
+// sp_dot_slant_begin='█🮈╸'    ; sp_dot_slant_middl='·'     ; sp_dot_slant_close='·╺▍█'
+// sp_line_top_mini_begin='┏╸'  ; sp_line_top_mini_middl='·' ; sp_line_top_mini_close='·╺╺┓'
+// sp_line_bot_begin='┗━╺╸╺╸'    ; sp_line_bot_middl='╺━'      ; sp_line_bot_close='┛'
+// sp_line_bo2_begin='┗╸'        ; sp_line_bo2_middl='╺╸'      ; sp_line_bo2_close='┛'
+// sp_box_begin='■'              ; sp_box_middl='■'            ; sp_box_close='■'
+// sp_box2_begin='█🮈'            ; sp_box2_middl='▍'           ; sp_box2_close='▍█'
+//
 // vim: ts=2 sw=2 et ft=go

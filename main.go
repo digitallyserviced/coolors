@@ -71,7 +71,7 @@ func getPosition() (int, int) {
 }
 
 func main() {
-	go http.ListenAndServe(":1234", nil)
+	go http.ListenAndServe("0.0.0.0:1234", nil)
 	f, err := os.Create("dump")
 	defer f.Close()
 	if err != nil {

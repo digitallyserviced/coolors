@@ -15,6 +15,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/gookit/goutil/dump"
 	"github.com/samber/lo"
+	// "golang.org/x/exp/constraints"
 
 	// "github.com/digitallyserviced/coolors/coolor/log"
 	"github.com/digitallyserviced/coolors/coolor/zzlog"
@@ -88,55 +89,12 @@ func setupLogger(){
 				// return lvl <= zzlog.InfoLevel
 			},
 		},
-		// {
-		// 	Filename: "error.log",
-		// 	Ropt: zzlog.RotateOptions{
-		// 		MaxSize:    1,
-		// 		MaxAge:     1,
-		// 		MaxBackups: 3,
-		// 	},
-		// 	Lef: func(lvl zzlog.Level) bool {
-		// 		return lvl > zzlog.InfoLevel
-		// 	},
-		// },
 	}
 
 	logger := zzlog.NewTeeWithRotate(tops, zzlog.AddStacktrace(zzlog.InfoLevel),zzlog.WithCaller(true),zzlog.AddCallerSkip(1))
   zlog = logger
 	zzlog.ResetDefault(logger)
-	//
-	// for i := 0; i < 20000; i++ {
-	// 	zzlog.Info("demo3:", zzlog.String("app", "start ok"),
-	// 		zzlog.Int("major version", 3))
-	// 	zzlog.Error("demo3:", zzlog.String("app", "crash"),
-	// 		zzlog.Int("reason", -1))
-	// }
- //  logrus.TextFormatter
- //  l := logrus.New()
-	// l.SetOutput(output)
-	// l.SetLevel(logrus.DebugLevel)
-	// l.SetFormatter(&.Formatter{
-	// 	NoColors:        true,
-	// 	TimestampFormat: "-",
-	// 	CallerFirst:     true,
-	// 	CustomCallerFormatter: func(f *runtime.Frame) string {
-	// 		s := strings.Split(f.Function, ".")
-	// 		funcName := s[len(s)-1]
-	// 		return fmt.Sprintf(" [%s:%d][%s()]", path.Base(f.File), f.Line, funcName)
-	// 	},
-	// })
-	// l.SetReportCaller(true)
 }
-
-// func setupLogging() func() error {
-// 	// f, _ := os.OpenFile("dumps", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o666)
-// 	// f, _ := os.OpenFile(os.DevNull, os.O_RDWR|os.O_APPEND, 0666)
-//
-// 	// log.SetOutput(f)
-//   setupLogger()
-//
-// 	return f.Close
-// }
 
 func MakeDebugDump(tp tview.Primitive) {
 	dump.P(tp)
