@@ -1,6 +1,7 @@
 package coolor
 
 import (
+	// "bytes"
 	"flag"
 	"fmt"
 	"math"
@@ -11,6 +12,9 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/gookit/goutil/dump"
 	"github.com/gookit/goutil/structs"
+	"github.com/gookit/goutil/strutil"
+
+	// "github.com/samber/lo"
 
 	"github.com/digitallyserviced/coolors/coolor/anim"
 	. "github.com/digitallyserviced/coolors/coolor/anim"
@@ -176,9 +180,9 @@ func (mc *MainContainer) Init() {
 		if event.Modifiers() == tcell.ModShift {
 		}
 		switch ch {
-		case 'Q':
-			AppModel.app.Stop()
-			return nil
+		// case 'Q':
+		// 	AppModel.app.Stop()
+		// 	return nil
 		}
 		return event
 	})
@@ -234,6 +238,10 @@ func (mc *MainContainer) InputHandler() func(event *tcell.EventKey, setFocus fun
 				if mc.menu.Activated() != nil {
 					mc.menu.Activated().Cancel()
 				}
+        strutil.HasOneSub(name, []string{"floater", "sidebar", "colorpick", "info", })
+        if !strutil.HasOneSub(name, []string{"palette", "mixer", "shades"}){
+          mc.Pop()
+        }
 				if name == "floater" {
 					mc.pages.HidePage("floater")
 					page.Blur()
@@ -246,12 +254,20 @@ func (mc *MainContainer) InputHandler() func(event *tcell.EventKey, setFocus fun
 			case 'P':
 				mc.Pop()
 				tv := NewTabbedView()
-				tst := NewTestTabViewContenter()
-        hsvpick := NewTabView(" HSV", tv.TakeNext(), tst)
+				tst := NewColorPicker(&HSLChannel)
+        tst.OnAdd = func(c Color) {
+          MainC.palette.AddCoolorColor(c.GetCC())
+        }
+        tst.Register(events.PromptedEvents, events.NewAnonymousHandlerFunc(func(e events.ObservableEvent) bool {
+          mc.Pop()
+          return true
+        }))
+				hsvpick := NewTabView("  RGB", tv.TakeNext(), tst)
 				tv.AddTab(hsvpick)
 				tv.UpdateView()
 				sb := NewSideBar("colorpick", tv, 0, 40)
 				mc.Push("colorpick", sb, true)
+				mc.app.SetFocus(tst)
 			case 'L':
 				mc.app.QueueUpdateDraw(func() {
 					if mc.sidebar == nil {
@@ -421,9 +437,9 @@ func (mc *MainContainer) InputHandler() func(event *tcell.EventKey, setFocus fun
 				_, _, _, _ = x, y, w, h
 				mc.preview.SetRect(x, y, w/2, h/2)
 				mc.preview.TopInit(8)
-			case 'e':
-				mc.pages.SwitchToPage("editor") //.HidePage("palette")
-				AppModel.helpbar.SetTable("editor")
+			// case 'e':
+			// 	mc.pages.SwitchToPage("editor") //.HidePage("palette")
+			// 	AppModel.helpbar.SetTable("editor")
 			case 'V':
 				ani := NewFrameAnimator()
 				ani.Start()
@@ -585,9 +601,15 @@ func (sl *ScrollLine) UpdatePos(cp *CoolorColorsPalette) {
 		float64(sl.indicatorPos),
 		float64(sl.indicatorTgtPos),
 	)
-	fmt.Println("delta", math.Abs(float64(sl.indicatorTgtPos)-float64(sl.indicatorPos)), sl.Animation.State.String())
+	fmt.Println(
+		"delta",
+		math.Abs(float64(sl.indicatorTgtPos)-float64(sl.indicatorPos)),
+		sl.Animation.State.String(),
+	)
 	if math.Abs(float64(sl.indicatorTgtPos)-float64(sl.indicatorPos)) > 1 {
-		if sl.Animation.State.Is(events.AnimationNext) || sl.Animation.State.Is(events.AnimationPaused) || sl.Animation.State.Is(events.AnimationFinished) {
+		if sl.Animation.State.Is(events.AnimationNext) ||
+			sl.Animation.State.Is(events.AnimationPaused) ||
+			sl.Animation.State.Is(events.AnimationFinished) {
 			sl.Animation.Next()
 			sl.Animation.Control.Play()
 		}
@@ -616,7 +638,33 @@ func NewScrollLine() *ScrollLine {
 		x:               1,
 		vel:             1,
 	}
+
+  idx := 0
+  notid := func(t string) string{
+idx+=1
+return fmt.Sprintf("t_%d", t, idx)
+  }
 	events.Global.Register(events.PaletteColorSelectedEvent, sl)
+  addPluginOnLoad("register palette file view", func(pm *PluginsManager) {
+    pm.Register(events.PluginEvents, events.NewAnonymousHandlerFunc(func(e events.ObservableEvent) bool {
+      fmt.Println("SHIT")
+    if e.Type.Is(events.PluginEvents) {
+      if pe, ok := e.Ref.(*PluginEvent); ok {
+        status.NewStatusUpdate("action_str", fmt.Sprintf("Loaded Plugin %s", pe.name))
+				noti := anim.GetAnimator().GetAnimation(notid("notif_"))
+				if noti == nil {
+					noti = NewNotification(
+						"SHIT",
+						"This is a test notification of the notification broadcastsing systems.\n!!",
+					)
+				}
+        noti.Control.Play()
+      }
+
+    }
+    return true
+  }))
+  })
 	btmLine.SetDrawFunc(
 		func(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
 			x, y, width, height = sl.GetRect()

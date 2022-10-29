@@ -64,13 +64,14 @@ type (
 )
 
 func NewPaddles() []*PalettePaddle {
-	//  ﰯ  ﰭ  鹿      ﲕ     ﮾      ﰬ ﰳ  ﯀    壟     ﰷ ﰮ     ﬕ ﯁ ﲐ  ﬔ    ﲓ      ﰵ      ﮿    ﰰ ﰴ  ﲔ ﲒ         ﲑ               ﲗ ﲖ ﰲ ﰶ  ﰱ 
-	// left := NewPalettePaddle("", "")
-	// right := NewPalettePaddle("", "") ﲑ  
+	//   ﰯ  ﰭ  鹿      ﲕ     ﮾ ﯀     ﰬ ﰳ  ﯀    壟     ﰷ ﰮ     ﬕ ﯁ ﲐ  ﬔ    ﲓ      ﰵ      ﮿    ﰰ ﰴ  ﲔ ﲒ         ﲑ               ﲗ ﲖ ﰲ ﰶ  ﰱ 
+	//  ﰯ  ﰭ  鹿      ﲕ     ﮾ ﯀     ﰬ ﰳ  ﯀    壟     ﰷ ﰮ     ﬕ ﯁ ﲐ  ﬔ    ﲓ      ﰵ      ﮿    ﰰ ﰴ  ﲔ ﲒ         ﲑ               ﲗ ﲖ ﰲ ﰶ  ﰱ 
+	// left := NewPalettePaddle("", " ")
+	// right := NewPalettePaddle("", " ") ﲑ  
 	// left := NewPalettePaddle("", "")
 	// right := NewPalettePaddle("", "ﰲ")
-	left := NewPalettePaddle("", "")
-	right := NewPalettePaddle("", "")
+	left := NewPalettePaddle("", " ")
+	right := NewPalettePaddle("", " ")
 	return []*PalettePaddle{left, right}
 }
 
@@ -578,6 +579,10 @@ func (cp *CoolorMainPalette) InputHandler() func(event *tcell.EventKey, setFocus
 					cp.AddRandomCoolorColor()
 				case '=':
 					cp.GetPalette().Sort()
+				case 'e':
+					color, _ := cp.GetSelected()
+					cp.AddCoolorColor(color.Clone())
+					SeentColor("duped", color, color.pallette)
 				case 'd':
 					color, _ := cp.GetSelected()
 					cp.AddCoolorColor(color.Clone())

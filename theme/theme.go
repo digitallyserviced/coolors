@@ -6,44 +6,89 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
 	"github.com/gookit/color"
 )
 
 type Theme struct {
-	HeaderBackground tcell.Color 
-	GrayerBackground tcell.Color 
-  SidebarBackground tcell.Color
+	HeaderBackground  tcell.Color
+	GrayerBackground  tcell.Color
+	SidebarBackground tcell.Color
 	SidebarLines      tcell.Color
 	ContentBackground tcell.Color
 	Border            tcell.Color
+	Primary           tcell.Color
+	Secondary         tcell.Color
 	TopbarBorder      tcell.Color
 	InfoLabel         tcell.Color
 	Styles            map[string]tcell.Style
 }
-
+// Theme{
+// 	// PrimitiveBackgroundColor:    tcell.GetColor("#101010").TrueColor(),
+//   PrimitiveBackgroundColor:    tcell.ColorBlack,
+// 	ContrastBackgroundColor:     tcell.ColorBlue,
+// 	MoreContrastBackgroundColor: tcell.ColorGreen,
+// 	BorderColor:                 tcell.ColorWhite,
+// 	BorderFocusColor:            tcell.ColorBlue,
+// 	TitleColor:                  tcell.ColorWhite,
+// 	GraphicsColor:               tcell.ColorWhite,
+// 	PrimaryTextColor:            tcell.ColorWhite,
+// 	SecondaryTextColor:          tcell.ColorYellow,
+// 	TertiaryTextColor:           tcell.ColorGreen,
+// 	InverseTextColor:            tcell.ColorBlue,
+// 	ContrastSecondaryTextColor:  tcell.ColorDarkCyan,
+// }
+var tvtheme *tview.Theme = &tview.Theme{
+	PrimitiveBackgroundColor:    tcell.GetColor("#21252B"),
+	ContrastBackgroundColor:     tcell.ColorBlue,
+	MoreContrastBackgroundColor: tcell.ColorGreen,
+	BorderColor:                 tcell.ColorWhite,
+	BorderFocusColor:            tcell.ColorBlue,
+	TitleColor:                  tcell.ColorWhite,
+	// TitleColor:                  tcell.GetColor("#5c6370"),
+	GraphicsColor:               tcell.ColorWhite,
+	PrimaryTextColor:            tcell.ColorWhite,
+	SecondaryTextColor:          tcell.ColorYellow,
+	TertiaryTextColor:           tcell.ColorGreen,
+	InverseTextColor:            tcell.ColorBlue,
+	ContrastSecondaryTextColor:  tcell.ColorDarkCyan,
+	// ContrastBackgroundColor:     0,
+	// MoreContrastBackgroundColor: 0,
+	// BorderColor:                 0,
+	// BorderFocusColor:            0,
+	// GraphicsColor:               0,
+	// PrimaryTextColor:            0,
+	// SecondaryTextColor:          0,
+	// TertiaryTextColor:           0,
+	// InverseTextColor:            0,
+	// ContrastSecondaryTextColor:  0,
+}
 var theme *Theme
 
 // func NewHexColor() tcell.Color {
 //
 // }
 func init() {
+  tview.Styles = *tvtheme
 	theme = &Theme{ //0x303030
-		HeaderBackground: tcell.GetColor("#1C1C1C"),
-		GrayerBackground: tcell.GetColor("#282c34"),
+		HeaderBackground:  tcell.GetColor("#1C1C1C"),
+		GrayerBackground:  tcell.GetColor("#282c34"),
 		SidebarBackground: tcell.GetColor("#21252B"),
 		ContentBackground: tcell.GetColor("#303030"),
 		SidebarLines:      tcell.GetColor("#5c6370"),
 		Border:            tcell.GetColor("#1C1C1C"),
 		TopbarBorder:      tcell.GetColor("#5c6370"),
 		InfoLabel:         tcell.GetColor("#5c6370"),
+		Primary:           tcell.GetColor("#4ed6aa"),
+		Secondary:         tcell.GetColor("#b5d1f6"),
 		Styles:            make(map[string]tcell.Style),
 	}
 	theme.SetStyleFgBgAttr(
 		"palette_name",
 		tcell.ColorWhite,
-    tcell.ColorRed,
-    // tcell.GetColor("#890a37"),
+		tcell.ColorRed,
+		// tcell.GetColor("#890a37"),
 		// tcell.ColorGreen,
 		tcell.AttrBold,
 	)

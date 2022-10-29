@@ -216,9 +216,9 @@ func (ccs *CoolorColorSwatch) show(t *TabView) {
 
 func (ccs *CoolorColorSwatch) Draw(s tcell.Screen) {
 	ccs.Box.DrawForSubclass(s, ccs)
-	tview.Borders = InvisBorders
+	// tview.Borders = InvisBorders
 	ccs.Table.Draw(s)
-	tview.Borders = OrigBorders
+	// tview.Borders = OrigBorders
 }
 
 func (ccs *CoolorColorSwatch) UpdateView() {

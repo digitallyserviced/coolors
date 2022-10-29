@@ -96,7 +96,7 @@ func NewPalettePaddle(icon, iconActive string) *PalettePaddle {
 				icon,
 				centerX,
 				centerY-1-halfY,
-				1,
+				2,
 				tview.AlignCenter,
 				iconColor,
 			)
@@ -105,7 +105,7 @@ func NewPalettePaddle(icon, iconActive string) *PalettePaddle {
 				icon,
 				centerX,
 				centerY-1,
-				1,
+				2,
 				tview.AlignCenter,
 				iconColor,
 			)
@@ -114,7 +114,7 @@ func NewPalettePaddle(icon, iconActive string) *PalettePaddle {
 				icon,
 				centerX,
 				centerY-1+halfY,
-				1,
+				2,
 				tview.AlignCenter,
 				iconColor,
 			)

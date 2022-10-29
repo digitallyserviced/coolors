@@ -66,7 +66,8 @@ func (tl *TabLabel) UpdateView() {
 	tabTitle := fmt.Sprintf(lFmt, tl.name)
   stringW := tview.TaggedStringWidth(tabTitle)
 	// _, _, _, _, _, _, stringW := decomposeString(tabTitle, true, true)
-	tabMarker := fmt.Sprintf(lFmt, strings.Repeat("🮂", stringW+3))
+//    ▁▁▁ ▔▔▔ 🮀🮀🮀 ▁▔▕▏▏
+	tabMarker := fmt.Sprintf(lFmt, strings.Repeat("▔", stringW+3))
 	bw := tl.BatchWriter()
 	defer bw.Close()
 	bw.Clear()
@@ -214,9 +215,9 @@ func (tv *TabbedView) Each(f func(tab *TabView, idx int)) {
 
 func (tv *TabbedView) Draw(s tcell.Screen) {
   tv.Box.DrawForSubclass(s, tv)
-  tview.Borders = InvisBorders
+  // tview.Borders = InvisBorders
   tv.Flex.Draw(s)
-  tview.Borders = OrigBorders
+  // tview.Borders = OrigBorders
 }
 func (tv *TabbedView) UpdateView() {
 	curr, _ := tv.GetCurrentTab()

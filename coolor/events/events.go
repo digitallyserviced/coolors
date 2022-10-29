@@ -2,7 +2,7 @@ package events
 
 import "github.com/digitallyserviced/coolors/coolor/util"
 
-type ObservableEventType uint32
+type ObservableEventType uint64
 
 const (
 	SelectedEvent = ObservableEventType(1 << iota)
@@ -10,6 +10,10 @@ const (
 	ColorSelectedEvent
 	ColorSelectionEvent
 	ColorEvent
+
+	PrimaryEvent
+	SecondaryEvent
+	CancelledEvent
 
 	ChangedEvent
 	StatusEvent
@@ -28,9 +32,9 @@ const (
 	PaletteSavedEvent
 
 	AnimationInit
-  AnimationPlaying
-  AnimationPaused
-  AnimationIdle
+	AnimationPlaying
+	AnimationPaused
+	AnimationIdle
 	AnimationFinished
 	AnimationLooped
 	AnimationNext
@@ -38,45 +42,50 @@ const (
 	AnimationSet
 	AnimationUpdate
 	AnimationCanceled
-  AnimationDone
+	AnimationDone
 
-  PluginEvents
+	PluginEvents
 
-	AllEvents ObservableEventType = SelectedEvent | ColorSeentEvent | ColorEvent | ColorSelectedEvent | ColorSelectionEvent | ChangedEvent | StatusEvent | InputEvent | DrawEvent | EditEvent | CancelableEvent | ExclusiveEvent | PaletteColorModifiedEvent | PaletteColorRemovedEvent | PaletteMetaUpdatedEvent | PaletteCreatedEvent | PaletteSavedEvent | PaletteColorSelectedEvent | PaletteColorSelectionEvent | AnimationInit | AnimationPlaying | AnimationPaused | AnimationDone| AnimationIdle | AnimationNext | AnimationSet | AnimationUpdate | AnimationFinished | AnimationLooped | AnimationCanceled | AnimationPrevious | PluginEvents
+  PromptedEvents ObservableEventType = PrimaryEvent | SecondaryEvent | CancelledEvent
+
+	AllEvents ObservableEventType = SelectedEvent | ColorSeentEvent | ColorEvent | ColorSelectedEvent | ColorSelectionEvent | PrimaryEvent | SecondaryEvent | CancelledEvent | ChangedEvent | StatusEvent | InputEvent | DrawEvent | EditEvent | CancelableEvent | ExclusiveEvent | PaletteColorModifiedEvent | PaletteColorRemovedEvent | PaletteMetaUpdatedEvent | PaletteCreatedEvent | PaletteSavedEvent | PaletteColorSelectedEvent | PaletteColorSelectionEvent | AnimationInit | AnimationPlaying | AnimationPaused | AnimationDone | AnimationIdle | AnimationNext | AnimationSet | AnimationUpdate | AnimationFinished | AnimationLooped | AnimationCanceled | AnimationPrevious | PluginEvents
 )
 
 var observableEventTypes = []EnumName{
-	{uint32(SelectedEvent), "SelectedEvent"},
-	{uint32(ColorSeentEvent), "ColorSeentEvent"},
-	{uint32(ChangedEvent), "ChangedEvent"},
-	{uint32(StatusEvent), "StatusEvent"},
-	{uint32(InputEvent), "InputEvent"},
-	{uint32(DrawEvent), "DrawEvent"},
-	{uint32(ColorEvent), "ColorEvent"},
-	{uint32(EditEvent), "EditEvent"},
-	{uint32(CancelableEvent), "CancelableEvent"},
-	{uint32(ExclusiveEvent), "ExclusiveEvent"},
-	{uint32(PaletteColorRemovedEvent), "PaletteColorRemovedEvent"},
-	{uint32(PaletteColorSelectedEvent), "PaletteColorSelectedEvent"},
-	{uint32(PaletteColorSelectedEvent), "PaletteColorSelectionEvent"},
-	{uint32(PaletteColorModifiedEvent), "PaletteColorModifiedEvent"},
-	{uint32(PaletteMetaUpdatedEvent), "PaletteMetaUpdatedEvent"},
-	{uint32(PaletteCreatedEvent), "PaletteCreatedEvent"},
-	{uint32(PaletteSavedEvent), "PaletteSavedEvent"},
-	{uint32(AnimationInit), "AnimationInit"},
-  {uint32(AnimationPlaying), "AnimationPlaying"},
-  {uint32(AnimationPaused), "AnimationPaused"},
-  {uint32(AnimationIdle), "AnimationIdle"},
-	{uint32(AnimationNext), "AnimationNext"},
-	{uint32(AnimationSet), "AnimationSet"},
-	{uint32(AnimationUpdate), "AnimationUpdate"},
-	{uint32(AnimationFinished), "AnimationFinished"},
-	{uint32(AnimationLooped), "AnimationLooped"},
-	{uint32(AnimationDone), "AnimationDone"},
-	{uint32(AnimationCanceled), "AnimationCanceled"},
-	{uint32(AnimationPrevious), "AnimationPrevious"},
-	{uint32(PluginEvents), "PluginEvents"},
-	{uint32(AllEvents), "AllEvents"},
+	{uint64(SelectedEvent), "SelectedEvent"},
+	{uint64(ColorSeentEvent), "ColorSeentEvent"},
+	{uint64(ChangedEvent), "ChangedEvent"},
+	{uint64(StatusEvent), "StatusEvent"},
+	{uint64(InputEvent), "InputEvent"},
+	{uint64(DrawEvent), "DrawEvent"},
+	{uint64(ColorEvent), "ColorEvent"},
+	{uint64(EditEvent), "EditEvent"},
+	{uint64(CancelableEvent), "CancelableEvent"},
+	{uint64(ExclusiveEvent), "ExclusiveEvent"},
+	{uint64(PrimaryEvent), "PrimaryEvent"},
+	{uint64(SecondaryEvent), "SecondaryEvent"},
+	{uint64(CancelledEvent), "CancelledEvent"},
+	{uint64(PaletteColorRemovedEvent), "PaletteColorRemovedEvent"},
+	{uint64(PaletteColorSelectedEvent), "PaletteColorSelectedEvent"},
+	{uint64(PaletteColorSelectedEvent), "PaletteColorSelectionEvent"},
+	{uint64(PaletteColorModifiedEvent), "PaletteColorModifiedEvent"},
+	{uint64(PaletteMetaUpdatedEvent), "PaletteMetaUpdatedEvent"},
+	{uint64(PaletteCreatedEvent), "PaletteCreatedEvent"},
+	{uint64(PaletteSavedEvent), "PaletteSavedEvent"},
+	{uint64(AnimationInit), "AnimationInit"},
+	{uint64(AnimationPlaying), "AnimationPlaying"},
+	{uint64(AnimationPaused), "AnimationPaused"},
+	{uint64(AnimationIdle), "AnimationIdle"},
+	{uint64(AnimationNext), "AnimationNext"},
+	{uint64(AnimationSet), "AnimationSet"},
+	{uint64(AnimationUpdate), "AnimationUpdate"},
+	{uint64(AnimationFinished), "AnimationFinished"},
+	{uint64(AnimationLooped), "AnimationLooped"},
+	{uint64(AnimationDone), "AnimationDone"},
+	{uint64(AnimationCanceled), "AnimationCanceled"},
+	{uint64(AnimationPrevious), "AnimationPrevious"},
+	{uint64(PluginEvents), "PluginEvents"},
+	{uint64(AllEvents), "AllEvents"},
 }
 
 func init() {
@@ -86,8 +95,8 @@ func (a ObservableEventType) Is(b ObservableEventType) bool {
 	return util.BitAnd(a, b)
 }
 func (v ObservableEventType) String() string {
-	return EnumString(uint32(v), observableEventTypes, false)
+	return EnumString(uint64(v), observableEventTypes, false)
 }
 func (v ObservableEventType) GoString() string {
-	return EnumString(uint32(v), observableEventTypes, true)
+	return EnumString(uint64(v), observableEventTypes, true)
 }

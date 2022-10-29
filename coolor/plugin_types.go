@@ -158,93 +158,93 @@ var (
 )
 
 var PluginTypes = []EnumName{
-	{uint32(ColorSchemeImportPlugin), "ColorSchemeImportPlugin"},
-	{uint32(ColorSchemeExportPlugin), "ColorSchemeExportPlugin"},
-	{uint32(ColorSchemeDetectPlugin), "ColorSchemeDetectPlugin"},
-	{uint32(ColorSchemeTaggedPlugin), "ColorSchemeTaggedPlugin"},
+	{uint64(ColorSchemeImportPlugin), "ColorSchemeImportPlugin"},
+	{uint64(ColorSchemeExportPlugin), "ColorSchemeExportPlugin"},
+	{uint64(ColorSchemeDetectPlugin), "ColorSchemeDetectPlugin"},
+	{uint64(ColorSchemeTaggedPlugin), "ColorSchemeTaggedPlugin"},
 
-	{uint32(ColorModPlugin), "ColorModPlugin"},
-	{uint32(ColorPalettePlugin), "ColorPalettePlugin"},
-	{uint32(ColorPaletteGeneratorPlugin), "ColorPaletteGeneratorPlugin"},
+	{uint64(ColorModPlugin), "ColorModPlugin"},
+	{uint64(ColorPalettePlugin), "ColorPalettePlugin"},
+	{uint64(ColorPaletteGeneratorPlugin), "ColorPaletteGeneratorPlugin"},
 
-	{uint32(PreviewPlugin), "PreviewPlugin"},
-	{uint32(FilePlugin), "FilePlugin"},
+	{uint64(PreviewPlugin), "PreviewPlugin"},
+	{uint64(FilePlugin), "FilePlugin"},
 
-	{uint32(CommandPlugin), "CommandPlugin"},
-	{uint32(ActionPlugin), "ActionPlugin"},
+	{uint64(CommandPlugin), "CommandPlugin"},
+	{uint64(ActionPlugin), "ActionPlugin"},
 
-	{uint32(GlobalPlugin), "GlobalPlugin"},
-	{uint32(HookPlugin), "HookPlugin"},
+	{uint64(GlobalPlugin), "GlobalPlugin"},
+	{uint64(HookPlugin), "HookPlugin"},
 
-	{uint32(PlaygroundPlugin), "PlaygroundPlugin"},
+	{uint64(PlaygroundPlugin), "PlaygroundPlugin"},
 
-	{uint32(FullColorSchemePlugin), "FullColorSchemePlugin"},
+	{uint64(FullColorSchemePlugin), "FullColorSchemePlugin"},
 }
 
 var PluginEventTypes = []EnumName{
-	{uint32(PluginInit), "PluginInit"},
-	{uint32(PluginModified), "PluginModified"},
-	{uint32(PluginReloaded), "PluginReloaded"},
-	{uint32(PluginBundled), "PluginBundled"},
-	{uint32(PluginScanConfigPaths), "PluginScanConfigPaths"},
-	{uint32(PluginScanConfigResult), "PluginScanConfigResult"},
-	{uint32(PluginCreatedKeyMap), "PluginCreatedKeyMap"},
-	{uint32(PluginWindBlows), "PluginWindBlows"},
+	{uint64(PluginInit), "PluginInit"},
+	{uint64(PluginModified), "PluginModified"},
+	{uint64(PluginReloaded), "PluginReloaded"},
+	{uint64(PluginBundled), "PluginBundled"},
+	{uint64(PluginScanConfigPaths), "PluginScanConfigPaths"},
+	{uint64(PluginScanConfigResult), "PluginScanConfigResult"},
+	{uint64(PluginCreatedKeyMap), "PluginCreatedKeyMap"},
+	{uint64(PluginWindBlows), "PluginWindBlows"},
 }
 
 var PluginKeyMapTypes = []EnumName{
-	{uint32(PluginTagsKeyMap), "PluginTagsKeyMap"},
-	{uint32(PluginMetaKeyMap), "PluginMetaKeyMap"},
-	{uint32(PluginExtrasKeyMap), "PluginExtrasKeyMap"},
-	{uint32(PluginColorsKeyMap), "PluginColorsKeyMap"},
-	{uint32(PluginFeaturesKeyMap), "PluginFeaturesKeyMap"},
+	{uint64(PluginTagsKeyMap), "PluginTagsKeyMap"},
+	{uint64(PluginMetaKeyMap), "PluginMetaKeyMap"},
+	{uint64(PluginExtrasKeyMap), "PluginExtrasKeyMap"},
+	{uint64(PluginColorsKeyMap), "PluginColorsKeyMap"},
+	{uint64(PluginFeaturesKeyMap), "PluginFeaturesKeyMap"},
 }
 
 var PluginDetectionTypes = []EnumName{
-	{uint32(FilenameDetection), "FilenameDetection"},
-	{uint32(ConfigKeysDetection), "ConfigKeysDetection"},
-	{uint32(RegexDetection), "RegexDetection"},
-	{uint32(FunctionDetection), "FunctionDetection"},
+	{uint64(FilenameDetection), "FilenameDetection"},
+	{uint64(ConfigKeysDetection), "ConfigKeysDetection"},
+	{uint64(RegexDetection), "RegexDetection"},
+	{uint64(FunctionDetection), "FunctionDetection"},
 }
 
 func (a PluginDetectionType) Is(b PluginDetectionType) bool {
 	return util.BitAnd(a, b)
 }
 func (v PluginDetectionType) String() string {
-	return EnumString(uint32(v), PluginDetectionTypes, false)
+	return EnumString(uint64(v), PluginDetectionTypes, false)
 }
 func (v PluginDetectionType) GoString() string {
-	return EnumString(uint32(v), PluginDetectionTypes, true)
+	return EnumString(uint64(v), PluginDetectionTypes, true)
 }
 
 func (a PluginType) Is(b PluginType) bool {
 	return util.BitAnd(a, b)
 }
 func (v PluginType) String() string {
-	return EnumString(uint32(v), PluginTypes, false)
+	return EnumString(uint64(v), PluginTypes, false)
 }
 func (v PluginType) GoString() string {
-	return EnumString(uint32(v), PluginTypes, true)
+	return EnumString(uint64(v), PluginTypes, true)
 }
 
 func (a PluginKeyMapType) Is(b PluginKeyMapType) bool {
 	return util.BitAnd(a, b)
 }
 func (v PluginKeyMapType) String() string {
-	return EnumString(uint32(v), PluginKeyMapTypes, false)
+	return EnumString(uint64(v), PluginKeyMapTypes, false)
 }
 func (v PluginKeyMapType) GoString() string {
-	return EnumString(uint32(v), PluginKeyMapTypes, true)
+	return EnumString(uint64(v), PluginKeyMapTypes, true)
 }
 
 func (a PluginEventType) Is(b PluginEventType) bool {
 	return util.BitAnd(a, b)
 }
 func (v PluginEventType) String() string {
-	return EnumString(uint32(v), PluginEventTypes, false)
+	return EnumString(uint64(v), PluginEventTypes, false)
 }
 func (v PluginEventType) GoString() string {
-	return EnumString(uint32(v), PluginEventTypes, true)
+	return EnumString(uint64(v), PluginEventTypes, true)
 }
 
 // MarshalLogObject implements zapcore.ObjectMarshaler

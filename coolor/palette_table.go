@@ -110,7 +110,7 @@ func NewPaletteTable(cp *CoolorColorsPalette) *PaletteTable {
 
 func (pt *PaletteTable) Draw(s tcell.Screen) {
 	pt.Box.DrawForSubclass(s, pt)
-	tview.Borders = InvisBorders
+	// tview.Borders = InvisBorders
 	pt.Table.Draw(s)
 	tview.Borders = OrigBorders
 }

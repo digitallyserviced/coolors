@@ -83,10 +83,10 @@ var SimpleBorderStyle = struct {
 	BottomRight:      tview.BoxDrawingsHeavyUpAndLeft,
 //    ▁▁▁ ▔▔▔ 🮀🮀🮀 ▁▔▕▏▏
     // ▏▕
-	// TopHorizontal:    '▁',
-	// BottomHorizontal: '▔',
-	// LeftVertical:     '▏',
-	// RightVertical:    ' ',
+	// TopHorizontal:    tview.BoxDrawingsHeavyHorizontal,
+	// BottomHorizontal: tview.BoxDrawingsHeavyHorizontal,
+	// LeftVertical:     tview.BoxDrawingsHeavyVertical,
+	// RightVertical:    tview.BoxDrawingsHeavyVertical,
 	LeftT:            tview.BoxDrawingsHeavyVerticalAndRight,
 	RightT:           tview.BoxDrawingsHeavyVerticalAndLeft,
 	TopT:             tview.BoxDrawingsHeavyDownAndHorizontal,

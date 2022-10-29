@@ -27,9 +27,10 @@ import (
 
 	"github.com/digitallyserviced/tview"
 
+	// "github.com/digitallyserviced/coolors/coolor/events"
+	. "github.com/digitallyserviced/coolors/coolor/events"
 	"github.com/digitallyserviced/coolors/coolor/plugin"
 	"github.com/digitallyserviced/coolors/coolor/util"
-	. "github.com/digitallyserviced/coolors/coolor/events"
 	"github.com/digitallyserviced/coolors/coolor/zzlog"
 	"github.com/digitallyserviced/coolors/tree"
 )
@@ -776,9 +777,9 @@ func (p *Plugin) LoadMeta() error {
 	// dump.P(JSErrorAssert(metaObj.Get("shit")).DetailString())
 	name := eajs(metaObj.Get("name")).DetailString()
 	originUrl := eajs(metaObj.Get("originUrl")).DetailString()
-	pluginType := eajs(metaObj.Get("pluginType")).Uint32()
-	detectionType := eajs(metaObj.Get("detection")).Uint32()
-	eventType := eajs(metaObj.Get("events")).Uint32()
+	pluginType := eajs(metaObj.Get("pluginType")).BigInt().Uint64()
+	detectionType := eajs(metaObj.Get("detection")).BigInt().Uint64()
+	eventType := eajs(metaObj.Get("events")).BigInt().Uint64()
 	p.Name = name
 	p.PluginType = PluginType(pluginType)
 	p.DetectionType = PluginDetectionType(detectionType)
@@ -925,15 +926,15 @@ func (pm *PluginsManager) DispatchEvent(
       pm.monitors[i] <- *NewPluginEvent(pe.eventType, pe.name, p)
     }
   } else {
-      zlog.Debug(
-        "dispatch global event",
-        zzlog.Reflect("event", pe),
-      )
+      // zlog.Debug(
+      //   "dispatch global event",
+      //   zzlog.Reflect("event", pe),
+      // )
     pm.global <- *pe
-      zlog.Debug(
-        "post dispatch global event",
-        zzlog.Reflect("event", pe),
-      )
+      // zlog.Debug(
+      //   "post dispatch global event",
+      //   zzlog.Reflect("event", pe),
+      // )
   }
 
 	return nil
@@ -1010,16 +1011,17 @@ func (pm *PluginsManager) StartPluginMonitor() error {
 		for {
 			select {
       case i := <-pm.global:
-      zlog.Debug("received global pe", PluginLogFields.Manager.With(
-        zzlog.Reflect("manager", pm),
-        zzlog.Reflect("event", i),
-        )...)
-        pm.Notify(*pm.NewObservableEvent(PluginEvents, "plugin_event", &i, pm))
+      // zlog.Debug("received global pe", PluginLogFields.Manager.With(
+      //   zzlog.Reflect("manager", pm),
+      //   zzlog.Reflect("event", i),
+      //   )...)
+      // events.Global.Notify(*pm.NewObservableEvent(PluginEvents, i.name, &i, pm))
+        pm.Notify(*pm.NewObservableEvent(PluginEvents, i.name, &i, pm))
 
-      zlog.Debug("sent observable notify", PluginLogFields.Manager.With(
-        zzlog.Reflect("manager", pm),
-        zzlog.Reflect("event", i),
-        )...)
+      // zlog.Debug("sent observable notify", PluginLogFields.Manager.With(
+      //   zzlog.Reflect("manager", pm),
+      //   zzlog.Reflect("event", i),
+      //   )...)
 			case i := <-debouncedChan:
 				event := i.(fsnotify.Event)
 				p, m := pm.getPluginByPath(filepath.Dir(event.Name))
@@ -1080,12 +1082,14 @@ func (pm *PluginsManager) InitPlugin(ppath string) error {
 
 	})
 	// p.StartMonitor()
-  zlog.Info(fmt.Sprintf("plugin %s", p.Name), zzlog.Object("plugin", p))
+  // zlog.Info(fmt.Sprintf("plugin %s", p.Name), zzlog.Object("plugin", p))
 
 	pm.Plugins = append(pm.Plugins, p)
 
 	p, m := pm.getPluginByPath(ppath)
 	m <- *NewPluginEvent(PluginModified, "modded", p)
+	// m <- *NewPluginEvent(PluginModified, "modded", nil)
+  pm.DispatchEvent(NewPluginEvent(PluginInit, p.Name, p))
 
 	return nil
 }
