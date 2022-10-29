@@ -90,11 +90,30 @@ func NewPalettePaddle(icon, iconActive string) *PalettePaddle {
 			}
 			centerX := x + (width / 2)
 			centerY := y + (height / 2)
+      halfY := (height / 2) / 2
 			tview.Print(
 				screen,
 				icon,
-				centerX-1,
+				centerX,
+				centerY-1-halfY,
+				1,
+				tview.AlignCenter,
+				iconColor,
+			)
+			tview.Print(
+				screen,
+				icon,
+				centerX,
 				centerY-1,
+				1,
+				tview.AlignCenter,
+				iconColor,
+			)
+			tview.Print(
+				screen,
+				icon,
+				centerX,
+				centerY-1+halfY,
 				1,
 				tview.AlignCenter,
 				iconColor,
@@ -235,7 +254,7 @@ func NewCoolorColorTagBox(ti *TagItem, dynIdx int) *CoolorColorTag {
 			// xOff := (width) - (len(lines[0]) / 2)
 			// centerX :=  clamp(float64(x + xOff), float64(x), float64((x + width) - len(lines[0])))
 			fmtr := "[#%06x:#%06x:rb]%s[-::-]"
-      fade := 0.15
+      fade := 0.45
       // fmt.Printf(fmtr, cct.Color.GetFgColorFade(fade).Hex(),cct.Color.Color.Hex(),"SHIT BOY")
 			for i, v := range lines {
       colString := fmt.Sprintf(fmtr, cct.Color.GetFgColorFade(fade).Hex(),cct.Color.Color.Hex(),v) // ,cct.Color.GetFgColorShade().Hex()
@@ -255,7 +274,7 @@ func NewCoolorColorTagBox(ti *TagItem, dynIdx int) *CoolorColorTag {
 	)
   cct.Box.SetBorder(false).SetBorderPadding(0,0,0,0)
 	// cct.Frame.SetBorder(true).SetBorderPadding(1,1,1,1)
-	cct.Box.SetBorderVisible(false)
+	cct.Box.SetBorderVisible(true)
 	// cct.Frame.SetBorders(0,0,0,0,0,0)
 	// cc.SetPlain(true)
 	return cct

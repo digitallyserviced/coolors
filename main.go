@@ -13,9 +13,12 @@ import (
 	_ "expvar"
 	"net/http"
 
-	"github.com/digitallyserviced/coolors/coolor"
 	"github.com/gookit/goutil/dump"
 	"golang.org/x/sys/unix"
+
+	"github.com/digitallyserviced/coolors/coolor"
+	// "github.com/digitallyserviced/coolors/coolor"
+	// "github.com/digitallyserviced/coolors/query"
 )
 
 // func init() {
@@ -38,6 +41,15 @@ const (
 	ioctlWriteTermios = syscall.TCSETS
 )
 
+
+func setupOut(){
+  outlog, err := os.OpenFile("out", os.O_CREATE | os.O_TRUNC | os.O_APPEND | os.O_WRONLY, os.ModePerm)
+  if err != nil {
+    panic(err)
+  }
+  os.Stdout = outlog
+  os.Stderr = outlog
+}
 var (
 	fd          int
 	termios     *unix.Termios
@@ -71,6 +83,16 @@ func getPosition() (int, int) {
 }
 
 func main() {
+  // db, err := gorm.Open(sqlite.Open("gorm.db"),&gorm.Config{})
+  // db.AutoMigrate(coolor.CoolorColor{}, coolor.CoolorColorsPalette{})
+  // col := tcell.Color200
+  // cc := coolor.CoolorColor{Color: &col}
+  // db.Create(cc)
+  // _ = query.CoolorColor
+  // query.CoolorColor
+  // u := query.Query
+  
+  setupOut()
 	go http.ListenAndServe("0.0.0.0:1234", nil)
 	f, err := os.Create("dump")
 	defer f.Close()

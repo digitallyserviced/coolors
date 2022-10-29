@@ -38,6 +38,7 @@ cct.CoolorColorsPalette = cp
 func (cct *CoolorColorTagsView) UpdateStatus(aa string) {
 
 }
+
 func NewTagEditFloater(cp *CoolorColorsPalette) *RootFloatContainer {
         tagV := NewCoolorColorTags(cp)
 	f := NewSizedFloater(90, 18, 0)
@@ -46,11 +47,10 @@ func NewTagEditFloater(cp *CoolorColorsPalette) *RootFloatContainer {
 	return f
 }
 
-
 func (cct *CoolorColorTagsView) UpdateView() {
 	MainC.app.QueueUpdateDraw(func() {
     cct.gridView.SetGap(1, 1)
-    cct.gridView.SetBorderPadding(0,0,1,1).SetBorder(false)
+    cct.gridView.SetBorderPadding(0,0,3,3).SetBorder(false)
     tagKeys := cct.CoolorColorsPalette.TagsKeys(false)
     // tagKeys := cct.CoolorColorsPalette.TagsKeys(true)
 
@@ -72,11 +72,11 @@ func (cct *CoolorColorTagsView) UpdateView() {
     }
 
     row := 0
-    col := 0
+    // col := 0
 
     normalTagsGrid := tview.NewGrid()
     normalTagsGrid.SetGap(1, 1)
-    cct.gridView.AddItem(normalTagsGrid, 0, 0, 1, 1, -1,7, false)
+    cct.gridView.AddItem(normalTagsGrid, 0, 0, 1, 1, -3,-100, false)
     for i, v := range dynTags {
       cctb := NewCoolorColorTagBox(v,0-i)
       color, ok := tagKeys.TaggedColors[v.GetKey()]
@@ -87,18 +87,19 @@ func (cct *CoolorColorTagsView) UpdateView() {
       _,_ = width,height
       cctb.SetRect(x, y, 7, 5)
       cctb.SetColor(color)
-      normalTagsGrid.AddItem(cctb, i, col,1,1,-1,-1,false)
+      normalTagsGrid.AddItem(cctb, 0, i,1,1,-1,-1,false)
     }
 
-    col = 1
+    // col = 1
     cols := 8
     row = 0
 
     normalTags := tview.NewGrid()
     normalTags.SetGap(1, 1)
     cct.gridView.SetBackgroundColor(theme.GetTheme().InfoLabel)
-    cct.gridView.AddItem(normalTags, 0, 1, 1, 1, -1,8*10, false)
-    cct.gridView.SetColumns(-10,-90)
+    cct.gridView.AddItem(normalTags, 1, 0, 1, 1, -7,-100, false)
+    cct.gridView.SetColumns(-100)
+    cct.gridView.SetRows(-33, -66)
     colSizes := make([]int, 8)
     rowSizes := make([]int, 2)
     for i, v := range tags {

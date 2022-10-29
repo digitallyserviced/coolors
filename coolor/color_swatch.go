@@ -7,6 +7,7 @@ import (
 
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
+	. "github.com/digitallyserviced/coolors/coolor/events"
 	// "github.com/gookit/goutil/dump"
 )
 
@@ -88,7 +89,7 @@ func (d *CoolorColorsTable) GetColumnCount() int {
 
 type CoolorColorsPaletteSwatch struct {
 	*tview.Table
-	*eventNotifier
+	*EventNotifier
 	TableContent *CoolorColorsPalettesTable
 	getPalettes  func(cs *CoolorColorsPaletteSwatch) []*CoolorColorsPalette
 	Palettes     []*CoolorColorsPalette
@@ -96,7 +97,7 @@ type CoolorColorsPaletteSwatch struct {
 }
 type CoolorColorSwatch struct {
 	*tview.Table
-	*eventNotifier
+	*EventNotifier
 	TableContent *CoolorColorsTable
 	*CoolorColorsPalette
 	getColors func(cs *CoolorColorSwatch) *CoolorColorsPalette
@@ -121,7 +122,7 @@ func NewCoolorColorSwatch(
 	}
 	ccs := &CoolorColorSwatch{
 		Table:     tview.NewTable(),
-    eventNotifier: NewEventNotifier("color_swatch"),
+    EventNotifier: NewEventNotifier("color_swatch"),
 		getColors: f,
 		name:      "",
 	}
@@ -206,10 +207,10 @@ func (ccs *CoolorColorSwatch) UpdateItems() {
 	ccs.Table.ScrollToBeginning()
 }
 
-func (ccs *CoolorColorSwatch) hide() {
+func (ccs *CoolorColorSwatch) hide(t *TabView) {
 }
 
-func (ccs *CoolorColorSwatch) show() {
+func (ccs *CoolorColorSwatch) show(t *TabView) {
 	ccs.UpdateItems()
 }
 
@@ -324,7 +325,7 @@ func NewCoolorColorsPaletteSwatch(
 	}
 	ccs := &CoolorColorsPaletteSwatch{
 		Table:       tview.NewTable(),
-    eventNotifier: NewEventNotifier("palette_swatch"),
+    EventNotifier: NewEventNotifier("palette_swatch"),
 		getPalettes: f,
 	}
 
@@ -366,10 +367,10 @@ func NewCoolorColorsPaletteSwatch(
 	return ccs
 }
 
-func (ccs *CoolorColorsPaletteSwatch) hide() {
+func (ccs *CoolorColorsPaletteSwatch) hide(t *TabView) {
 }
 
-func (ccs *CoolorColorsPaletteSwatch) show() {
+func (ccs *CoolorColorsPaletteSwatch) show(t *TabView) {
 }
 
 // func (cct *CoolorColorsPaletteSwatch) UpdateView(maxWidth int) {

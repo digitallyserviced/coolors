@@ -9,10 +9,11 @@ import (
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
 
+	. "github.com/digitallyserviced/coolors/coolor/events"
 	"github.com/digitallyserviced/coolors/status"
 )
 
-var PaddleMinWidth int = 4
+var PaddleMinWidth int = 0
 
 type (
 	ColorHash   uint64
@@ -25,18 +26,19 @@ type (
 		GetPalette() *CoolorColorsPalette
 	}
 	CoolorColorsPalette struct {
-		l *sync.RWMutex
-		*eventObserver
-		*eventNotifier
-		Name        string
-		ptype       string
-		Colors      CoolorColors
-		Hash        uint64 `boltholdKey:"Hash"`
-		tagType     *TagType
-		selectedIdx int
-	}
+	l              *sync.RWMutex
+	*EventObserver `gorm:"-"`
+	*EventNotifier `gorm:"-"`
+	tagType        *TagType
+	Name           string
+	ptype          string
+    Colors         CoolorColors `gorm:"foreignKey:Color"`
+	Hash           uint64 `gorm:"uniqueIndex"`
+	selectedIdx    int
+}
 	CoolorPaletteMainView struct {
 		ColorContainer *tview.Flex
+		// ScrollLine     *ScrollLine
 		*tview.Flex
 		handlers map[string]EventHandlers
 		menu     *CoolorToolMenu
@@ -63,8 +65,12 @@ type (
 
 func NewPaddles() []*PalettePaddle {
 	//  ﰯ  ﰭ  鹿      ﲕ     ﮾      ﰬ ﰳ  ﯀    壟     ﰷ ﰮ     ﬕ ﯁ ﲐ  ﬔ    ﲓ      ﰵ      ﮿    ﰰ ﰴ  ﲔ ﲒ         ﲑ               ﲗ ﲖ ﰲ ﰶ  ﰱ 
-	left := NewPalettePaddle("", "")
-	right := NewPalettePaddle("", "")
+	// left := NewPalettePaddle("", "")
+	// right := NewPalettePaddle("", "") ﲑ  
+	// left := NewPalettePaddle("", "")
+	// right := NewPalettePaddle("", "ﰲ")
+	left := NewPalettePaddle("", "")
+	right := NewPalettePaddle("", "")
 	return []*PalettePaddle{left, right}
 }
 
@@ -82,8 +88,8 @@ func NewCoolorColorsPaletteFromMeta(
 	// ccp := ccm.Current
 	// ccp.Colors = make(CoolorColors, 0)
 	// ccp.l = &sync.RWMutex{}
-	// ccp.eventObserver = NewEventObserver("palette")
-	// ccp.eventNotifier = NewEventNotifier("palette")
+	// ccp.EventObserver = NewEventObserver("palette")
+	// ccp.EventNotifier = NewEventNotifier("palette")
 	// cmp := &CoolorMainPalette{
 	// 	CoolorPaletteMainView: LoadedCoolorPalette(ccp),
 	// 	name:                  "random untitled",
@@ -102,8 +108,8 @@ func NewCoolorColorsPaletteFromMeta(
 func NewCoolorColorsPalette() *CoolorColorsPalette {
 	ccp := &CoolorColorsPalette{
 		l:             &sync.RWMutex{},
-		eventObserver: NewEventObserver("palette"),
-		eventNotifier: NewEventNotifier("palette"),
+		EventObserver: NewEventObserver("palette"),
+		EventNotifier: NewEventNotifier("palette"),
 		Name:          Generator().GenerateName(2),
 		ptype:         "",
 		Colors:        make(CoolorColors, 0),
@@ -137,19 +143,21 @@ func LoadedCoolorPalette(ccp *CoolorColorsPalette) *CoolorPaletteMainView {
 	cp.SetDirection(tview.FlexColumn)
 	// cp.SetBorder(true).SetBorderPadding(0, 0, 0, 0)
 	cp.SetTitle("[black:purple:b] Palette [-:-:-]")
-	cp.AddItem(cp.paddles[0], 4, 0, false)
+	cp.AddItem(cp.paddles[0], PaddleMinWidth, 0, false)
 	cp.AddItem(cp.ColorContainer, 80, 0, true)
-	cp.AddItem(cp.paddles[1], 4, 0, false)
+	cp.AddItem(cp.paddles[1], PaddleMinWidth, 0, false)
 	return cp
 }
+
 
 func BlankCoolorPalette() *CoolorPaletteMainView {
 	cp := &CoolorPaletteMainView{
 		CoolorColorsPalette: NewCoolorColorsPalette(),
 		ColorContainer:      tview.NewFlex(),
-		Flex:                tview.NewFlex(),
-		colSize:             maxColSize,
-		maxColors:           8,
+		// ScrollLine: btmLine,
+		Flex:      tview.NewFlex(),
+		colSize:   maxColSize,
+		maxColors: 8,
 		// selectedIdx:    0,
 		// l:              &sync.RWMutex{},
 		handlers: make(map[string]EventHandlers),
@@ -157,13 +165,14 @@ func BlankCoolorPalette() *CoolorPaletteMainView {
 		// menu:        MainC.menu,
 		// ptype: "regular",
 	}
+	// cp.ScrollLine = NewScrollLine(cp.CoolorColorsPalette)
 	cp.ColorContainer.SetDirection(tview.FlexColumn)
 	cp.SetDirection(tview.FlexColumn)
 	// cp.SetBorder(true).SetBorderPadding(0, 0, 0, 0)
 	cp.SetTitle("[black:purple:b] Palette [-:-:-]")
-	cp.AddItem(cp.paddles[0], 4, 0, false)
+	cp.AddItem(cp.paddles[0], PaddleMinWidth, 0, false)
 	cp.AddItem(cp.ColorContainer, 80, 0, true)
-	cp.AddItem(cp.paddles[1], 4, 0, false)
+	cp.AddItem(cp.paddles[1], PaddleMinWidth, 0, false)
 	return cp
 }
 
@@ -188,9 +197,9 @@ func BlankCoolorShadePalette(
 	cp.AddCoolorColor(base)
 	cp.ColorContainer.SetDirection(tview.FlexColumn)
 	cp.SetDirection(tview.FlexColumn)
-	cp.AddItem(cp.paddles[0], 4, 0, false)
+	cp.AddItem(cp.paddles[0], PaddleMinWidth, 0, false)
 	cp.AddItem(cp.ColorContainer, 80, 0, true)
-	cp.AddItem(cp.paddles[1], 4, 0, false)
+	cp.AddItem(cp.paddles[1], PaddleMinWidth, 0, false)
 	cbp := &CoolorShadePalette{
 		CoolorPaletteMainView: cp,
 		base:                  base,
@@ -221,9 +230,9 @@ func BlankCoolorBlendPalette(
 
 	cp.ColorContainer.SetDirection(tview.FlexColumn)
 	cp.SetDirection(tview.FlexColumn)
-	cp.AddItem(cp.paddles[0], 4, 0, false)
+	cp.AddItem(cp.paddles[0], PaddleMinWidth, 0, false)
 	cp.AddItem(cp.ColorContainer, 80, 0, true)
-	cp.AddItem(cp.paddles[1], 4, 0, false)
+	cp.AddItem(cp.paddles[1], PaddleMinWidth, 0, false)
 	cbp := &CoolorBlendPalette{
 		CoolorPaletteMainView: cp,
 		start:                 start,
@@ -253,11 +262,11 @@ func NewCoolorPaletteFromMap(cols map[string]string) *CoolorColorsPalette {
 }
 
 func NewCoolorColorsPaletteFromCssStrings(cols []string) *CoolorColorsPalette {
-  ccp := NewCoolorColorsPalette()
+	ccp := NewCoolorColorsPalette()
 	for _, v := range cols {
 		ccp.AddCoolorColor(NewCoolorColor(v))
 	}
-  return ccp
+	return ccp
 }
 func NewCoolorPaletteFromCssStrings(cols []string) *CoolorMainPalette {
 	cp := BlankCoolorPalette()
@@ -290,14 +299,13 @@ func NewCoolorPaletteWithColors(tcols []tcell.Color) *CoolorMainPalette {
 	return cmp
 }
 
-
 func K(from string, cc *CoolorColor, src Referenced) {
 	// fmt.Println(from, cc)
-	if MainC == nil || MainC.eventNotifier == nil {
+	if MainC == nil || MainC.EventNotifier == nil {
 		return
 	}
-	MainC.eventNotifier.Notify(
-		*MainC.eventNotifier.NewObservableEvent(ColorSeentEvent, from, cc, src),
+	MainC.EventNotifier.Notify(
+		*MainC.EventNotifier.NewObservableEvent(ColorSeentEvent, from, cc, src),
 	)
 }
 func (cp *CoolorPaletteMainView) AddCoolorColor(
@@ -339,7 +347,6 @@ func (cp *CoolorPaletteMainView) RemoveItem(rcc *CoolorColor) {
 	// MainC.conf.AddPalette(fmt.Sprintf("current_%x", time.Now().Unix()), cp)
 }
 
-
 func (cp *CoolorPaletteMainView) AddRandomCoolorColor() *CoolorColor {
 	newc := NewRandomCoolorColor()
 	newc.pallette = cp
@@ -360,7 +367,7 @@ func (cp *CoolorPaletteMainView) Sort() {
 }
 
 func (cp *CoolorPaletteMainView) UpdateDots(dots []string) {
-	status.NewStatusUpdate("dots", strings.Join(dots, " "))
+	status.NewStatusUpdate("dots", strings.Join(dots, ""))
 }
 
 func (cp *CoolorPaletteMainView) NavSelection(idx int) {
@@ -432,17 +439,16 @@ func (cp *CoolorPaletteMainView) ResetViews() {
 	})
 }
 
-
-
-
 func (cp *CoolorPaletteMainView) SetSelected(idx int) error {
-	dirty := "*"
+	// dirty := "*"
 	// if cp.CoolorColorsPalette.GetMeta().Saved {
 	//   dirty = ""
-	// }
+	// } %s
+  cc := cp.Colors[cp.selectedIdx]
 	status.NewStatusUpdate(
 		"name",
-		fmt.Sprintf("%s %s", cp.CoolorColorsPalette.Name, dirty),
+    fmt.Sprintf("[red:gray:-][-:-:-][-:gray:-]  [-:-:-][gray:red:-][-:-:-][black:red:b] %s [-:-:-][red:gray:-][-:gray:-]  [gray:pink:-][black::b] %d [pink:gray:-][-:gray:-]  [gray:%s:-][black::b]%s[%s:-:-][-:-:-]", "untitled", cp.Len(), cc.Html(),cc.TVPreview(),cc.Html()/* , cp.CoolorColorsPalette.Name, dirty */),
+		// fmt.Sprintf("%s %s", cp.CoolorColorsPalette.Name, dirty),
 	)
 	cp.UpdateSize()
 	cp.ResetViews()
@@ -461,7 +467,6 @@ func (cc *CoolorPaletteMainView) SpawnSelectionEvent(
 	)
 	return true
 }
-
 
 // if len(cc.handlers["selected"]) > 0 {
 // 	ev := &ObservableEvent{
@@ -488,7 +493,6 @@ func (cp *CoolorPaletteMainView) UpdateSize() {
 		x, y, w, h := cp.GetInnerRect()
 		_, _, _, _ = x, y, w, h
 		_, _, w, _ = cp.GetRect()
-		// w -= 2
 		cp.maxColors = (w - (PaddleMinWidth * 2)) / cp.colSize
 		if len(cp.Colors) < cp.maxColors {
 			cp.colSize = (w - (PaddleMinWidth * 2)) / len(cp.Colors)
@@ -499,8 +503,8 @@ func (cp *CoolorPaletteMainView) UpdateSize() {
 		}
 		overflow := (w - (PaddleMinWidth * 2)) % cp.colSize
 		left, right := PaddleMinWidth, PaddleMinWidth
-		left += overflow / 2
-		right += overflow / 2
+		left = overflow / 2
+		right = overflow / 2
 		if overflow%2 != 0 {
 			right += 1
 		}
@@ -520,6 +524,7 @@ func (cp *CoolorPaletteMainView) Draw(screen tcell.Screen) {
 	// 	it.Draw(screen)
 	// }
 	cp.Flex.Draw(screen)
+	// cp.ScrollLine.Draw(screen)
 }
 
 // func (cc *CoolorColorsPalette) Register(o Observer) {
@@ -558,6 +563,7 @@ func (cp *CoolorPaletteMainView) ToggleLockSelected() (*CoolorColor, int) {
 func (cp *CoolorPaletteMainView) GetPalette() *CoolorColorsPalette {
 	return cp.CoolorColorsPalette
 }
+
 func (cp *CoolorMainPalette) InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
 	return cp.ColorContainer.WrapInputHandler(
 		func(event *tcell.EventKey, _ func(p tview.Primitive)) {

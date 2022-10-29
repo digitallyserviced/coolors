@@ -99,7 +99,7 @@ func (ft *ContentView) MouseHandler() func(action tview.MouseAction, event *tcel
 	return ft.view.MouseHandler()
 }
 
-func (v *ContentView) SetPreview(fsnode *FSNode) {
+func (v *ContentView) SetPreview(fsnode *TreeNode) {
 	v.topbarView.SetText(formatPath(fsnode.Path))
 
 	if !fsnode.IsDir {

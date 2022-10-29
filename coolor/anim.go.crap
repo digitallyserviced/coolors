@@ -1,0 +1,1278 @@
+func (fm *FrameMotion) Updater(ac *AnimControl) {
+	ac.AddFrameMotionUpdater(fm)
+	defer fmt.Println("updater stopped")
+	ac.l.Lock()
+	updater := ac.updates[fm.MotionType]
+	ac.l.Unlock()
+	go func() {
+		for {
+			<-ac.start
+			select {
+			case <-ac.cancel:
+				return
+			case <-ac.done:
+				return
+			case mv := <-updater:
+				xp.fromC.Add(1)
+				xp.motionX.Set(math.Abs(mv.X))
+				xp.motionVel.Set(math.Abs(mv.Xvelocity))
+				if !fm.MotionMutator.Mutator.Mutate(mv, fm.Animated.Item) {
+					return
+				}
+			}
+		}
+	}()
+	go fm.Start(ac)
+}
+package coolor
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/gdamore/tcell/v2"
+	// "github.com/gdamore/tcell/v2"
+)
+
+
+const (
+	AnimDurShort       = 25 * time.Millisecond
+	AnimDurShortMedium = 50 * time.Millisecond
+	AnimDurMedium      = 75 * time.Millisecond
+	AnimDurMediumLong  = 100 * time.Millisecond
+)
+type AttrMask uint32
+
+// AttrsDefault represents the default styling attributes.
+const AttrsDefault AttrMask = 0
+
+// Color is a generic value for representing colors. Those have to be mapped to
+// concrete foreground and background colors for each driver, as appropriate.
+// type Color uint32
+
+// ColorDefault should get special treatment by drivers and be mapped, when it
+// makes sense, to a default color, both for foreground and background.
+// const ColorDefault Color = 0
+type Style struct {
+	Fg    Color    // foreground color
+	Bg    Color    // background color
+	Attrs AttrMask // custom styling attributes
+}
+type AnimCell struct {
+  Rune rune
+  Style
+}
+type Cell struct {
+  Rune rune
+  tcell.SimCell
+}
+
+func (c Cell) Eq(oc Cell) bool {
+  return c.Rune == oc.Rune && c.Style == oc.Style
+}
+
+type Animations struct {
+	frames []AnimFrame
+	grid   *tcell.CellBuffer
+	// pgrid  Grid
+	idx    int
+	draw   bool
+}
+
+type Sized struct {
+  Width, Height int
+}
+
+type Point struct {
+  X, Y int
+}
+
+type FrameCell struct {
+  Cell Cell
+  P Point
+}
+
+type Frame struct {
+  Time time.Time
+ Cells tcell.CellBuffer
+  *Sized
+}
+
+type AnimFrame struct {
+	Cells   tcell.CellBuffer
+	Duration time.Duration
+}
+type Range struct {
+	Min, Max Point
+}
+
+//
+// // Grid represents the grid that is used to draw a model logical contents that
+// // are then sent to the driver. It is a slice type, so it represents a
+// // rectangular range within an underlying original grid. Due to how it is
+// // represented internally, it is more efficient to iterate whole lines first,
+// // as in the following pattern:
+// //
+// // 	max := gd.Size()
+// //	for y := 0; y < max.Y; y++ {
+// //		for x := 0; x < max.X; x++ {
+// //			p := Point{X: x, Y: y}
+// //			// do something with p and the grid gd
+// //		}
+// //	}
+// //
+// // Most iterations can be performed using the Slice, Fill, Copy, Map and Iter
+// // methods. An alternative choice is to use the Iterator method.
+// //
+// // Grid elements must be created with NewGrid.
+// type Grid struct {
+// 	innerGrid
+// }
+//
+// type innerGrid struct {
+// 	Ug *grid // underlying whole grid
+// 	Rg Range // range within the whole grid
+// }
+//
+// type grid struct {
+//   tcell.SimulationScreen
+//   Cells tcell.CellBuffer
+//   // Cells []Cell
+//   *Sized
+// }
+// // type Grid struct {
+// // 	innerGrid
+// // }
+//
+// // type innerGrid struct {
+// // 	Ug *grid // underlying whole grid
+// // 	Rg Range // range within the whole grid
+// // }
+//
+// type model struct {
+//   *App
+//   *Model
+//   gd Grid
+//   anims Animations
+// }
+//
+// type Point struct {
+//   X, Y int
+// }
+//
+// type FrameCell struct {
+//   Cell Cell
+//   P Point
+// }
+//
+// type Frame struct {
+//   Time time.Time
+//  Cells []FrameCell
+//   *Sized
+// }
+//
+// type AnimFrame struct {
+// 	Cells   []FrameCell
+// 	Duration time.Duration
+// }
+// type Range struct {
+// 	Min, Max Point
+// }
+//
+// type ScreenIterator struct {
+// 	cells  []Cell // grid cells
+// 	p      Point  // iterator's current position
+// 	max    Point  // last position
+// 	i      int    // current position's index
+// 	w      int    // underlying grid's width
+// 	nlstep int    // newline step
+// 	rg     Range  // grid range
+// }
+//
+// type GridIterator struct {
+// 	cells  []Cell // grid cells
+// 	p      Point  // iterator's current position
+// 	max    Point  // last position
+// 	i      int    // current position's index
+// 	w      int    // underlying grid's width
+// 	nlstep int    // newline step
+// 	rg     Range  // grid range
+// }
+// var appModel *model
+// type msgAnim int
+//
+// func NewGridModel(app *Model) *model {
+//   main := NewGrid(app.scr.Size())
+//   appmod := NewGrid(app.scr.Size())
+//   gd := &model{
+//     App: &App{
+//     	grid:  appmod,
+//     	frame: Frame{},
+//     },
+//   	Model: app,
+//   	gd:    main,
+//   }
+//   return gd
+// }
+// // Frame contains the necessary information to draw the frame changes from a
+// // frame to the next. One is sent to the driver after every Draw.
+// // type Frame struct {
+// // 	Time   time.Time   // time of frame drawing: used for replay
+// // 	Cells  []FrameCell // cells that changed from previous frame
+// // 	Width  int         // width of the whole grid when the frame was issued
+// // 	Height int         // height of the whole grid when the frame was issued
+// // }
+// //
+// // // FrameCell represents a cell drawing instruction at a specific absolute
+// // // position in the whole grid.
+// // type FrameCell struct {
+// // 	Cell Cell  // cell content and styling
+// // 	P    Point // absolute position in the whole grid
+// // }
+//
+// // NewGrid returns a new grid with given width and height in cells. The width
+// // and height should be positive or null. The new grid contains all positions
+// // (X,Y) with 0 <= X < w and 0 <= Y < h. The grid is filled with Cell{Rune: ' '}.
+// func NewGrid(w, h int) Grid {
+// 	gd := Grid{}
+// 	gd.Ug = &grid{}
+// 	if w < 0 || h < 0 {
+// 		panic(fmt.Sprintf("negative dimensions: NewGrid(%d,%d)", w, h))
+// 	}
+// 	gd.Rg.Max = Point{w, h}
+// 	gd.Ug.Width = w
+// 	gd.Ug.Height = h
+// 	gd.Ug.Cells = make([]Cell, w*h)
+//   gd.Ug.SimulationScreen = tcell.NewSimulationScreen("")
+//   // gd.Ug.Size
+//   // gd.Ug.Resize(int, int, int, int)
+// 	gd.Fill(Cell{Rune: ' '})
+// 	return gd
+// }
+//
+//
+// // Range represents a rectangle in a grid that contains all the positions P
+// // such that Min <= P < Max coordinate-wise. A range is well-formed if Min <=
+// // Max. When non-empty, Min represents the upper-left position in the range,
+// // and Max-(1,1) the lower-right one.
+// // NewRange returns a new Range with coordinates (x0, y0) for Min and (x1, y1)
+// // for Max. The returned range will have minimum and maximum coordinates
+// // swapped if necessary, so that the range is well-formed.
+// func NewRange(x0, y0, x1, y1 int) Range {
+// 	if x1 < x0 {
+// 		x0, x1 = x1, x0
+// 	}
+// 	if y1 < y0 {
+// 		y0, y1 = y1, y0
+// 	}
+// 	return Range{Min: Point{X: x0, Y: y0}, Max: Point{X: x1, Y: y1}}
+// }
+//
+
+func (md *Model) initAnimations() {
+  // tcell.NewSimulationScreen(charset string)
+  cb := &tcell.CellBuffer{
+  	Cells: make([]tcell.Cell, 0),
+  }
+  cb.Resize(md.scr.Size())
+  cb.Fill(' ', tcell.StyleDefault)
+  md.anims = &Animations{
+  	frames: make([]AnimFrame, 0),
+  	grid:   cb,
+  	idx:    0,
+  	draw:   false,
+  }
+}
+// Msg represents an action and triggers the Update function of the model. Note
+// that nil messages are discarded and do not trigger Update.
+type Msg interface{}
+
+// Effect is an interface type for representing either command or subscription
+// functions.  Those functions generally represent IO operations, either
+// producing a single message or several. They are executed on their own
+// goroutine after being returned by the Update method of the model. A nil
+// effect is discarded and does nothing.
+//
+// The types Cmd and Sub implement the Effect interface. See their respective
+// documentation for specific usage details.
+type Effect interface {
+	implementsEffect()
+}
+
+// Cmd is an Effect that returns a message. Commands returned by Update are
+// executed on their own goroutine. You can use them for things like single
+// event timers and short-lived IO operations with a single result. A nil
+// command is discarded and does nothing.
+//
+// Cmd implements the Effect interface.
+type Cmd func() Msg
+
+// Sub is similar to Cmd, but instead of returning a message, it sends messages
+// to a channel. Subscriptions should only be used for long running functions
+// where more than one message will be produced, for example to send messages
+// delivered by a time.Ticker, or to report messages from listening on a
+// socket. The function should handle the context and terminate as appropriate.
+//
+// Sub implements the Effect interface.
+type Sub func(chan<- Msg)
+
+func (md *model) animNext() Cmd {
+	d := md.anims.frames[0].Duration
+	idx := md.anims.idx
+	return func() Msg {
+		t := time.NewTimer(d)
+		<-t.C
+		return msgAnim(idx)
+	}
+}
+
+func (md *model) animCmd() Cmd {
+	if len(md.anims.frames) == 0 {
+		return nil
+	}
+	idx := md.anims.idx
+	return func() Msg {
+		return msgAnim(idx)
+	}
+}
+
+func (md *model) positionDrawing(p Point) (r rune, fg,bg Color) {
+ r, _, style, _ := md.scr.GetContent(p.X, p.Y)
+_fg, _bg, attr := style.Decompose()
+  fg = MakeColorFromTcell(_fg)
+  bg = MakeColorFromTcell(_bg)
+  fmt.Println(attr)
+  return
+}
+
+func (md *model) startAnimSeq() {
+	if md.anims.Done() {
+		md.resetAnimations()
+	}
+  
+	it := md.gd.Iterator()
+	for it.Next() {
+		p := it.P()
+		r, fg, bg := md.positionDrawing(p)
+		attrs := AttrInMap
+		// if md.g.Highlight[p] || p == md.targ.ex.p {
+		// 	attrs |= AttrReverse
+		// }
+		md.anims.grid.Set(p, *NewCell(r, fg, bg, attrs))
+	}
+}
+
+func NewCell(r rune, fg, bg Color, attrs AttrMask) *Cell {
+ cell := &Cell{Rune: r}
+  cell.Style = tcell.StyleDefault.Background(bg.Tcell()).Foreground(fg.Tcell())
+  if attrs == AttrReverse {
+    cell.Style.Reverse(true)
+  }
+  return cell
+}
+
+func (md *Model) resetAnimations() {
+	gd := md.gd.Slice(md.gd.Range().Shift(0, 2, 0, -1))
+	md.anims.grid.Copy(gd)
+	md.anims.pgrid.Copy(gd)
+}
+
+func (a *Animations) Finish() {
+	a.idx++
+	a.frames = nil
+}
+
+func (a *Animations) Done() bool {
+	return len(a.frames) == 0
+}
+
+func (a *Animations) Draw(p Point, r rune, fg, bg Color) {
+	c := a.grid.At(p)
+	c.Rune = r
+	c.Style.Foreground(fg.Tcell())
+  c.Style.Background(bg.Tcell())
+	// c.Style.Bg = bg
+	a.grid.Set(p, c)
+}
+
+func (a *Animations) DrawReverse(p Point, r rune, fg, bg Color) {
+	c := a.grid.At(p)
+	c.Rune = r
+	c.Style.Foreground(fg.Tcell())
+  c.Style.Background(bg.Tcell())
+  // c.Style.Attributes(/* attrs tcell.AttrMask */)
+  c.Style.Reverse(true)
+	// c.Style.Attrs |= AttrReverse
+	a.grid.Set(p, c)
+}
+
+func (a *Animations) Frame(d time.Duration) {
+	frame := AnimFrame{}
+	frame.Duration = d
+  // tcell
+  // AppModel.scr.Get
+  cb, w, h := AppModel.scr.GetContents()
+  _,_ = w,h
+  // AppModel.scr.GetContents()
+  // frame.Cells = *cb
+  // frame.Cells.Cells
+  copy(frame.Cells.Cells, cb.Cells)
+  a.frames = append(a.frames, frame)
+	// it := a.grid.Iterator()
+	// itp := a.pgrid.Iterator()
+	// for it.Next() && itp.Next() {
+	// 	if it.Cell().Eq(itp.Cell()) {
+	// 		continue
+	// 	}
+	// 	frame.Cells = append(frame.Cells, FrameCell{P: it.P(), Cell: it.Cell()})
+	// }
+	// a.frames = append(a.frames, frame)
+	// a.pgrid.Copy(a.grid)
+}
+
+const (
+	AttrInMap AttrMask = 1 + iota
+	AttrReverse
+)
+//
+// // String returns a string representation of the form "(x,y)".
+// func (p Point) String() string {
+// 	return fmt.Sprintf("(%d,%d)", p.X, p.Y)
+// }
+//
+// // Shift returns a new point with coordinates shifted by (x,y). It's a
+// // shorthand for p.Add(Point{x,y}).
+// func (p Point) Shift(x, y int) Point {
+// 	return Point{X: p.X + x, Y: p.Y + y}
+// }
+//
+// // Add returns vector p+q.
+// func (p Point) Add(q Point) Point {
+// 	return Point{X: p.X + q.X, Y: p.Y + q.Y}
+// }
+//
+// // Sub returns vector p-q.
+// func (p Point) Sub(q Point) Point {
+// 	return Point{X: p.X - q.X, Y: p.Y - q.Y}
+// }
+//
+// // In reports whether the position is within the given range.
+// func (p Point) In(rg Range) bool {
+// 	return p.X >= rg.Min.X && p.X < rg.Max.X && p.Y >= rg.Min.Y && p.Y < rg.Max.Y
+// }
+//
+// // Mul returns the vector p*k.
+// func (p Point) Mul(k int) Point {
+// 	return Point{X: p.X * k, Y: p.Y * k}
+// }
+//
+// // Div returns the vector p/k.
+// func (p Point) Div(k int) Point {
+// 	return Point{X: p.X / k, Y: p.Y / k}
+// }
+// // String returns a string representation of the form "(x0,y0)-(x1,y1)".
+// func (rg Range) String() string {
+// 	return fmt.Sprintf("%s-%s", rg.Min, rg.Max)
+// }
+//
+// // Size returns the (width, height) of the range in cells.
+// func (rg Range) Size() Point {
+// 	return rg.Max.Sub(rg.Min)
+// }
+//
+// // Shift returns a new range with coordinates shifted by (x0,y0) and (x1,y1).
+// func (rg Range) Shift(x0, y0, x1, y1 int) Range {
+// 	rg = Range{Min: rg.Min.Shift(x0, y0), Max: rg.Max.Shift(x1, y1)}
+// 	if rg.Empty() {
+// 		return Range{}
+// 	}
+// 	return rg
+// }
+//
+// // Line reduces the range to relative line y, or an empty range if out of
+// // bounds.
+// func (rg Range) Line(y int) Range {
+// 	if rg.Min.Shift(0, y).In(rg) {
+// 		rg.Min.Y = rg.Min.Y + y
+// 		rg.Max.Y = rg.Min.Y + 1
+// 	} else {
+// 		rg = Range{}
+// 	}
+// 	return rg
+// }
+//
+// // Lines reduces the range to relative lines between y0 (included) and y1
+// // (excluded), or an empty range if out of bounds.
+// func (rg Range) Lines(y0, y1 int) Range {
+// 	nrg := rg
+// 	nrg.Min.Y = rg.Min.Y + y0
+// 	nrg.Max.Y = rg.Min.Y + y1
+// 	return rg.Intersect(nrg)
+// }
+//
+// // Column reduces the range to relative column x, or an empty range if out of
+// // bounds.
+// func (rg Range) Column(x int) Range {
+// 	if rg.Min.Shift(x, 0).In(rg) {
+// 		rg.Min.X = rg.Min.X + x
+// 		rg.Max.X = rg.Min.X + 1
+// 	} else {
+// 		rg = Range{}
+// 	}
+// 	return rg
+// }
+//
+// // Columns reduces the range to relative columns between x0 (included) and x1
+// // (excluded), or an empty range if out of bounds.
+// func (rg Range) Columns(x0, x1 int) Range {
+// 	nrg := rg
+// 	nrg.Min.X = rg.Min.X + x0
+// 	nrg.Max.X = rg.Min.X + x1
+// 	return rg.Intersect(nrg)
+// }
+//
+// // Empty reports whether the range contains no positions.
+// func (rg Range) Empty() bool {
+// 	return rg.Min.X >= rg.Max.X || rg.Min.Y >= rg.Max.Y
+// }
+//
+// // Eq reports whether the two ranges containt the same set of points. All empty
+// // ranges are considered equal.
+// func (rg Range) Eq(r Range) bool {
+// 	return rg == r || rg.Empty() && r.Empty()
+// }
+//
+// // Sub returns a range of same size translated by -p.
+// func (rg Range) Sub(p Point) Range {
+// 	rg.Max = rg.Max.Sub(p)
+// 	rg.Min = rg.Min.Sub(p)
+// 	return rg
+// }
+//
+// // Add returns a range of same size translated by +p.
+// func (rg Range) Add(p Point) Range {
+// 	rg.Max = rg.Max.Add(p)
+// 	rg.Min = rg.Min.Add(p)
+// 	return rg
+// }
+//
+// // RelMsg returns a range-relative version of messages defined by the gruid
+// // package. Currently, it only affects mouse messages, which are given
+// // positions relative to the range.
+// func (rg Range) RelMsg(msg Msg) Msg {
+// 	// if msg, ok := msg.(MsgMouse); ok {
+// 	// 	msg.P = msg.P.Sub(rg.Min)
+// 	// 	return msg
+// 	// }
+// 	return msg
+// }
+//
+// // Intersect returns the largest range contained both by rg and r. If the two
+// // ranges do not overlap, the zero range will be returned.
+// func (rg Range) Intersect(r Range) Range {
+// 	if rg.Max.X > r.Max.X {
+// 		rg.Max.X = r.Max.X
+// 	}
+// 	if rg.Max.Y > r.Max.Y {
+// 		rg.Max.Y = r.Max.Y
+// 	}
+// 	if rg.Min.X < r.Min.X {
+// 		rg.Min.X = r.Min.X
+// 	}
+// 	if rg.Min.Y < r.Min.Y {
+// 		rg.Min.Y = r.Min.Y
+// 	}
+// 	if rg.Min.X >= rg.Max.X || rg.Min.Y >= rg.Max.Y {
+// 		return Range{}
+// 	}
+// 	return rg
+// }
+//
+// // Union returns the smallest range containing both rg and r.
+// func (rg Range) Union(r Range) Range {
+// 	if rg.Max.X < r.Max.X {
+// 		rg.Max.X = r.Max.X
+// 	}
+// 	if rg.Max.Y < r.Max.Y {
+// 		rg.Max.Y = r.Max.Y
+// 	}
+// 	if rg.Min.X > r.Min.X {
+// 		rg.Min.X = r.Min.X
+// 	}
+// 	if rg.Min.Y > r.Min.Y {
+// 		rg.Min.Y = r.Min.Y
+// 	}
+// 	return rg
+// }
+//
+// // Overlaps reports whether the two ranges have a non-zero intersection.
+// func (rg Range) Overlaps(r Range) bool {
+// 	return !rg.Intersect(r).Empty()
+// }
+//
+// // In reports whether range rg is completely contained in range r.
+// func (rg Range) In(r Range) bool {
+// 	return rg.Intersect(r) == rg
+// }
+//
+// // Iter calls a given function for all the positions of the range.
+// func (rg Range) Iter(fn func(Point)) {
+// 	for y := rg.Min.Y; y < rg.Max.Y; y++ {
+// 		for x := rg.Min.X; x < rg.Max.X; x++ {
+// 			p := Point{X: x, Y: y}
+// 			fn(p)
+// 		}
+// 	}
+// }
+// //
+// // type grid struct {
+// // 	Cells  []Cell
+// // 	Width  int
+// // 	Height int
+// // }
+// // String returns a simplified string representation of the grid's runes,
+// // without the styling.
+// func (gd Grid) String() string {
+// 	b := strings.Builder{}
+// 	it := gd.Iterator()
+// 	for it.Next() {
+// 		b.WriteRune(it.Cell().Rune)
+// 		p := it.P()
+// 		if p.X == gd.Rg.Max.X-1 {
+// 			b.WriteRune('\n')
+// 		}
+// 	}
+// 	return b.String()
+// }
+//
+// // Bounds returns the range that is covered by this grid slice within the
+// // underlying original grid.
+// func (gd Grid) Bounds() Range {
+// 	return gd.Rg
+// }
+//
+// // Range returns the range with Min set to (0,0) and Max set to gd.Size(). It
+// // may be convenient when using Slice with a range Shift.
+// func (gd Grid) Range() Range {
+// 	return gd.Rg.Sub(gd.Rg.Min)
+// }
+//
+// // Slice returns a rectangular slice of the grid given by a range relative to
+// // the grid. If the range is out of bounds of the parent grid, it will be
+// // reduced to fit to the available space. The returned grid shares memory with
+// // the parent.
+// //
+// // This makes it easy to use relative coordinates when working with UI
+// // elements.
+// func (gd Grid) Slice(rg Range) Grid {
+// 	if rg.Min.X < 0 {
+// 		rg.Min.X = 0
+// 	}
+// 	if rg.Min.Y < 0 {
+// 		rg.Min.Y = 0
+// 	}
+// 	max := gd.Rg.Size()
+// 	if rg.Max.X > max.X {
+// 		rg.Max.X = max.X
+// 	}
+// 	if rg.Max.Y > max.Y {
+// 		rg.Max.Y = max.Y
+// 	}
+// 	min := gd.Rg.Min
+// 	rg.Min = rg.Min.Add(min)
+// 	rg.Max = rg.Max.Add(min)
+// 	return Grid{innerGrid{Ug: gd.Ug, Rg: rg}}
+// }
+//
+// // Size returns the grid (width, height) in cells, and is a shorthand for
+// // gd.Range().Size().
+// func (gd Grid) Size() Point {
+// 	return gd.Rg.Size()
+// }
+//
+// // Resize is similar to Slice, but it only specifies new dimensions, and if the
+// // range goes beyond the underlying original grid range, it will grow the
+// // underlying grid. In case of growth, it preserves the content, and new cells
+// // are initialized to Cell{Rune: ' '}.
+// func (gd Grid) Resize(w, h int) Grid {
+// 	max := gd.Size()
+// 	ow, oh := max.X, max.Y
+// 	if ow == w && oh == h {
+// 		return gd
+// 	}
+// 	if w <= 0 || h <= 0 {
+// 		gd.Rg.Max = gd.Rg.Min
+// 		return gd
+// 	}
+// 	if gd.Ug == nil {
+// 		gd.Ug = &grid{}
+// 	}
+// 	gd.Rg.Max = gd.Rg.Min.Shift(w, h)
+// 	if w+gd.Rg.Min.X > gd.Ug.Width || h+gd.Rg.Min.Y > gd.Ug.Height {
+// 		ngd := NewGrid(w+gd.Rg.Min.X, h+gd.Rg.Min.Y)
+// 		ngd.Copy(Grid{innerGrid{Ug: gd.Ug, Rg: NewRange(0, 0, gd.Ug.Width, gd.Ug.Height)}})
+// 		*gd.Ug = *ngd.Ug
+// 	}
+// 	return gd
+// }
+//
+// // Contains returns true if the given relative position is within the grid.
+// func (gd Grid) Contains(p Point) bool {
+// 	return p.Add(gd.Rg.Min).In(gd.Rg)
+// }
+//
+// // Set draws cell content and styling at a given position in the grid. If the
+// // position is out of range, the function does nothing.
+// func (gd Grid) Set(p Point, c Cell) {
+// 	q := p.Add(gd.Rg.Min)
+// 	if !q.In(gd.Rg) {
+// 		return
+// 	}
+// 	i := q.Y*gd.Ug.Width + q.X
+// 	gd.Ug.Cells[i] = c
+// }
+//
+// // At returns the cell content and styling at a given position. If the position
+// // is out of range, it returns the zero value.
+// func (gd Grid) At(p Point) Cell {
+// 	q := p.Add(gd.Rg.Min)
+// 	if !q.In(gd.Rg) {
+// 		return Cell{}
+// 	}
+// 	i := q.Y*gd.Ug.Width + q.X
+// 	return gd.Ug.Cells[i]
+// }
+//
+// // Fill sets the given cell as content for all the grid positions.
+// func (gd Grid) Fill(c Cell) {
+// 	if gd.Ug == nil {
+// 		return
+// 	}
+// 	w := gd.Rg.Max.X - gd.Rg.Min.X
+// 	switch {
+// 	case w >= 8:
+// 		gd.fillcp(c)
+// 	case w == 1:
+// 		gd.fillv(c)
+// 	default:
+// 		gd.fill(c)
+// 	}
+// }
+//
+// func (gd Grid) fillcp(c Cell) {
+// 	w := gd.Ug.Width
+// 	ymin := gd.Rg.Min.Y * w
+// 	gdw := gd.Rg.Max.X - gd.Rg.Min.X
+// 	cells := gd.Ug.Cells
+// 	for xi := ymin + gd.Rg.Min.X; xi < ymin+gd.Rg.Max.X; xi++ {
+// 		cells[xi] = c
+// 	}
+// 	idxmax := (gd.Rg.Max.Y-1)*w + gd.Rg.Max.X
+// 	for idx := ymin + w + gd.Rg.Min.X; idx < idxmax; idx += w {
+// 		copy(cells[idx:idx+gdw], cells[ymin+gd.Rg.Min.X:ymin+gd.Rg.Max.X])
+// 	}
+// }
+//
+// func (gd Grid) fill(c Cell) {
+// 	w := gd.Ug.Width
+// 	cells := gd.Ug.Cells
+// 	yimax := gd.Rg.Max.Y * w
+// 	for yi := gd.Rg.Min.Y * w; yi < yimax; yi += w {
+// 		ximax := yi + gd.Rg.Max.X
+// 		for xi := yi + gd.Rg.Min.X; xi < ximax; xi++ {
+// 			cells[xi] = c
+// 		}
+// 	}
+// }
+//
+// func (gd Grid) fillv(c Cell) {
+// 	w := gd.Ug.Width
+// 	cells := gd.Ug.Cells
+// 	ximax := gd.Rg.Max.Y*w + gd.Rg.Min.X
+// 	for xi := gd.Rg.Min.Y*w + gd.Rg.Min.X; xi < ximax; xi += w {
+// 		cells[xi] = c
+// 	}
+// }
+//
+// // Iter iterates a function on all the grid positions and cells.
+// func (gd Grid) Iter(fn func(Point, Cell)) {
+// 	if gd.Ug == nil {
+// 		return
+// 	}
+// 	w := gd.Ug.Width
+// 	yimax := gd.Rg.Max.Y * w
+// 	cells := gd.Ug.Cells
+// 	for y, yi := 0, gd.Rg.Min.Y*w; yi < yimax; y, yi = y+1, yi+w {
+// 		ximax := yi + gd.Rg.Max.X
+// 		for x, xi := 0, yi+gd.Rg.Min.X; xi < ximax; x, xi = x+1, xi+1 {
+// 			c := cells[xi]
+// 			p := Point{X: x, Y: y}
+// 			fn(p, c)
+// 		}
+// 	}
+// }
+//
+// // Map updates the grid content using the given mapping function.
+// func (gd Grid) Map(fn func(Point, Cell) Cell) {
+// 	if gd.Ug == nil {
+// 		return
+// 	}
+// 	w := gd.Ug.Width
+// 	cells := gd.Ug.Cells
+// 	yimax := gd.Rg.Max.Y * w
+// 	for y, yi := 0, gd.Rg.Min.Y*w; yi < yimax; y, yi = y+1, yi+w {
+// 		ximax := yi + gd.Rg.Max.X
+// 		for x, xi := 0, yi+gd.Rg.Min.X; xi < ximax; x, xi = x+1, xi+1 {
+// 			c := cells[xi]
+// 			p := Point{X: x, Y: y}
+// 			cells[xi] = fn(p, c)
+// 		}
+// 	}
+// }
+//
+// // Copy copies elements from a source grid src into the destination grid gd,
+// // and returns the copied grid-slice size, which is the minimum of both grids
+// // for each dimension. The result is independent of whether the two grids
+// // referenced memory overlaps or not.
+// func (gd Grid) Copy(src Grid) Point {
+// 	if gd.Ug == nil {
+// 		return Point{}
+// 	}
+// 	if gd.Ug != src.Ug {
+// 		if src.Rg.Max.X-src.Rg.Min.X <= 4 {
+// 			return gd.cpv(src)
+// 		}
+// 		return gd.cp(src)
+// 	}
+// 	if gd.Rg == src.Rg {
+// 		return gd.Rg.Size()
+// 	}
+// 	if !gd.Rg.Overlaps(src.Rg) || gd.Rg.Min.Y <= src.Rg.Min.Y {
+// 		return gd.cp(src)
+// 	}
+// 	return gd.cprev(src)
+// }
+//
+// func (gd Grid) cp(src Grid) Point {
+// 	w := gd.Ug.Width
+// 	wsrc := src.Ug.Width
+// 	max := gd.Range().Intersect(src.Range()).Size()
+// 	idxmin := gd.Rg.Min.Y*w + gd.Rg.Min.X
+// 	idxsrcmin := src.Rg.Min.Y*w + src.Rg.Min.X
+// 	idxmax := (gd.Rg.Min.Y + max.Y) * w
+// 	for idx, idxsrc := idxmin, idxsrcmin; idx < idxmax; idx, idxsrc = idx+w, idxsrc+wsrc {
+// 		copy(gd.Ug.Cells[idx:idx+max.X], src.Ug.Cells[idxsrc:idxsrc+max.X])
+// 	}
+// 	return max
+// }
+//
+// func (gd Grid) cpv(src Grid) Point {
+// 	w := gd.Ug.Width
+// 	wsrc := src.Ug.Width
+// 	max := gd.Range().Intersect(src.Range()).Size()
+// 	yimax := (gd.Rg.Min.Y + max.Y) * w
+// 	cells := gd.Ug.Cells
+// 	srccells := src.Ug.Cells
+// 	for yi, yisrc := gd.Rg.Min.Y*w, src.Rg.Min.Y*wsrc; yi < yimax; yi, yisrc = yi+w, yisrc+wsrc {
+// 		ximax := yi + max.X
+// 		for xi, xisrc := yi+gd.Rg.Min.X, yisrc+src.Rg.Min.X; xi < ximax; xi, xisrc = xi+1, xisrc+1 {
+// 			cells[xi] = srccells[xisrc]
+// 		}
+// 	}
+// 	return max
+// }
+//
+// func (gd Grid) cprev(src Grid) Point {
+// 	w := gd.Ug.Width
+// 	wsrc := src.Ug.Width
+// 	max := gd.Range().Intersect(src.Range()).Size()
+// 	idxmax := (gd.Rg.Min.Y+max.Y-1)*w + gd.Rg.Min.X
+// 	idxsrcmax := (src.Rg.Min.Y+max.Y-1)*w + src.Rg.Min.X
+// 	idxmin := gd.Rg.Min.Y * w
+// 	for idx, idxsrc := idxmax, idxsrcmax; idx >= idxmin; idx, idxsrc = idx-w, idxsrc-wsrc {
+// 		copy(gd.Ug.Cells[idx:idx+max.X], src.Ug.Cells[idxsrc:idxsrc+max.X])
+// 	}
+// 	return max
+// }
+//
+// // GridIterator represents a stateful iterator for a grid. They are created
+// // with the Iterator method.
+// // Iterator returns an iterator that can be used to iterate on the grid. It may
+// // be convenient when more flexibility than the provided by the other iteration
+// // functions is needed. It is used as follows:
+// //
+// // 	it := gd.Iterator()
+// // 	for it.Next() {
+// // 		// call it.P() or it.Cell() or it.SetCell() as appropriate
+// // 	}
+// func (gd Grid) Iterator() GridIterator {
+// 	if gd.Ug == nil {
+// 		return GridIterator{}
+// 	}
+// 	w := gd.Ug.Width
+// 	it := GridIterator{
+// 		w:      w,
+// 		cells:  gd.Ug.Cells,
+// 		max:    gd.Size().Shift(-1, -1),
+// 		rg:     gd.Rg,
+// 		nlstep: gd.Rg.Min.X + (w - gd.Rg.Max.X + 1),
+// 	}
+// 	it.Reset()
+// 	return it
+// }
+//
+// // Reset resets the iterator's state so that it can be used again.
+// func (it *GridIterator) Reset() {
+// 	it.p = Point{-1, 0}
+// 	it.i = it.rg.Min.Y*it.w + it.rg.Min.X - 1
+// }
+//
+// // Next advances the iterator the next position in the grid.
+// func (it *GridIterator) Next() bool {
+// 	if it.p.X < it.max.X {
+// 		it.p.X++
+// 		it.i++
+// 		return true
+// 	}
+// 	if it.p.Y < it.max.Y {
+// 		it.p.Y++
+// 		it.p.X = 0
+// 		it.i += it.nlstep
+// 		return true
+// 	}
+// 	return false
+// }
+//
+// // P returns the iterator's current position.
+// func (it *GridIterator) P() Point {
+// 	return it.p
+// }
+//
+// // SetP sets the iterator's current position.
+// func (it *GridIterator) SetP(p Point) {
+// 	q := p.Add(it.rg.Min)
+// 	if !q.In(it.rg) {
+// 		return
+// 	}
+// 	it.p = p
+// 	it.i = q.Y*it.w + q.X
+// }
+//
+// // Cell returns the Cell in the grid at the iterator's current position.
+// func (it *GridIterator) Cell() Cell {
+// 	return it.cells[it.i]
+// }
+//
+// // SetCell updates the grid cell at the iterator's current position.
+// func (it *GridIterator) SetCell(c Cell) {
+// 	it.cells[it.i] = c
+// }
+//
+// type App struct {
+//   grid Grid
+//   frame Frame
+// }
+//
+// // computeFrame computes next frame minimal changes and returns them.
+// func (md *model) computeFrame(gd Grid, exposed bool) Frame {
+//   app := md.App
+// 	if gd.Ug == nil || gd.Rg.Empty() && !exposed {
+// 		return Frame{}
+// 	}
+//   scrcells,w, h := md.simscr.GetContents()
+//   _,_,_ = scrcells,h,w
+// 	if app.grid.Ug == nil {
+// 		app.grid = NewGrid(gd.Ug.Width, gd.Ug.Height)
+// 		app.frame.Width = gd.Ug.Width
+// 		app.frame.Height = gd.Ug.Height
+// 	} else if app.grid.Ug.Width != gd.Ug.Width || app.grid.Ug.Height != gd.Ug.Height {
+// 		app.grid = app.grid.Resize(gd.Ug.Width, gd.Ug.Height)
+// 		app.frame.Width = gd.Ug.Width
+// 		app.frame.Height = gd.Ug.Height
+// 	}
+// 	app.frame.Time = time.Now()
+// 	app.frame.Cells = app.frame.Cells[:0]
+// 	// if exposed {
+// 	// 	return app.refresh(gd)
+// 	// }
+// 	w = gd.Ug.Width
+// 	cells := gd.Ug.Cells
+// 	pcells := app.grid.Ug.Cells // previous cells
+// 	yimax := gd.Rg.Max.Y * w
+// 	for y, yi := 0, gd.Rg.Min.Y*w; yi < yimax; y, yi = y+1, yi+w {
+// 		ximax := yi + gd.Rg.Max.X
+// 		for x, xi := 0, yi+gd.Rg.Min.X; xi < ximax; x, xi = x+1, xi+1 {
+// 			c := cells[xi]
+// 			if c.Eq(pcells[xi]){
+// 				continue
+// 			}
+// 			pcells[xi] = c
+// 			p := Point{X: x, Y: y}
+// 			cdraw := FrameCell{Cell: c, P: p}
+// 			app.frame.Cells = append(app.frame.Cells, cdraw)
+// 		}
+// 	}
+// 	return app.frame
+// }
+
+
+//
+// func (a *Animation) Mutator(controller *AnimControl){
+//
+//   go func() {
+//     for {
+//       select {
+// 			case <-controller.cancel:
+// 				return
+// 			case <-controller.done:
+// 				return
+//       case mv := <-controller.updates[m]:
+//         // var b *tview.Box
+//         // var ok bool
+//         // b, ok = m.data["Box"].(*tview.Box)
+//         // if ok {}
+//         //   m.Mutator.Mutate(mv,b)
+//         // }
+//     }
+//     }
+//   }()
+// }
+//
+
+// type Animator interface {
+// 	AddSpring(harmonica.Spring)
+// }
+
+// type SpringStateHandler func(spring *Springer)
+// type SpringSetupHandler func(fps,freq,damp float64) harmonica.Spring
+// type SpringUpdateHandler func(newX float64, frame *AnimFrame) bool
+
+// type AnimationHandlers struct {
+//
+// }
+
+//
+func anim(target int) {
+	w, h := AppModel.scr.Size()
+	_ = h
+	var ab *AnimBox
+	rem := false
+	if !MainC.pages.HasPage("test") {
+		ab = &AnimBox{
+			Box:       tview.NewBox(),
+			x:         0,
+			y:         0,
+			xVelocity: 0,
+			yVelocity: 0,
+		}
+		MainC.pages.AddPage("test", ab, false, false)
+		MainC.pages.ShowPage("test")
+		MainC.app.SetFocus(MainC.pages)
+		ab.x = float64(w + 20)
+		ab.targetX = float64(w - 30) // float64(target)
+		ab.targetY = 5.0
+	} else {
+		page := MainC.pages.GetPage("test")
+		MainC.pages.SendToFront("test")
+		ab = page.(*AnimBox)
+		ab.x = float64(w - 30)
+		ab.y = 20.0
+		ab.targetX = float64(w + 30) // float64(target)
+		ab.targetY = 1.0
+		rem = true
+	}
+	ab.spring = harmonica.NewSpring(harmonica.FPS(fps), bFrequency, bDamping)
+	MainC.app.QueueUpdateDraw(func() {
+		ab.SetRect(int(ab.x), 0, int(ab.y), 4)
+		MainC.app.Draw(ab)
+	})
+	go func() {
+		tick := time.NewTicker(time.Second * time.Duration(harmonica.FPS(fps)))
+		count := 0
+		for count < 80 {
+			<-tick.C
+			ab.update()
+			count += 1
+		}
+		tick.Stop()
+		if rem {
+			MainC.pages.RemovePage("test")
+		}
+	}()
+}
+
+func IsClosed[T chan any](c chan T) bool {
+	select {
+	case <-c:
+		return true
+	default:
+	}
+	return false
+}
+
+func (m *AnimBox) update() {
+	MainC.app.QueueUpdateDraw(func() {
+		m.x, m.xVelocity = m.spring.Update(m.x, m.xVelocity, m.targetX)
+		m.y, m.yVelocity = m.spring.Update(m.y, m.yVelocity, m.targetY)
+		// dump.P(m)
+		m.SetRect(int(m.x), 2, 20, 4)
+		{
+			x, y, w, h := AppModel.helpbar.GetRect()
+			AppModel.helpbar.SetRect(x, y, w, h+int(m.y))
+			AppModel.rootView.ResizeItem(AppModel.helpbar, int(m.y), 1)
+		}
+		MainC.app.Draw(m)
+		MainC.app.Draw(AppModel.helpbar)
+	})
+}
+
+// func NewMover(p tview.Primitive){
+//   b := tview.NewBox()
+//   harmonica.FPS(n int)
+// }
+
+// func StringArrayToSprite(s []string, settings *settings.Settings) [][]*Sprite {
+// 	sprites := [][]*Sprite{}
+// 	for _, k := range s {
+// 		sprites = append(sprites, StringToSprite(k, settings))
+// 	}
+// 	return sprites
+// }
+//
+// func CursorToSprite(input string, settings *settings.Settings) []*Sprite {
+// 	out := []*Sprite{}
+// 	for _, r := range []rune(input) {
+// 		out = append(out, &Sprite{
+// 			Style:   settings.CursorColor,
+// 			Char:    r,
+// 			Xpos:    0,
+// 			Ypos:    0,
+// 			Correct: false,
+// 		})
+// 	}
+// 	return out
+// }
+//
+// func StringToSprite(input string, settings *settings.Settings) []*Sprite {
+// 	out := []*Sprite{}
+// 	for _, r := range []rune(input) {
+// 		out = append(out, &Sprite{
+// 			Style: settings.TextColor,
+// 			Char:  r,
+// 			Xpos:  0,
+// 			Ypos:  0,
+// 		})
+// 	}
+// 	return out
+// }
+//
+// func SpriteToString(c []*Sprite) string {
+// 	s := []rune{}
+// 	for _, sp := range c {
+// 		s = append(s, sp.Char)
+// 	}
+// 	return string(s)
+// }
+//
+// func NewScreen(options *settings.Settings) *Screen {
+// 	Window, _ := tcell.NewScreen()
+// 	Window.Init()
+// 	Window.SetStyle(tcell.Style(options.TextColor))
+// 	menus := []Menu{}
+// 	mainMenu := NewMainMenu(options)
+// 	settingsMenu := NewSettingsMenu(options)
+// 	menus = append(menus, mainMenu)
+// 	menus = append(menus, settingsMenu)
+// 	UpdateChannel := make(chan *settings.Settings, 1)
+// 	StartGame := make(chan bool, 1)
+// 	return &Screen{Window: Window, CurrentMenu: mainMenu, MenuList: menus, UpdateChannel: UpdateChannel, StartGame: StartGame}
+// }
+//
+// func (s *Screen) NewGame(options *settings.Settings) {
+// 	x, y := s.Window.Size()
+// 	gameContainer := NewContainer(x, y)
+// 	GameMenu := NewGameMenu(gameContainer, options)
+// 	s.CurrentMenu = GameMenu
+// 	s.CurrentMenu.Resize(s)
+// }
+//
+// func (s *Screen) DrawContentWithinContainer(c *Container, x, y int, content []*Sprite) {
+// 	// Checks if the given word fits on the line... If it does it draws it
+// 	if len(content) < c.xBound.end-x {
+// 		for i, sp := range content {
+// 			sp.Xpos = x + i
+// 			sp.Ypos = y
+// 			s.Window.SetContent(sp.Xpos, sp.Ypos, sp.Char, nil, tcell.Style(sp.Style))
+// 			// These cursors are used to keep track how much data is written to a container and where to write data
+// 			c.xCursor++
+// 		}
+// 		// Checks If there is a line below the current one and draws the
+// 	} else if y+2 < c.yBound.end {
+// 		c.yCursor += 2
+// 		c.xCursor = c.xBound.begin
+// 		for i, sp := range content {
+// 			sp.Xpos = c.xBound.begin + i
+// 			sp.Ypos = c.yCursor
+// 			s.Window.SetContent(sp.Xpos, sp.Ypos, sp.Char, nil, tcell.Style(sp.Style))
+// 			c.xCursor++
+// 		}
+//
+// 	} else {
+// 		c.isFull = true
+// 	}
+//
+// }
+//
+// func (s *Screen) DrawContent(x, y int, content []*Sprite) {
+// 	winX, winY := s.Window.Size()
+// 	for i, sp := range content {
+// 		sp.Xpos = x + i
+// 		sp.Ypos = y
+// 		s.Window.SetContent(sp.Xpos, sp.Ypos, sp.Char, nil, tcell.Style(sp.Style))
+// 		if x+i > winX {
+// 			y++
+// 		}
+// 		if y > winY {
+// 			break
+// 		}
+// 	}
+//
+// }
+// func (sm *SettingsMenu) AnimStart(s *Screen) {
+// 	framerate := time.NewTicker(1 * time.Second / 5)
+// 	go func(s *Screen) {
+// 		i := 0
+// 		for range framerate.C {
+// 			if !sm.animActive && sm.animStopped {
+// 				break
+// 			}
+// 			if i == 0 {
+// 				s.DrawContent(sm.Cursor[0].Xpos, sm.Cursor[0].Ypos, sm.ClearCursor)
+// 				sm.Cursor[0].Xpos -= 3
+// 				s.DrawContent(sm.Cursor[0].Xpos, sm.Cursor[0].Ypos, sm.Cursor)
+// 				i++
+// 			} else {
+// 				s.DrawContent(sm.Cursor[0].Xpos, sm.Cursor[0].Ypos, sm.ClearCursor)
+// 				sm.Cursor[0].Xpos += 3
+// 				s.DrawContent(sm.Cursor[0].Xpos, sm.Cursor[0].Ypos, sm.Cursor)
+// 				i--
+//
+// 			}
+// 		}
+// 		return
+// 	}(s)
+// }
+
+type MotionUpdateReceiver chan MotionValues
+type MotionUpdateSubscribers []chan MotionValues
+type BoxRectXMotion struct {
+	*FrameMotion
+}
+
+type AnimBox struct {
+	*tview.Box
+	spring                     harmonica.Spring
+	x, y, xVelocity, yVelocity float64
+	targetX, targetY           float64
+}
+

@@ -13,6 +13,11 @@ var OrigBorders = struct {
 	BottomLeft  rune
 	BottomRight rune
 
+	TopHorizontal  rune
+	BottomHorizontal  rune
+	LeftVertical    rune
+	RightVertical    rune
+
 	LeftT   rune
 	RightT  rune
 	TopT    rune
@@ -47,6 +52,53 @@ var OrigBorders = struct {
 	BottomRightFocus: tview.BoxDrawingsHeavyUpAndLeft,
 }
 
+var SimpleBorderStyle = struct {
+	Horizontal       rune
+	Vertical         rune
+	TopLeft          rune
+	TopRight         rune
+	BottomLeft       rune
+	BottomRight      rune
+	TopHorizontal    rune
+	BottomHorizontal rune
+	LeftVertical     rune
+	RightVertical    rune
+	LeftT            rune
+	RightT           rune
+	TopT             rune
+	BottomT          rune
+	Cross            rune
+	HorizontalFocus  rune
+	VerticalFocus    rune
+	TopLeftFocus     rune
+	TopRightFocus    rune
+	BottomLeftFocus  rune
+	BottomRightFocus rune
+}{
+	Horizontal:       tview.BoxDrawingsHeavyHorizontal,
+	Vertical:         tview.BoxDrawingsHeavyVertical,
+	TopLeft:          tview.BoxDrawingsHeavyDownAndRight,
+	TopRight:         tview.BoxDrawingsHeavyDownAndLeft,
+	BottomLeft:       tview.BoxDrawingsHeavyUpAndRight,
+	BottomRight:      tview.BoxDrawingsHeavyUpAndLeft,
+//    ▁▁▁ ▔▔▔ 🮀🮀🮀 ▁▔▕▏▏
+    // ▏▕
+	// TopHorizontal:    '▁',
+	// BottomHorizontal: '▔',
+	// LeftVertical:     '▏',
+	// RightVertical:    ' ',
+	LeftT:            tview.BoxDrawingsHeavyVerticalAndRight,
+	RightT:           tview.BoxDrawingsHeavyVerticalAndLeft,
+	TopT:             tview.BoxDrawingsHeavyDownAndHorizontal,
+	BottomT:          tview.BoxDrawingsHeavyUpAndHorizontal,
+	Cross:            tview.BoxDrawingsHeavyVerticalAndHorizontal,
+	HorizontalFocus:  tview.BoxDrawingsDoubleHorizontal,
+	VerticalFocus:    tview.BoxDrawingsDoubleVertical,
+	TopLeftFocus:     tview.BoxDrawingsDoubleDownAndRight,
+	TopRightFocus:    tview.BoxDrawingsDoubleDownAndLeft,
+	BottomLeftFocus:  tview.BoxDrawingsDoubleUpAndRight,
+	BottomRightFocus: tview.BoxDrawingsDoubleUpAndLeft,
+}
 var MyBorderStyle = struct {
 	Horizontal  rune
 	Vertical    rune
@@ -54,6 +106,11 @@ var MyBorderStyle = struct {
 	TopRight    rune
 	BottomLeft  rune
 	BottomRight rune
+
+	TopHorizontal  rune
+	BottomHorizontal  rune
+	LeftVertical    rune
+	RightVertical    rune
 
 	LeftT   rune
 	RightT  rune
@@ -95,6 +152,11 @@ var InvisBorders = struct {
 	TopRight    rune
 	BottomLeft  rune
 	BottomRight rune
+
+	TopHorizontal  rune
+	BottomHorizontal  rune
+	LeftVertical    rune
+	RightVertical    rune
 
 	LeftT   rune
 	RightT  rune

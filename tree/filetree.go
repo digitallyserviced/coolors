@@ -18,21 +18,21 @@ type FileTree struct {
 	collapsed   bool
 	view        *tview.TreeView
 	root        *tview.TreeNode
-	onSelect    func(node *FSNode)
-	onChanged   func(node *FSNode)
-	onOpen      func(node *FSNode)
+	onSelect    func(node *TreeNode)
+	onChanged   func(node *TreeNode)
+	onOpen      func(node *TreeNode)
 	AfterDraw   []func(*FileTree)
 	filters     []string
 	localRoot   *tview.TreeNode
 	virtualRoot *tview.TreeNode
 }
 
-func get(node *tview.TreeNode) *FSNode {
+func get(node *tview.TreeNode) *TreeNode {
 	ref := node.GetReference()
 	if ref == nil {
 		return nil
 	}
-	return ref.(*FSNode)
+	return ref.(*TreeNode)
 }
 
 func NewFileTree(theme *Theme) *FileTree {
@@ -243,7 +243,7 @@ func (ft *FileTree) changed(node *tview.TreeNode) {
 	}
 }
 
-func (ft *FileTree) GetParentNode(fsnode *FSNode) *FSNode {
+func (ft *FileTree) GetParentNode(fsnode *TreeNode) *TreeNode {
 	var currParent *tview.TreeNode
 	ft.root.Walk(func(node, parent *tview.TreeNode) bool {
 		if node == fsnode.Node {
@@ -261,7 +261,7 @@ func (ft *FileTree) GetParentNode(fsnode *FSNode) *FSNode {
 	return get(currParent)
 }
 
-func (ft *FileTree) SetRoot(fsnode *FSNode) {
+func (ft *FileTree) SetRoot(fsnode *TreeNode) {
 	ft.root = fsnode.Node
 	ft.view.SetRoot(ft.root)
 	// ft.root.ClearChildren()
@@ -275,19 +275,22 @@ func (ft *FileTree) SetRoot(fsnode *FSNode) {
 	// }
 	ft.root.Expand()
 }
-func (ft *FileTree) SetVirtualRoot(fsnode *FSNode) {
+func (ft *FileTree) GetVirtualRoot() *tview.TreeNode{
+  return ft.virtualRoot
+}
+func (ft *FileTree) SetVirtualRoot(fsnode *TreeNode) {
 	ft.virtualRoot = fsnode.Node
 	ft.virtualRoot.ClearChildren()
 	ft.root.AddChild(fsnode.Node)
   ft.view.SetCurrentNode(ft.virtualRoot)
 }
-func (ft *FileTree) SetLocalRoot(fsnode *FSNode) {
+func (ft *FileTree) SetLocalRoot(fsnode *TreeNode) {
 	ft.localRoot = fsnode.Node
 	ft.localRoot.ClearChildren()
 	ft.root.AddChild(fsnode.Node)
   ft.view.SetCurrentNode(ft.localRoot)
 }
-func (ft *FileTree) UpdateLocalRoot(fsnode *FSNode) {
+func (ft *FileTree) UpdateLocalRoot(fsnode *TreeNode) {
 	if fsnode != nil {
 		ft.localRoot.ClearChildren()
     ft.localRoot.AddChild(fsnode.Node)
@@ -305,13 +308,13 @@ func (ft *FileTree) UpdateLocalRoot(fsnode *FSNode) {
 	}
 }
 
-func (ft *FileTree) SetCurrent(fsnode *FSNode) {
+func (ft *FileTree) SetCurrent(fsnode *TreeNode) {
 	if fsnode != nil {
 		ft.view.SetCurrentNode(fsnode.Node)
 	}
 }
 
-func (ft *FileTree) IsRoot(fsnode *FSNode) bool {
+func (ft *FileTree) IsRoot(fsnode *TreeNode) bool {
 	return ft.root == fsnode.Node
 }
 
@@ -324,14 +327,14 @@ func (ft *FileTree) Load(dir string) {
 	ft.SetLocalRoot(newRootFsnode(dir))
 }
 
-func (ft *FileTree) OnSelect(fn func(node *FSNode)) {
+func (ft *FileTree) OnSelect(fn func(node *TreeNode)) {
 	ft.onSelect = fn
 }
 
-func (ft *FileTree) OnOpen(fn func(node *FSNode)) {
+func (ft *FileTree) OnOpen(fn func(node *TreeNode)) {
 	ft.onOpen = fn
 }
 
-func (ft *FileTree) OnChanged(fn func(node *FSNode)) {
+func (ft *FileTree) OnChanged(fn func(node *TreeNode)) {
 	ft.onChanged = fn
 }

@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"regexp"
-	"strconv"
 	"syscall"
 	"time"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/gookit/goutil/dump"
 
 	"github.com/digitallyserviced/coolors/coolor/zzlog"
+	. "github.com/digitallyserviced/coolors/coolor/events"
 
 	// "github.com/gookit/goutil/errorx"
 	msgpack "github.com/vmihailenco/msgpack/v5"
@@ -299,11 +299,11 @@ func startBoltStats() {
 
 func SeentColor(from string, cc *CoolorColor, src Referenced) {
 	// fmt.Println(from, cc)
-	if MainC == nil || MainC.eventNotifier == nil {
+	if MainC == nil || MainC.EventNotifier == nil {
 		return
 	}
-	MainC.eventNotifier.Notify(
-		*MainC.eventNotifier.NewObservableEvent(ColorSeentEvent, from, cc, src),
+	MainC.EventNotifier.Notify(
+		*MainC.EventNotifier.NewObservableEvent(ColorSeentEvent, from, cc, src),
 	)
 }
 
@@ -355,34 +355,6 @@ func enc(value interface{}) ([]byte, error) {
 // func (v LogMask) String() string   { return enumString(uint32(v), logMasks, false) }
 // func (v LogMask) GoString() string { return enumString(uint32(v), logMasks, true) }
 
-// enumName associates an enum value with its name for printing.
-type enumName struct {
-	v uint32
-	s string
-}
-
-// enumString converts a flag-based enum value into its string representation.
-func enumString(v uint32, names []enumName, goSyntax bool) string {
-	s := ""
-	for _, n := range names {
-		if v&n.v == n.v && (n.v != 0 || v == 0) {
-			if len(s) > 0 {
-				s += "+"
-			}
-			if goSyntax {
-				s += "imap."
-			}
-			s += n.s
-			if v &= ^n.v; v == 0 {
-				return s
-			}
-		}
-	}
-	if len(s) > 0 {
-		s += "+"
-	}
-	return s + "0x" + strconv.FormatUint(uint64(v), 16)
-}
 
 var Shortcuts []*Shortcut
 var scopes []*Scope
@@ -532,7 +504,7 @@ func FocusNextIfPossible(
 type Stack []interface{}
 
 // Create a new stack
-func New() *Stack {
+func NewStack() *Stack {
 	return &Stack{}
 }
 

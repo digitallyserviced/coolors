@@ -1,18 +1,25 @@
 package coolor
 
 import (
-	"encoding/json"
 	"net/url"
 	"os"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/gookit/goutil/dump"
 	"github.com/knadh/koanf"
 	"go.uber.org/zap/zapcore"
-	"rogchap.com/v8go"
 
 	"github.com/digitallyserviced/coolors/coolor/plugin"
 	"github.com/digitallyserviced/coolors/coolor/util"
+	. "github.com/digitallyserviced/coolors/coolor/events"
+)
+
+type (
+	PluginType          uint
+	PluginEventType     uint
+	PluginEventStatus   uint
+	PluginWorkerStatus  uint
+	PluginDetectionType uint
+	PluginKeyMapType    uint
 )
 
 type PluginSchemeMeta struct {
@@ -24,16 +31,11 @@ type PluginSchemeMeta struct {
 type PluginSchemeFile struct {
 	Plugin *Plugin
 	PluginSchemeMeta
-	file *os.File
-	Data *koanf.Koanf
-  ConfigData map[string]interface{}
-}
-
-type PluginFileHandler struct {
-	Import *v8go.Function
-	Export *v8go.Function
-	TagMap *v8go.Object
-	Misc   *v8go.Object
+	file       *os.File
+	Data       *koanf.Koanf
+	ConfigData map[string]interface{}
+	Palette    map[string]string
+	buf        []byte
 }
 
 type Plugin struct {
@@ -44,57 +46,17 @@ type Plugin struct {
 	monitor       <-chan PluginEvent
 	DetectionType PluginDetectionType
 	EventTypes    PluginEventType
+	KeyMapTypes   PluginKeyMapType
+	Worker        *PluginWorker
 	*PluginData
 }
-
-// MarshalLogObject implements zapcore.ObjectMarshaler
-func (psm *PluginSchemeMeta) MarshalLogObject(oe zapcore.ObjectEncoder) error {
-	oe.AddString("scheme.name", psm.Name)
-	oe.AddString("scheme.author", psm.Author)
-	return nil
-}
-
-// MarshalLogObject implements zapcore.ObjectMarshaler
-func (psf *PluginSchemeFile) MarshalLogObject(oe zapcore.ObjectEncoder) error {
-	oe.AddObject("plugin", psf.Plugin)
-	if psf.Data != nil {
-		oe.AddReflected("plugin.data", psf.Data.All())
-	}
-	return nil
-}
-
-// MarshalLogObject implements zapcore.ObjectMarshaler
-func (pe *PluginEvent) MarshalLogObject(oe zapcore.ObjectEncoder) error {
-	oe.AddObject("plugin", pe.plugin)
-	oe.AddString("plugin.event", pe.eventType.String())
-	return nil
-}
-
-// MarshalLogObject implements zapcore.ObjectMarshaler
-func (p *Plugin) MarshalLogObject(oe zapcore.ObjectEncoder) error {
-	oe.AddString("plugin.name", p.Name)
-	oe.AddString("plugin.path", p.Path)
-	return nil
-}
-
-type PluginEvent struct {
-	eventType PluginEventType
-	plugin    *Plugin
-	name      string
-}
-
 type PluginData struct {
 	ConfigKeys         []string `json:"configKeys"`
 	Handlers           []string `json:"handlers"`
+	KeyMapTypes        []string `json:"keyMapHandlers"`
 	Filenames          []string `json:"filenames"`
 	ConfigurationPaths []string `json:"configurationPaths"`
 	Decoder            []string `json:"decoder"`
-}
-
-// MarshalLogObject implements zapcore.ObjectMarshaler
-func (pd *PluginData) MarshalLogObject(oe zapcore.ObjectEncoder) error {
-  oe.AddReflected("configKeys", pd.ConfigKeys)
-  return nil
 }
 
 type PluginsManager struct {
@@ -102,22 +64,24 @@ type PluginsManager struct {
 	fsmonitor <-chan interface{}
 	gv8       *plugin.GoV8Env
 	bundler   chan PluginEvent
+	global    chan PluginEvent
 	start     chan struct{}
 	done      chan struct{}
 	cancel    chan struct{}
 	Plugins   []*Plugin
 	monitors  []chan PluginEvent
+	*EventNotifier
+	*EventObserver
+}
+
+// GetRef implements Referenced
+func (pm *PluginsManager) GetRef() interface{} {
+  return pm
 }
 
 const (
 	pluginsPath        = "js/plugins"
 	bundledPluginsPath = "js/plugins/.bundled"
-)
-
-type (
-	PluginType          uint
-	PluginEventType     uint
-	PluginDetectionType uint
 )
 
 const (
@@ -154,8 +118,37 @@ const (
 const (
 	PluginInit PluginEventType = 1 << iota
 	PluginModified
+	PluginReloaded
 	PluginBundled
-	PluginWindBlows = PluginInit | PluginModified | PluginBundled
+	PluginScanConfigPaths
+	PluginScanConfigResult
+	PluginCreatedKeyMap
+	PluginWindBlows = PluginInit | PluginModified | PluginReloaded | PluginBundled | PluginScanConfigPaths | PluginScanConfigResult | PluginCreatedKeyMap
+)
+
+const (
+	PluginTagsKeyMap PluginKeyMapType = 1 << iota
+	PluginMetaKeyMap
+	PluginExtrasKeyMap
+	PluginColorsKeyMap
+	PluginFeaturesKeyMap
+)
+
+const (
+	PluginWorkerNop PluginWorkerStatus = 1 << iota
+	PluginWorkerIdle
+	PluginWorkerDone
+	PluginWorkerReset
+	PluginWorkerStartup
+	PluginWorkerBusy
+)
+const (
+	PluginEventNop PluginEventStatus = 1 << iota
+	PluginEventInit
+	PluginEventEmitted
+	PluginEventReceived
+	PluginEventHandled
+	PluginEventFailure
 )
 
 var (
@@ -164,7 +157,7 @@ var (
 // }
 )
 
-var PluginTypes = []enumName{
+var PluginTypes = []EnumName{
 	{uint32(ColorSchemeImportPlugin), "ColorSchemeImportPlugin"},
 	{uint32(ColorSchemeExportPlugin), "ColorSchemeExportPlugin"},
 	{uint32(ColorSchemeDetectPlugin), "ColorSchemeDetectPlugin"},
@@ -188,14 +181,26 @@ var PluginTypes = []enumName{
 	{uint32(FullColorSchemePlugin), "FullColorSchemePlugin"},
 }
 
-var PluginEventTypes = []enumName{
+var PluginEventTypes = []EnumName{
 	{uint32(PluginInit), "PluginInit"},
-	{uint32(PluginBundled), "PluginBundled"},
 	{uint32(PluginModified), "PluginModified"},
+	{uint32(PluginReloaded), "PluginReloaded"},
+	{uint32(PluginBundled), "PluginBundled"},
+	{uint32(PluginScanConfigPaths), "PluginScanConfigPaths"},
+	{uint32(PluginScanConfigResult), "PluginScanConfigResult"},
+	{uint32(PluginCreatedKeyMap), "PluginCreatedKeyMap"},
 	{uint32(PluginWindBlows), "PluginWindBlows"},
 }
 
-var PluginDetectionTypes = []enumName{
+var PluginKeyMapTypes = []EnumName{
+	{uint32(PluginTagsKeyMap), "PluginTagsKeyMap"},
+	{uint32(PluginMetaKeyMap), "PluginMetaKeyMap"},
+	{uint32(PluginExtrasKeyMap), "PluginExtrasKeyMap"},
+	{uint32(PluginColorsKeyMap), "PluginColorsKeyMap"},
+	{uint32(PluginFeaturesKeyMap), "PluginFeaturesKeyMap"},
+}
+
+var PluginDetectionTypes = []EnumName{
 	{uint32(FilenameDetection), "FilenameDetection"},
 	{uint32(ConfigKeysDetection), "ConfigKeysDetection"},
 	{uint32(RegexDetection), "RegexDetection"},
@@ -206,89 +211,74 @@ func (a PluginDetectionType) Is(b PluginDetectionType) bool {
 	return util.BitAnd(a, b)
 }
 func (v PluginDetectionType) String() string {
-	return enumString(uint32(v), PluginDetectionTypes, false)
+	return EnumString(uint32(v), PluginDetectionTypes, false)
 }
 func (v PluginDetectionType) GoString() string {
-	return enumString(uint32(v), PluginDetectionTypes, true)
+	return EnumString(uint32(v), PluginDetectionTypes, true)
 }
 
 func (a PluginType) Is(b PluginType) bool {
 	return util.BitAnd(a, b)
 }
 func (v PluginType) String() string {
-	return enumString(uint32(v), PluginTypes, false)
+	return EnumString(uint32(v), PluginTypes, false)
 }
 func (v PluginType) GoString() string {
-	return enumString(uint32(v), PluginTypes, true)
+	return EnumString(uint32(v), PluginTypes, true)
+}
+
+func (a PluginKeyMapType) Is(b PluginKeyMapType) bool {
+	return util.BitAnd(a, b)
+}
+func (v PluginKeyMapType) String() string {
+	return EnumString(uint32(v), PluginKeyMapTypes, false)
+}
+func (v PluginKeyMapType) GoString() string {
+	return EnumString(uint32(v), PluginKeyMapTypes, true)
 }
 
 func (a PluginEventType) Is(b PluginEventType) bool {
 	return util.BitAnd(a, b)
 }
 func (v PluginEventType) String() string {
-	return enumString(uint32(v), PluginEventTypes, false)
+	return EnumString(uint32(v), PluginEventTypes, false)
 }
 func (v PluginEventType) GoString() string {
-	return enumString(uint32(v), PluginEventTypes, true)
+	return EnumString(uint32(v), PluginEventTypes, true)
 }
 
-func SetupContexts(ctx *v8go.Context, iso *v8go.Isolate) {
-	obTpl := v8go.NewObjectTemplate(iso)
-	for _, v := range PluginTypes {
-		obTpl.Set(v.s, v.v, v8go.None)
-	}
-	peTpl := v8go.NewObjectTemplate(iso)
-	for _, v := range PluginEventTypes {
-		peTpl.Set(v.s, v.v, v8go.None)
-	}
-	pdTpl := v8go.NewObjectTemplate(iso)
-	for _, v := range PluginDetectionTypes {
-		pdTpl.Set(v.s, v.v, v8go.None)
-	}
-	if err := ctx.Global().Set("pluginEventTypes", eajs(peTpl.NewInstance(ctx))); err != nil {
-		panic(err)
-	}
-	if err := ctx.Global().Set("pluginDetectionTypes", eajs(pdTpl.NewInstance(ctx))); err != nil {
-		panic(err)
-	}
-	if err := ctx.Global().Set("pluginTypes", eajs(obTpl.NewInstance(ctx))); err != nil {
-		panic(err)
-	}
-	if err := ctx.Global().Set("xtermAnsiNames", eajs(plugin.GoStructToV8Object(ctx, baseXtermAnsiColorNames))); err != nil {
-		panic(err)
-	}
-
-	// ansiNames, _ := GoStructToV8Object(gv8.Ctx, baseXtermAnsiColorNames)
-	// gv8.Ctx.Global().Set("xtermAnsiNames", ansiNames)
+// MarshalLogObject implements zapcore.ObjectMarshaler
+func (psm *PluginSchemeMeta) MarshalLogObject(oe zapcore.ObjectEncoder) error {
+	oe.AddString("scheme.name", psm.Name)
+	oe.AddString("scheme.author", psm.Author)
+	return nil
 }
 
-func ModuleValueToExportsMap(ctx *v8go.Context, obj *v8go.Value) (pd *PluginData, err error) {
-	pd = &PluginData{}
-	var exports *v8go.Object
-	if !obj.IsObject() {
-		return
+// MarshalLogObject implements zapcore.ObjectMarshaler
+func (psf *PluginSchemeFile) MarshalLogObject(oe zapcore.ObjectEncoder) error {
+	oe.AddObject("plugin", psf.Plugin)
+	if psf.Data != nil {
+		oe.AddReflected("plugin.data", psf.Data.All())
 	}
-	if obj.IsObject() && eajs(obj.AsObject()).Has("default") {
-		exports = eajs(eajs(eajs(obj.AsObject()).Get("default")).AsObject())
-	} else {
-		exports = eajs(obj.AsObject())
-	}
-	expJson, err := v8go.JSONStringify(ctx, exports)
-	dump.P(expJson)
-	if err != nil {
-		return
-	}
+	return nil
+}
 
-	err = json.Unmarshal([]byte(expJson), pd)
-	if err != nil {
-		return
-	}
+// MarshalLogObject implements zapcore.ObjectMarshaler
+func (pe *PluginEvent) MarshalLogObject(oe zapcore.ObjectEncoder) error {
+	oe.AddObject("plugin", pe.plugin)
+	oe.AddString("plugin.event", pe.eventType.String())
+	return nil
+}
 
-	return
-	// strs, err := V8StringArrayToGoStringArray(arr)
-	// if checkErrX(err){
-	//   for k, v := range a["default"] {
-	//
-	//   }
-	// }
+// MarshalLogObject implements zapcore.ObjectMarshaler
+func (p *Plugin) MarshalLogObject(oe zapcore.ObjectEncoder) error {
+	oe.AddString("plugin.name", p.Name)
+	oe.AddString("plugin.path", p.Path)
+	return nil
+}
+
+// MarshalLogObject implements zapcore.ObjectMarshaler
+func (pd *PluginData) MarshalLogObject(oe zapcore.ObjectEncoder) error {
+	oe.AddReflected("configKeys", pd.ConfigKeys)
+	return nil
 }

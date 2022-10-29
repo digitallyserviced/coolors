@@ -10,6 +10,9 @@ import (
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
 
+	// "github.com/digitallyserviced/coolors/theme"
+
+	. "github.com/digitallyserviced/coolors/coolor/events"
 	// "github.com/gookit/goutil/dump"
 	"github.com/samber/lo"
 	_ "github.com/samber/lo"
@@ -22,10 +25,10 @@ import (
 type CoolorColor struct {
 	*tview.Box
 	handlers map[string]EventHandlers
-	Color    *tcell.Color
+	Color    *tcell.Color `gorm:"uniqueIndex"`
 	l        *sync.RWMutex
 	pallette *CoolorPaletteMainView
-	*Tagged
+  *Tagged `gorm:"-"`
 	name     string
 	infoline string
 	static   bool
@@ -496,11 +499,15 @@ func (cc *CoolorColor) updateStyle() {
 		return
 	}
 	if cc.selected || cc.centered {
+    // cc.GetFgColorShade()
 		inverse := cc.GetFgColor()
 		cc.Box.SetBorderAttributes(tcell.AttrBold).
       SetBorder(true).
 			SetBorderPadding(0, 0, 0, 0).
+      // SetBorderColor(theme.GetTheme().ContentBackground).
+      // SetBorderAttributes(tcell.AttrReverse).
 			SetBorderColor(inverse).
+      // SetBorderVisible(false).
 			SetTitleColor(inverse)
 		cc.Focus(nil)
 	} else {

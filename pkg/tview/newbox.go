@@ -90,6 +90,7 @@ type Box struct {
 
 	onPaste      func([]rune)
 	focusManager *FocusManager
+  animating bool
 }
 
 // NewBox returns a Box without a border.
@@ -111,6 +112,7 @@ func NewBox() *Box {
 		borderRight:             true,
 		visible:                 true,
 		borderVisible:           true,
+    animating: false,
 		nextFocusableComponents: make(map[FocusDirection][]Primitive),
 	}
 
@@ -359,6 +361,13 @@ func (b *Box) SetReverse(on bool) *Box {
 	b.reverse = on
 	return b
 }
+func (b *Box) GetAnimating() bool {
+	return b.animating
+}
+func (b *Box) SetAnimating(anim bool) {
+	b.animating = anim
+	// return b
+}
 
 // SetBorder sets the flag indicating whether or not the box should have a
 // border.
@@ -523,6 +532,13 @@ func (b *Box) DrawForSubclass(screen tcell.Screen, p Primitive) {
 		}
 
 		vertical, horizontal, topLeft, topRight, bottomLeft, bottomRight := ' ', ' ', ' ', ' ', ' ', ' '
+		leftVertical, topHorizontal, rightVertical, bottomHorizontal := ' ', ' ', ' ', ' '
+    ifc := func(a,b rune) rune {
+      if a == rune(0) {
+        return b
+      }
+      return a
+    }
 		if borderVisible {
 
 			horizontal = Borders.Horizontal
@@ -531,6 +547,10 @@ func (b *Box) DrawForSubclass(screen tcell.Screen, p Primitive) {
 			topRight = Borders.TopRight
 			bottomLeft = Borders.BottomLeft
 			bottomRight = Borders.BottomRight
+      leftVertical = ifc(Borders.LeftVertical, vertical)
+      rightVertical = ifc(Borders.RightVertical, vertical)
+      topHorizontal = ifc(Borders.TopHorizontal, horizontal)
+      bottomHorizontal = ifc(Borders.TopHorizontal, horizontal)
 
 		} else {
 
@@ -538,19 +558,19 @@ func (b *Box) DrawForSubclass(screen tcell.Screen, p Primitive) {
 		//Special case in order to render only the title-line of something properly.
 		if b.borderTop {
 			for x := b.x + 1; x < b.x+b.width-1; x++ {
-				screen.SetContent(x, b.y, horizontal, nil, borderStyle)
+				screen.SetContent(x, b.y, topHorizontal, nil, borderStyle)
 			}
 
 			if b.borderLeft {
 				screen.SetContent(b.x, b.y, topLeft, nil, borderStyle)
 			} else {
-				screen.SetContent(b.x, b.y, horizontal, nil, borderStyle)
+				screen.SetContent(b.x, b.y, topHorizontal, nil, borderStyle)
 			}
 
 			if b.borderRight {
 				screen.SetContent(b.x+b.width-1, b.y, topRight, nil, borderStyle)
 			} else {
-				screen.SetContent(b.x+b.width-1, b.y, horizontal, nil, borderStyle)
+				screen.SetContent(b.x+b.width-1, b.y, topHorizontal, nil, borderStyle)
 			}
 		}
 
@@ -558,13 +578,13 @@ func (b *Box) DrawForSubclass(screen tcell.Screen, p Primitive) {
 		if b.height > 1 {
 			if b.borderBottom {
 				for x := b.x + 1; x < b.x+b.width-1; x++ {
-					screen.SetContent(x, b.y+b.height-1, horizontal, nil, borderStyle)
+					screen.SetContent(x, b.y+b.height-1, bottomHorizontal, nil, borderStyle)
 				}
 
 				if b.borderLeft {
 					screen.SetContent(b.x, b.y+b.height-1, bottomLeft, nil, borderStyle)
 				} else {
-					screen.SetContent(b.x, b.y+b.height-1, horizontal, nil, borderStyle)
+					screen.SetContent(b.x, b.y+b.height-1, bottomHorizontal, nil, borderStyle)
 				}
 				if b.borderRight {
 					screen.SetContent(
@@ -575,37 +595,37 @@ func (b *Box) DrawForSubclass(screen tcell.Screen, p Primitive) {
 						borderStyle,
 					)
 				} else {
-					screen.SetContent(b.x+b.width-1, b.y+b.height-1, horizontal, nil, borderStyle)
+					screen.SetContent(b.x+b.width-1, b.y+b.height-1, bottomHorizontal, nil, borderStyle)
 				}
 			}
 
 			if b.borderLeft {
 				for y := b.y + 1; y < b.y+b.height-1; y++ {
-					screen.SetContent(b.x, y, vertical, nil, borderStyle)
+					screen.SetContent(b.x, y, leftVertical, nil, borderStyle)
 				}
 
 				if b.borderTop {
 					screen.SetContent(b.x, b.y, topLeft, nil, borderStyle)
 				} else {
-					screen.SetContent(b.x, b.y, vertical, nil, borderStyle)
+					screen.SetContent(b.x, b.y, leftVertical, nil, borderStyle)
 				}
 
 				if b.borderBottom {
 					screen.SetContent(b.x, b.y+b.height-1, bottomLeft, nil, borderStyle)
 				} else {
-					screen.SetContent(b.x, b.y+b.height-1, vertical, nil, borderStyle)
+					screen.SetContent(b.x, b.y+b.height-1, leftVertical, nil, borderStyle)
 				}
 			}
 
 			if b.borderRight {
 				for y := b.y + 1; y < b.y+b.height-1; y++ {
-					screen.SetContent(b.x+b.width-1, y, vertical, nil, borderStyle)
+					screen.SetContent(b.x+b.width-1, y, rightVertical, nil, borderStyle)
 				}
 
 				if b.borderTop {
 					screen.SetContent(b.x+b.width-1, b.y, topRight, nil, borderStyle)
 				} else {
-					screen.SetContent(b.x+b.width-1, b.y, vertical, nil, borderStyle)
+					screen.SetContent(b.x+b.width-1, b.y, rightVertical, nil, borderStyle)
 				}
 
 				if b.borderBottom {
@@ -617,15 +637,15 @@ func (b *Box) DrawForSubclass(screen tcell.Screen, p Primitive) {
 						borderStyle,
 					)
 				} else {
-					screen.SetContent(b.x+b.width-1, b.y+b.height-1, vertical, nil, borderStyle)
+					screen.SetContent(b.x+b.width-1, b.y+b.height-1, rightVertical, nil, borderStyle)
 				}
 			}
 		} else if b.height == 1 && !b.borderTop && !b.borderBottom {
 			if b.borderLeft {
-				screen.SetContent(b.x, b.y, vertical, nil, borderStyle)
+				screen.SetContent(b.x, b.y, leftVertical, nil, borderStyle)
 			}
 			if b.borderRight {
-				screen.SetContent(b.x+b.width-1, b.y+b.height-1, vertical, nil, borderStyle)
+				screen.SetContent(b.x+b.width-1, b.y+b.height-1, rightVertical, nil, borderStyle)
 			}
 		}
 
@@ -671,6 +691,7 @@ func (b *Box) DrawForSubclass(screen tcell.Screen, p Primitive) {
 		b.innerX, b.innerY, b.innerWidth, b.innerHeight = b.GetInnerRect()
 	}
 
+  if !b.animating {
 	// Clamp inner rect to screen.
 	width, height := screen.Size()
 	if b.innerX < 0 {
@@ -694,7 +715,7 @@ func (b *Box) DrawForSubclass(screen tcell.Screen, p Primitive) {
 	if b.innerHeight < 0 {
 		b.innerHeight = 0
 	}
-
+  }
 	return
 }
 

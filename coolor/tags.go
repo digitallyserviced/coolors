@@ -426,6 +426,15 @@ func (t *Tagged) GetTags() []*TagItem {
 	return nil
 }
 
+func (tl *TagList) GetTagBy(tagField string) *TagItem {
+  for _, v := range tl.items {
+    if v.GetKey() == tagField {
+      return v
+    }
+  }
+  return nil
+}
+
 func (tl *TagList) GetTag(idx int) *TagItem {
   
 	if idx < len(tl.items) {

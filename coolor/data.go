@@ -10,6 +10,7 @@ import (
 	"go.etcd.io/bbolt"
 
 	"github.com/gdamore/tcell/v2"
+	. "github.com/digitallyserviced/coolors/coolor/events"
 	bh "github.com/timshannon/bolthold"
 )
 
@@ -98,8 +99,8 @@ type (
 	}
 
 	MetaService struct {
-		*eventObserver
-		*eventNotifier
+		*EventObserver
+		*EventNotifier
 		Cache          CoolorsCache
     Current *CoolorColorsPaletteMeta
     PaletteMeta []*CoolorColorsPaletteMeta
@@ -112,7 +113,7 @@ func FromTcell(col tcell.Color) *Coolor {
   return MakeColorFromTcell(col).GetCC().Coolor()
 }
 func (ms *MetaService) Service() {
-	GetStore().FavoriteColors = *GetStore().FavoriteColors.Load("MetaService_Favorites")
+	// GetStore().FavoriteColors = *GetStore().FavoriteColors.Load("MetaService_Favorites")
   // ccpms := GetStore().PaletteHistory(false)
   // fmt.Println(ccpms)
 	// GetStore().ForEach(nil, func(r *){
@@ -209,8 +210,8 @@ func NewMetadataService() *MetaService {
 	// recents := make(CoolorsCache)
 	// favs := make(CoolorsCache)
 	ms := &MetaService{
-		eventObserver: NewEventObserver("metaservice"),
-		eventNotifier: NewEventNotifier("metaservice"),
+		EventObserver: NewEventObserver("metaservice"),
+		EventNotifier: NewEventNotifier("metaservice"),
 		Cache:         CoolorsCache{cache: make(map[int32]CoolorMeta)},
 		RecentColors: Coolors{
 			Key:    "MetaService_Seent",

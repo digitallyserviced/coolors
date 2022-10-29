@@ -23,6 +23,9 @@ require (
 	go.etcd.io/bbolt v1.3.6
 	go.uber.org/zap v1.23.0
 	golang.org/x/term v0.0.0-20220919170432-7a66f970e087
+	gorm.io/driver/sqlite v1.4.3
+	gorm.io/gorm v1.24.0
+	gorm.io/plugin/dbresolver v1.3.0
 	rogchap.com/v8go v0.7.0
 )
 
@@ -30,7 +33,12 @@ require (
 	github.com/BurntSushi/toml v1.2.0 // indirect
 	github.com/atotto/clipboard v0.1.2 // indirect
 	github.com/dlclark/regexp2 v1.4.0 // indirect
+	github.com/eapache/queue v1.1.0 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
+	github.com/go-sql-driver/mysql v1.6.0 // indirect
+	github.com/jinzhu/inflection v1.0.0 // indirect
+	github.com/jinzhu/now v1.1.5 // indirect
+	github.com/mattn/go-sqlite3 v1.14.16 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
@@ -42,6 +50,9 @@ require (
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
+	gorm.io/datatypes v1.0.7 // indirect
+	gorm.io/driver/mysql v1.4.0 // indirect
+	gorm.io/hints v1.1.0 // indirect
 )
 
 require (
@@ -55,13 +66,15 @@ require (
 	github.com/rakyll/autopprof v0.1.0
 	github.com/rivo/uniseg v0.4.2
 	github.com/xo/terminfo v0.0.0-20210125001918-ca9a967f8778 // indirect
-	golang.org/x/exp v0.0.0-20220303212507-bbda1eaf7a17 // indirect
-	golang.org/x/mod v0.6.0-dev.0.20220106191415-9b9b3d81d5e3 // indirect
-	golang.org/x/sys v0.0.0-20220926163933-8cfa568d3c25
+	golang.org/x/exp v0.0.0-20220303212507-bbda1eaf7a17
+	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
+	golang.org/x/sys v0.0.0-20221006211917-84dc82d7e875
 	golang.org/x/text v0.3.7 // indirect
-	golang.org/x/tools v0.1.10 // indirect
+	golang.org/x/tools v0.1.12 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
+	gopkg.in/eapache/channels.v1 v1.1.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
+	gorm.io/gen v0.3.18
 )
 
 replace github.com/digitallyserviced/tview => /home/chris/Documents/coolors/pkg/tview

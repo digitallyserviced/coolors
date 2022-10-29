@@ -8,14 +8,15 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/digitallyserviced/coolors/coolor/shortcuts"
 
+	. "github.com/digitallyserviced/coolors/coolor/events"
 	"github.com/digitallyserviced/coolors/theme"
 )
 
 type TabViewContent interface {
 	tview.Primitive
 	InputBubble
-	show()
-	hide()
+	show(*TabView)
+	hide(*TabView)
 }
 
 type TabView struct {
@@ -24,7 +25,7 @@ type TabView struct {
 	*TabLabel
 	*tview.Frame
 	*shortcuts.ScriptShortcut
-	*eventObserver
+	*EventObserver
 	name  string
 	color tcell.Color
 }
@@ -34,7 +35,7 @@ type TabbedView struct {
 	tabsView  *tview.Flex
 	Container *tview.Flex
 	*shortcuts.ScriptShortcuts
-	*eventNotifier
+	*EventNotifier
 	name        string
 	tabs        []*TabView
 	selectedIdx int
@@ -108,7 +109,7 @@ func NewTabView(name string, shortcut shortcuts.ScriptShortcut, p TabViewContent
 		Content:  p,
 		TabLabel: NewTabLabel(name),
 		ScriptShortcut: &shortcut,
-		eventObserver:  NewEventObserver(name),
+		EventObserver:  NewEventObserver(name),
 		name:           name,
 		color:          0,
 	}
@@ -132,7 +133,7 @@ func NewTabbedView() *TabbedView {
 		tabs:            make([]*TabView, 0),
 		selectedIdx:     0,
 		ScriptShortcuts: shortcuts.NewSuperScriptShortcuts(),
-		eventNotifier:   NewEventNotifier("tabs"),
+		EventNotifier:   NewEventNotifier("tabs"),
 	}
 
 	tv.SetDirection(tview.FlexRow)
@@ -154,9 +155,9 @@ func (o *TabView) HandleEvent(e ObservableEvent) bool {
 	var tabs *TabbedView = e.Src.(*TabbedView)
 	var tab *TabView = e.Ref.(*TabView)
 	if o == tab {
-    tab.Content.show()
+    tab.Content.show(tab)
 	} else {
-    tab.Content.hide()
+    tab.Content.hide(tab)
   }
 	tabs.UpdateView()
   tabs.UpdateTabSelector()

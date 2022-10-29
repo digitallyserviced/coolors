@@ -218,12 +218,14 @@ func V8ObjectToGoStringAnyMap(
 ) (map[string]any, error) {
 	ObjectValue, err := v8go.JSONStringify(Context, Object)
 	if err != nil {
+    fmt.Println(err)
 		return nil, err
 	}
 
 	var Map map[string]any
 	err = json.Unmarshal([]byte(ObjectValue), &Map)
 	if err != nil {
+    fmt.Println(err)
 		return nil, err
 	}
 	return Map, nil

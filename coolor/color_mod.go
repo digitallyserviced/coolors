@@ -6,9 +6,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/digitallyserviced/coolors/status"
 	"github.com/gookit/goutil/dump"
 	"github.com/samber/lo"
+	// "golang.org/x/exp/constraints"
+
+	"github.com/digitallyserviced/coolors/status"
 	// "github.com/lucasb-eyer/go-colorful"
 )
 
@@ -227,32 +229,4 @@ func (cm *ColorMod) GetChannelValue(cc CoolColor) float64 {
 	value := cm.ChannelMod.GetValue(&cm.current)
 	return float64(value)
 }
-
-func clamped(val, min, max float64) (float64, bool) {
-	clampd := val > max
-	
-	if val < min {
-		clampd = true
-	}
-	return clamp(val, min, max), clampd
-}
-func imax(a,b int) int {
-  if a > b {
-    return a
-  }
-  return b
-}
-func imin(a,b int) int {
-  if a < b {
-    return a
-  }
-  return b
-}
-func iclamp(val, min, max int) int {
-	return imax(min, imin(val, max))
-}
-func clamp(val, min, max float64) float64 {
-	return math.Max(min, math.Min(val, max))
-}
-
 // vim: ts=2 sw=2 et ft=go

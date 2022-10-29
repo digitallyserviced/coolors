@@ -7,19 +7,36 @@ import (
 	"os"
 	"strings"
 
+	// "time"
+
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
+	// "github.com/gookit/goutil/dump"
 
 	// "github.com/gookit/goutil/dump"
 	"github.com/samber/lo"
 
+	. "github.com/digitallyserviced/coolors/coolor/events"
 	// "github.com/gookit/goutil/dump"
 
 	// "github.com/digitallyserviced/coolors/theme"
+	// "github.com/digitallyserviced/coolors/coolor/zzlog"
 	"github.com/digitallyserviced/coolors/theme"
 	ct "github.com/digitallyserviced/coolors/theme"
 	"github.com/digitallyserviced/coolors/tree"
 )
+
+type PluginSchemeFileTreeNode struct {
+  treeNode *tree.TreeNode
+  *PluginSchemeFile
+}
+
+type PluginSchemeFiles []PluginSchemeFileTreeNode
+type PluginSchemeFileTreeNodes map[string]PluginSchemeFiles
+
+func init() {
+
+}
 
 type CoolorFileView struct {
 	*tview.Grid
@@ -30,16 +47,108 @@ type CoolorFileView struct {
 
 type PaletteFilePreviews struct {
 	*tview.TextView
-  currentPalette *CoolorColorsPalette
-  fsnode *tree.FSNode
+	currentPalette         *CoolorColorsPalette
+	fsnode                 *tree.TreeNode
 	header, footer         *tview.Frame
-  headerText, footerText *tview.TextView
+	headerText, footerText *tview.TextView
 }
 
 type PaletteFileTree struct {
 	*tview.Flex
-	treeView               *tree.FileTree
-  preview *PaletteFilePreviews
+	treeView *tree.FileTree
+	preview  *PaletteFilePreviews
+  pluginEntries PluginSchemeFileTreeNodes
+}
+
+// HandleEvent implements Observer
+func (pft *PaletteFileTree) HandleEvent(o ObservableEvent) bool {
+  pe, ok := o.Ref.(*PluginEvent)
+  if !ok {
+    return false
+  }
+  // dump.P(o)
+  // zlog.Debug("file tree event received", zzlog.Object("pluginevent", pe))
+
+  vr := pft.treeView.GetVirtualRoot()
+  childs := vr.GetChildren()
+  if len(pe.refs) == 0 {
+    return true
+  }
+  b, ok := pe.refs[0].(*PluginSchemeFile)
+  if !ok {
+    return true
+  }
+  if b != nil {
+    // pft.pluginEntries.Add(pe.plugin.Name, b)
+    for _, v := range childs {
+      fsnode,ok := v.GetReference().(*tree.TreeNode)
+      if !ok {
+        continue
+      }
+      if fsnode.Name == b.Plugin.Name {
+        // dump.P(fsnode.Name, pe.plugin.Name, b.Name)
+        schemes := fsnode.Node.GetChildren()
+        for _, v := range schemes {
+          schemeNode,ok := v.GetReference().(*tree.TreeNode)
+          if !ok {
+            continue
+          }
+          npsf,ok := schemeNode.GetReference().(*PluginSchemeFile)
+          if !ok {
+            continue
+          }
+          if b.Name == npsf.Name {
+            fsnode.Node.RemoveChild(v)
+          }
+        }
+        AppModel.app.QueueUpdateDraw(func() {
+          schemeFileNode := tree.NewPluginNode(b.Name, "", b)
+          schemeFileNode.IsDir = false
+          schemeFileNode.Children = func(tn *tview.TreeNode) []*tview.TreeNode {
+            return make([]*tview.TreeNode, 0)
+          }
+          fsnode.Node.AddChild(schemeFileNode.Node)
+          fsnode.Node.Expand()
+        })
+      }
+          // return pft.pluginEntries.GetTreeNodes(pe.plugin.Name)
+    }
+  }
+
+  return true
+}
+
+// PluginSchemeFilesName implements Observer
+func (psfs PluginSchemeFiles) GetTreeNodes() []*tview.TreeNode {
+  nodes := make([]*tview.TreeNode, len(psfs))
+
+  for _, v := range psfs {
+   nodes = append(nodes, v.treeNode.Node) 
+  }
+
+  return nodes
+}
+func (psftns PluginSchemeFileTreeNodes) GetTreeNodes(name string) []*tview.TreeNode {
+  if psftns != nil && psftns[name] != nil {
+    return psftns[name].GetTreeNodes()
+  }
+  return []*tview.TreeNode{}
+}
+func (psftns PluginSchemeFileTreeNodes) Add(plugin string, psf *PluginSchemeFile) PluginSchemeFileTreeNodes {
+
+  if psftns[plugin] == nil {
+    psftns[plugin] = make(PluginSchemeFiles, 0)
+  }
+
+  psftns[plugin] = append(psftns[plugin], PluginSchemeFileTreeNode{
+  	treeNode:         tree.NewPluginNode(psf.Name, "", psf),
+  	PluginSchemeFile: psf,
+  })
+
+  return psftns
+}
+func (*PaletteFileTree) Name() string {
+  return "fileview"
 }
 
 // Hidden implements tview.Paged
@@ -54,9 +163,9 @@ func (*PaletteFileTree) Moved(*tview.Pages, tview.PageSentDirection) {
 func (pft *PaletteFileTree) Shown(p *tview.Pages) {
 	// MainC.app.QueueUpdateDraw(func() {
 	configPath, _, _, _ := GetDataDirs()
-  MainC.app.QueueUpdateDraw(func() {
-    pft.treeView.LoadFiltered(configPath, PluginManager.SupportedFilenames())
-  })
+	MainC.app.QueueUpdateDraw(func() {
+		pft.treeView.LoadFiltered(configPath, PluginManager.SupportedFilenames())
+	})
 	MainC.app.SetFocus(pft.treeView)
 	// pft.SetRect(p.GetInnerRect())
 	// })
@@ -70,6 +179,7 @@ func (pft *PaletteFileTree) Shown(p *tview.Pages) {
 
 // // Focus implements tview.Primitive
 func (pft *PaletteFileTree) Focus(delegate func(p tview.Primitive)) {
+	PluginManager.DispatchEvent(NewPluginEvent(PluginScanConfigPaths, "scan configs", nil))
 	// configPath, _, _, _ := GetDataDirs()
 	// pft.treeView.LoadFiltered(configPath, PluginManager.SupportedFilenames())
 	delegate(pft.treeView)
@@ -123,29 +233,29 @@ func NewPaletteFilePreview() *PaletteFilePreviews {
 	headerText.SetDynamicColors(true).SetTextAlign(tview.AlignCenter)
 	footerText := tview.NewTextView()
 	footerText.SetDynamicColors(true).SetTextAlign(tview.AlignCenter)
-  footerText.SetBackgroundColor(theme.GetTheme().SidebarBackground)
+	footerText.SetBackgroundColor(theme.GetTheme().SidebarBackground)
 	header := tview.NewFrame(headerText)
 	footer := tview.NewFrame(footerText)
 	header.SetBorders(0, 0, 1, 0, 0, 0)
 	header.SetBorder(false).
 		SetBorderColor(theme.GetTheme().HeaderBackground).
 		SetBorderPadding(1, 0, 0, 0)
-  headerText.SetText(" ")
+	headerText.SetText(" ")
 
 	footer.SetBorderPadding(0, 0, 1, 1)
-  footer.SetBackgroundColor(theme.GetTheme().SidebarBackground)
-  footer.SetBorder(true).SetBorderVisible(false)
+	footer.SetBackgroundColor(theme.GetTheme().SidebarBackground)
+	footer.SetBorder(true).SetBorderVisible(false)
 	footer.SetBorders(1, 1, 1, 1, 0, 0)
 
-		// footer.SetBorders(0, 0, 1, 1, 0, 0)
+	// footer.SetBorders(0, 0, 1, 1, 0, 0)
 
 	pfp := &PaletteFilePreviews{
 		// TextView:       tview.NewTextView(),
 		currentPalette: nil,
-		header:     header,
-		footer:     footer,
-		headerText: headerText,
-    footerText: footerText,
+		header:         header,
+		footer:         footer,
+		headerText:     headerText,
+		footerText:     footerText,
 	}
 
 	// pfp.SetDynamicColors(true).SetTextAlign(tview.AlignCenter)
@@ -155,79 +265,119 @@ func NewPaletteFilePreview() *PaletteFilePreviews {
 	// 	SetBorderColor(theme.GetTheme().SidebarLines)
 	return pfp
 }
-func (pfp *PaletteFilePreviews) UpdatePreview(fsnode *tree.FSNode) {
-  pfp.SetFile(fsnode)
-		if fsnode.IsDir {
-			// pfp.Clear()
-			return
-		}
-		var cols *CoolorColorsPalette
-		i := []string{}
-		b := LoadFile(fsnode.Path)
-		mapd := b.All()
-		colors := getColorsFromMap(mapd)
-		cols = CoolorStrings(colors).GetPalette()
-		i = append(
-			i,
-			fmt.Sprintf("  %s ", formatSize(fsnode.Size)),
-		)
-		i = append(
-			i,
-			fmt.Sprintf("  %d ", len(cols.Colors)),
-		)
-		if cols.Len() != 0 {
-			cols.Sort()
-			barChars := cols.MakeSquarePalette(false)
-    x, y, w, h := pfp.footer.GetInnerRect()
-			_, _, _, _ = x, y, w, h
-			lbc := len(barChars)
-			rows := math.Ceil(float64(lbc) / (float64(w) - 2))
-			lines := strings.Join(
-				lo.Map[[]string, string](
-					lo.Chunk[string](barChars, lbc/int(rows)),
-					func(s []string, i int) string {
-						return strings.Join(s, "")
-					},
-				),
-				"\n",
-			)
-    pfp.footerText.SetText(lines)
-			// i = append(i, lines)
-		}
-		// dump.P(x, y, w, h, rows, lbc, lines)
-    pfp.header.AddText(strings.Join(i, " | "), false, tview.AlignCenter, theme.GetTheme().InfoLabel)
-		// 🬫 🬛       🬴     🬻 🬺     🬨🬕     🬷🬲   🬪   🬜
-    // pfp.header.AddText(fmt.Sprintf("[blue:black:-]🬸[-:-:-][black:blue:-] %s [-:-:-][blue:black:-]🬴[-:-:-]", fsnode.Name), true, AlignCenter, theme.GetTheme().InfoLabel)
-}
-	// icon := "  "
-	// if n.IsDir {
-	// 	if n.IsExpanded() {
-	// 		icon = " ﱮ"
-	// 	} else {
-	// 		icon = " "
-	// 	}
-	// }
-func (pfp *PaletteFilePreviews) SetFile(fsnode *tree.FSNode) {
-  pfp.fsnode = fsnode
-  pfp.header.Clear()
-  if pfp.fsnode.IsDir {
-    pfp.header.AddText(fmt.Sprintf("[blue:black:-]🬸[-:-:-][black:blue:-] ﱮ  %s [-:-:-][blue:black:-]🬴[-:-:-]", fsnode.Name), true, tview.AlignCenter, theme.GetTheme().InfoLabel)
+func (pfp *PaletteFilePreviews) UpdatePreview(fsnode *tree.TreeNode) {
+	pfp.SetFile(fsnode)
+	var cols *CoolorColorsPalette
+	i := []string{}
+	if fsnode.IsDir {
+		// pfp.Clear()
+		return
+	}
+  if fsnode.Virtual {
+    psf, ok := fsnode.GetReference().(*PluginSchemeFile)
+    if !ok {
+      return
+    }
+    cols = psf.GetPalette()
+    i = append(
+      i,
+      fmt.Sprintf("  %s ", psf.Author),
+    )
+
   } else {
-    pfp.header.AddText(fmt.Sprintf("[blue:black:-]🬸[-:-:-][black:blue:-]   %s [-:-:-][blue:black:-]🬴[-:-:-]", fsnode.Name), true, tview.AlignCenter, theme.GetTheme().InfoLabel)
+    b := LoadFile(fsnode.Path)
+    mapd := b.All()
+    colors := getColorsFromMap(mapd)
+    cols = CoolorStrings(colors).GetPalette()
+    i = append(
+      i,
+      fmt.Sprintf("  %s ", formatSize(fsnode.Size)),
+    )
+
   }
+//    ▁▁▁ ▔▔▔ 🮀🮀🮀 ▁▔▕▏▏
+	i = append(
+		i,
+		fmt.Sprintf("  %d ", len(cols.Colors)),
+	)
+	if cols.Len() != 0 {
+		cols.Sort()
+		barChars := cols.MakeSquarePalette(false)
+		x, y, w, h := pfp.footer.GetInnerRect()
+		_, _, _, _ = x, y, w, h
+		lbc := len(barChars)
+		rows := math.Ceil(float64(lbc) / (float64(w / 3) - 2))
+    chunks := lbc/int(rows)
+    // topborder := strings.Repeat("▁", chunks)
+    // bottomborder := strings.Repeat("▔", chunks)
+    bars := lo.Map[[]string, string](
+				lo.Chunk[string](barChars, chunks),
+				func(s []string, i int) string {
+					return strings.Join(s, " ")
+				},
+			)
+    // linesC := make([]string, int(rows)*3)
+    // for i, v := range bars {
+    //   o := i * 3
+    //   linesC[o] = topborder
+    //   linesC[o+1] = v
+    //   linesC[o+2] = bottomborder
+    // }
+		lines := strings.Join(
+			bars,
+			"\n",
+		)
+		pfp.footerText.SetText(lines)
+		// i = append(i, lines)
+	}
+	// dump.P(x, y, w, h, rows, lbc, lines)
+	pfp.header.AddText(strings.Join(i, " | "), false, tview.AlignCenter, theme.GetTheme().InfoLabel)
+	// 🬫 🬛       🬴     🬻 🬺     🬨🬕     🬷🬲   🬪   🬜
+	// pfp.header.AddText(fmt.Sprintf("[blue:black:-]🬸[-:-:-][black:blue:-] %s [-:-:-][blue:black:-]🬴[-:-:-]", fsnode.Name), true, AlignCenter, theme.GetTheme().InfoLabel)
+}
+
+// icon := "  "
+// if n.IsDir {
+// 	if n.IsExpanded() {
+// 		icon = " ﱮ"
+// 	} else {
+// 		icon = " "
+// 	}
+// }
+func (pfp *PaletteFilePreviews) SetFile(fsnode *tree.TreeNode) {
+	pfp.fsnode = fsnode
+	pfp.header.Clear()
+  if pfp.fsnode.Virtual {
+    if pfp.fsnode.IsDir {
+      pfp.header.AddText(fmt.Sprintf("[blue:black:-]🬸[-:-:-][black:blue:-] ﱮ  %s [-:-:-][blue:black:-]🬴[-:-:-]", fsnode.Name), true, tview.AlignCenter, theme.GetTheme().InfoLabel)
+    } else {
+      pfp.header.AddText(fmt.Sprintf("[blue:black:-]🬸[-:-:-][black:blue:-]   %s [-:-:-][blue:black:-]🬴[-:-:-]", fsnode.Name), true, tview.AlignCenter, theme.GetTheme().InfoLabel)
+
+    }
+    return
+  }
+	if pfp.fsnode.IsDir {
+		pfp.header.AddText(fmt.Sprintf("[blue:black:-]🬸[-:-:-][black:blue:-] ﱮ  %s [-:-:-][blue:black:-]🬴[-:-:-]", fsnode.Name), true, tview.AlignCenter, theme.GetTheme().InfoLabel)
+	} else {
+		pfp.header.AddText(fmt.Sprintf("[blue:black:-]🬸[-:-:-][black:blue:-]   %s [-:-:-][blue:black:-]🬴[-:-:-]", fsnode.Name), true, tview.AlignCenter, theme.GetTheme().InfoLabel)
+	}
 
 }
 
 func NewPaletteFileTree() *PaletteFileTree {
-  pfp := NewPaletteFilePreview()
+	pfp := NewPaletteFilePreview()
 	tv := tree.NewFileTree(tree.GetTheme())
 	pft := &PaletteFileTree{
-		Flex:       tview.NewFlex(),
-		treeView:   tv,
-		preview: pfp,
+		Flex:          tview.NewFlex(),
+		treeView:      tv,
+		preview:       pfp,
+		pluginEntries: make(PluginSchemeFileTreeNodes),
 	}
 
-  tv.Box.SetDontClear(false)
+  addPluginOnLoad("register palette file view", func(pm *PluginsManager) {
+    pm.Register(PluginEvents, pft)
+  })
+	tv.Box.SetDontClear(false)
 	tv.Box.SetBackgroundColor(ct.GetTheme().SidebarBackground)
 	pft.Box.SetDontClear(true)
 	pft.Flex.SetDirection(tview.FlexRow)
@@ -241,19 +391,23 @@ func NewPaletteFileTree() *PaletteFileTree {
 	rt := tree.NewVirtualNode("/", "", "")
 	lr := tree.NewVirtualNode("Local", "", cwd)
 	vr := tree.NewVirtualNode("Plugins", " ", "")
-  vr.Children = PluginManager.GetTreeEntries()
+	vr.Children = PluginManager.GetTreeEntries()
 	tv.SetRoot(rt)
-  tv.SetVirtualRoot(vr)
-  tv.SetLocalRoot(lr)
+	tv.SetVirtualRoot(vr)
+	tv.SetLocalRoot(lr)
 
-	tv.OnChanged(func(node *tree.FSNode) {
-    pft.preview.UpdatePreview(node)
+	tv.OnChanged(func(node *tree.TreeNode) {
+		pft.preview.UpdatePreview(node)
 	})
 
-	tv.OnSelect(func(node *tree.FSNode) {
+	tv.OnSelect(func(node *tree.TreeNode) {
 	})
 
-	tv.OnOpen(func(node *tree.FSNode) {
+	tv.OnOpen(func(node *tree.TreeNode) {
+    psf, ok := node.GetReference().(*PluginSchemeFile)
+    if ok {
+      MainC.OpenTagView(psf.GetPalette())
+    }
 	})
 
 	MainC.app.SetAfterDrawFunc(func(screen tcell.Screen) {
@@ -265,7 +419,8 @@ func NewPaletteFileTree() *PaletteFileTree {
 	})
 	return pft
 }
-
+// 
+// ▁▔─━🬂🬀🬁🬂🬃🬋🬭🬦🬭🬞🬏🬋🬂🬀🬁🬁🬂🬀🬋🭶🭻🮇🮈🮉🮊🮋
 func NewFileViewer() *CoolorFileView {
 	pwd, _ := os.Getwd()
 	log.Printf("open: %s", pwd)
@@ -323,7 +478,7 @@ func NewFileViewer() *CoolorFileView {
 		cfv.contentView.colorsView,
 	)
 
-	cfv.treeView.OnChanged(func(fsnode *tree.FSNode) {
+	cfv.treeView.OnChanged(func(fsnode *tree.TreeNode) {
 		if fsnode.IsDir {
 			return
 		}
@@ -332,14 +487,14 @@ func NewFileViewer() *CoolorFileView {
 		})
 	})
 
-	cfv.treeView.OnSelect(func(node *tree.FSNode) {
+	cfv.treeView.OnSelect(func(node *tree.TreeNode) {
 		if node.IsDir {
 			return
 		}
 		// cfv.contentView.SetPreview(fsnode)
 	})
 
-	cfv.treeView.OnOpen(func(node *tree.FSNode) {
+	cfv.treeView.OnOpen(func(node *tree.TreeNode) {
 		if node.IsDir {
 			return
 		}

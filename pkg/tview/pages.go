@@ -123,12 +123,13 @@ func (p *Pages) RemovePage(name string) *Pages {
 	}
 	return p
 }
+type Page = page
 
 // GetPage returns page if a page with the given name exists in this object.
-func (p *Pages) GetPage(name string) Primitive {
+func (p *Pages) GetPage(name string) *Page {
 	for _, page := range p.pages {
 		if page.Name == name {
-      return page.Item
+      return page
 		}
 	}
 	return nil

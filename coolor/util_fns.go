@@ -1,26 +1,32 @@
 package coolor
 
 import (
-	"expvar"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
+	// "os"
 
 	// "log"
 
 	"reflect"
 	"runtime"
 	"text/template"
-	"time"
 
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
 	"github.com/gookit/goutil/dump"
 	"github.com/samber/lo"
+
 	// "golang.org/x/exp/constraints"
 
 	// "github.com/digitallyserviced/coolors/coolor/log"
 	"github.com/digitallyserviced/coolors/coolor/zzlog"
+	xxp "github.com/digitallyserviced/coolors/coolor/xp"
 )
 
+var xp = xxp.Xp
 var zlog *zzlog.Logger
 
 func doLog(args ...interface{}) {
@@ -29,37 +35,6 @@ func doLog(args ...interface{}) {
     return zzlog.String(fmt.Sprintf("arg_%d", i2),reflect.TypeOf(i1).Name())
   })...)
 	// log.Printf("%v", args)
-}
-
-type expvars struct {
-	motionX   *expvar.Float
-	motionVel *expvar.Float
-	motionIdx *expvar.Int
-	motions   *expvar.Var
-	fromC     *expvar.Int
-	elapsed   *expvar.Int
-	toC       *expvar.Int
-	gr        *expvar.Int
-}
-
-var xp *expvars
-
-func setupExpVars() {
-	xp = &expvars{
-		motionX:   expvar.NewFloat("MotionX"),
-		motionVel: expvar.NewFloat("MotionVel"),
-		motionIdx: expvar.NewInt("MotionIdx"),
-		fromC:     expvar.NewInt("FromC"),
-		toC:       expvar.NewInt("ToC"),
-		gr:        expvar.NewInt("Goroutines"),
-		elapsed:   expvar.NewInt("Elapsed"),
-		// gr := expvar.NewInt("Goroutines")
-	}
-	go func() {
-		for range time.Tick(100 * time.Millisecond) {
-			xp.gr.Set(int64(runtime.NumGoroutine()))
-		}
-	}()
 }
 func doCallers() {
 	st := make([]uintptr, 10)
@@ -91,7 +66,7 @@ func setupLogger(){
 		},
 	}
 
-	logger := zzlog.NewTeeWithRotate(tops, zzlog.AddStacktrace(zzlog.InfoLevel),zzlog.WithCaller(true),zzlog.AddCallerSkip(1))
+	logger := zzlog.NewTeeWithRotate(tops, zzlog.WithCaller(true),zzlog.AddStacktrace(zzlog.WarnLevel),zzlog.AddCallerSkip(1))
   zlog = logger
 	zzlog.ResetDefault(logger)
 }
@@ -230,6 +205,86 @@ func (hdf *HookDrawFunctions) CoolorColorStatusText(
 }
 
 func CenteredStrikeText() {
+}
+
+func getColorsFromArray(m []interface{}) (strs []string) {
+	for _, v := range m {
+		switch v := v.(type) {
+		case string:
+			strs = append(strs, v)
+		case map[string]interface{}:
+			mstrs := getColorsFromMap(v)
+			strs = append(strs, mstrs...)
+		}
+	}
+	return strs
+}
+
+func getColorsFromMap(mapd map[string]interface{}) (strs []string) {
+	for _, v := range mapd {
+		switch m := v.(type) {
+		case string:
+			strs = append(strs, m)
+		case []string:
+			strs = append(strs, m...)
+		case []interface{}:
+			mstrs := getColorsFromArray(m)
+			strs = append(strs, mstrs...)
+			// for _, vv := range m {
+			// 	str, ok := vv.(string)
+			// 	if ok {
+			// 		strs = append(strs, str)
+			// 	}
+			// }
+		case map[string]interface{}:
+			mstrs := getColorsFromMap(m)
+			strs = append(strs, mstrs...)
+		}
+	}
+	// switch m := v.(type) {
+	// case map[string]interface{}:
+	// 	for _, v := range m {
+	// 		mstrs := getColorsFromMap(v)
+	// 		strs = append(strs, mstrs...)
+	// 	}
+	// case []string:
+	// 	strs = append(strs, m...)
+	// case []interface{}:
+	// 	for _, v := range m {
+	//      str, ok := v.(string)
+	//      if ok {
+	//        strs = append(strs, str)
+	//      }
+	// 	}
+	// }
+	strs = lo.FilterMap[string, string](strs, func(s string, i int) (string, bool) {
+    if len(s) == 0 {
+      return "", false
+    }
+		if []rune(s)[0] == '#' {
+			return s, true
+		}
+		return "", false
+	})
+	strs = lo.Uniq[string](strs)
+	return strs
+}
+
+func formatPath(p string) string {
+	dir := filepath.Dir(p)
+	base := filepath.Base(p)
+
+	home := os.Getenv("HOME")
+
+	if strings.HasPrefix(dir, home) {
+		dir = strings.Replace(dir, home, "~", 1)
+	}
+
+	if dir == "/" {
+		return fmt.Sprintf("[blue]/[normal]%s", base)
+	}
+
+	return fmt.Sprintf("[blue]%s/[normal]%s", dir, base)
 }
 
 // vim: ts=2 sw=2 et ft=go

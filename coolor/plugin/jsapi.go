@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/gookit/goutil/dump"
 	"github.com/gookit/goutil/errorx"
 	"github.com/knadh/koanf"
 	"github.com/knadh/koanf/parsers/toml"
@@ -412,7 +413,7 @@ func (gov8 *GoV8Env) DoBindings() {
 				arr[i] = v.DetailString()
 			}
 			// arr = append(arr, info.This().DetailString())
-      fmt.Printf("%s", strings.Join(arr, " "))
+      dump.P(fmt.Sprintf("%s", strings.Join(arr, " ")))
 			// log.Printf("%T %v", arr, arr)
 			return nil
 		},

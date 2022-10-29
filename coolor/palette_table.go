@@ -3,9 +3,15 @@ package coolor
 import (
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
+
+	"github.com/digitallyserviced/coolors/theme"
 	// "github.com/digitallyserviced/coolors/theme"
 	// "github.com/gookit/goutil/dump"
 )
+
+func init(){
+  tview.Styles.PrimitiveBackgroundColor = theme.GetTheme().SidebarBackground
+}
 
 type CoolorPaletteContainer struct {
 	*tview.Frame

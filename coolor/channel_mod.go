@@ -114,6 +114,12 @@ func (cm *ChannelMod) Set(cc CoolColor, value float64) (CoolColor, bool) {
 	return c, v
 }
 
+func (cm *ChannelMod) Get(cc CoolColor) (float64) {
+	val := cm.GetValue(cc)
+	// val = val + value
+	// ccn, v := cm.SetValue(cc.GetCC().Clone(), val)
+	return val
+}
 func (cm *ChannelMod) Mod(cc CoolColor, value float64) (CoolColor, bool) {
 	val := cm.GetValue(cc)
 	val = val + value

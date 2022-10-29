@@ -4,12 +4,15 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/digitallyserviced/coolors/status"
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
 	"github.com/gookit/goutil/dump"
 	"github.com/lucasb-eyer/go-colorful"
 	"github.com/mazznoer/colorgrad"
+
+	. "github.com/digitallyserviced/coolors/coolor/events"
+	"github.com/digitallyserviced/coolors/coolor/util"
+	"github.com/digitallyserviced/coolors/status"
 )
 
 const (
@@ -72,6 +75,7 @@ type GradStrip struct {
 	cm             *ColorMod
 	gradOffsets    []float64
 	validGrad      []bool
+gradVal []float64
 	centeredColors []string
 	centeredGrad   []*CoolorColor
 	sizes          []int
@@ -205,10 +209,12 @@ func (gs *GradStrip) MakeSelectionGradient() {
 	gs.gradOffsets = make([]float64, len(gs.sizes))
 	gs.previewGrad = make([]string, len(gs.sizes))
 	gs.validGrad = make([]bool, len(gs.sizes))
+	gs.gradVal = make([]float64, len(gs.sizes))
 	mirrorIdx := 0.0
 	for i, v := range gs.sizes {
 		if v == SelectedSize {
 			centerColor := gs.cm.current.Clone()
+      gs.gradVal[i] = gs.cm.ChannelMod.Get(centerColor)
 			gs.centeredGrad[i] = centerColor
 			gs.centeredColors[i] = centerColor.GetColor()
 			gs.previewGrad[i] = centerColor.GetCC().TerminalPreview()
@@ -220,6 +226,7 @@ func (gs *GradStrip) MakeSelectionGradient() {
 			rightIdx := centerIdx - int(mirrorIdx)
 			ldiff := -math.Abs(gs.cm.increment * (mirrorIdx))
 			lCol, v := gs.cm.ChannelMod.Mod(centerColor.Clone(), ldiff)
+      gs.gradVal[leftIdx] = gs.cm.ChannelMod.Get(lCol)
 			gs.validGrad[leftIdx] = v
 			gs.gradOffsets[leftIdx] = ldiff
 			gs.centeredGrad[leftIdx] = lCol.GetCC()
@@ -227,6 +234,7 @@ func (gs *GradStrip) MakeSelectionGradient() {
 			gs.previewGrad[leftIdx] = lCol.GetCC().TerminalPreview()
 			rdiff := math.Abs(gs.cm.increment * (mirrorIdx))
 			rCol, v := gs.cm.ChannelMod.Mod(centerColor.Clone(), rdiff)
+      gs.gradVal[rightIdx] = gs.cm.ChannelMod.Get(rCol)
 			gs.validGrad[rightIdx] = v
 			gs.gradOffsets[rightIdx] = rdiff
 			gs.centeredGrad[rightIdx] = rCol.GetCC()
@@ -246,10 +254,14 @@ func (gs *GradStrip) MakeSelections() {
 	for c, v := range gs.centeredColors {
 		size := gs.sizes[c]
 		if gc != len(gs.centeredColors) {
+      sign := ""
+      if gs.gradOffsets[c] < 0 {
+        sign = ""
+      }
 			if size == SelectedSize {
-				gs.centeredGrad[c].SetInfoLine(" ", gs.validGrad[c])
+				gs.centeredGrad[c].SetInfoLine(fmt.Sprintf(" %s% 6.2f ", sign, gs.gradVal[c]), gs.validGrad[c])
 			} else {
-				gs.centeredGrad[c].SetInfoLine(fmt.Sprintf(" % 6.2f ", gs.gradOffsets[c]), gs.validGrad[c])
+				gs.centeredGrad[c].SetInfoLine(fmt.Sprintf(" %s% 6.2f (% 6.2f)", sign, math.Abs(gs.gradOffsets[c]), gs.gradVal[c]), gs.validGrad[c])
 			}
 			gs.strip.AddItem(gs.centeredGrad[c], size, 0, true)
 			continue
@@ -454,7 +466,7 @@ func (cce *CoolorColorEditor) Init() {
 }
 
 func (cce *CoolorColorEditor) SetSelected(idx int) {
-	cce.settings.selectedMod = int(clamp(float64(idx), 0, float64(len(ColorModNames))))
+	cce.settings.selectedMod = int(util.Clamp(float64(idx), 0, float64(len(ColorModNames))))
 }
 
 // NavSelection(idx int) error
@@ -507,10 +519,10 @@ func (cce *CoolorColorEditor) InputHandler() func(event *tcell.EventKey, setFocu
 			})
 
 			if ch == '<' {
-				cce.settings.sizeNum = clamp(cce.settings.sizeNum-1, 1, 30)
+				cce.settings.sizeNum = util.Clamp(cce.settings.sizeNum-1, 1, 30)
 			}
 			if ch == '>' {
-				cce.settings.sizeNum = clamp(cce.settings.sizeNum+1, 1, 30)
+				cce.settings.sizeNum = util.Clamp(cce.settings.sizeNum+1, 1, 30)
 			}
 			cce.updateState()
 		})

@@ -10,6 +10,9 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/gookit/goutil/dump"
 	"github.com/samber/lo"
+
+	"github.com/digitallyserviced/coolors/coolor/events"
+	// . "github.com/digitallyserviced/coolors/coolor/events"
 )
 
 
@@ -94,8 +97,11 @@ func (cc *CoolorColorsPalette) SpawnSelectionEvent(
 	c *CoolorColor,
 	idx int,
 ) bool {
+	events.Global.Notify(
+		*cc.NewObservableEvent(events.PaletteColorSelectedEvent, "palette_selected", c, cc),
+	)
 	cc.Notify(
-		*cc.NewObservableEvent(PaletteColorSelectedEvent, "palette_selected", c, cc),
+		*cc.NewObservableEvent(events.PaletteColorSelectedEvent, "palette_selected", c, cc),
 	)
 	return true
 }
@@ -150,10 +156,12 @@ func (cp *CoolorColorsPalette) TagsKeys(random bool) CoolorPaletteTagsMeta {
 	return *cptm
 }
 func (cp *CoolorColorsPalette) MakeSquarePalette(showSelected bool) []string {
-	// main, sel := "[%s:-:-]ﱢ[-:-:-]", "[%s:-:b]ﱡ[-:-:-]"
+	// main, sel := "[%s:-:-]ﱢ[-:-2:-]", "[%s:-:b]ﱡ[-:-:-]"
   // 
+// ﱢ ﱡ      ﱣ ﱤ 
+  // ██
 	// main, sel := "[%s:-:b]🮐[-:-:-]", "[%s:-:-]▉[-:-:-]"
-	main, sel := "[%s:-:b]▒[-:-:-]", "[%s:-:-]█[-:-:-]"
+	main, sel := "[%s:-:b][-:-:-]", "[%s:-:-]█[-:-:-]"
 	// main, sel := "[%s:-:b]ﱡ[-:-:-]", "[%s:-:-]ﱢ[-:-:-]"
 	// main, sel := "[%s:-:-]▉▉[-:-:-]", "[%s:-:b]▉▉[-:-:-]"
 	if !showSelected {
@@ -184,6 +192,9 @@ func (cp *CoolorColorsPalette) SquishPaletteBar(
 	return bars
 }
 func (cp *CoolorColorsPalette) GetSelected() (*CoolorColor, int) {
+  if cp == nil {
+    return nil, 0
+  }
 	cp.l.RLock()
 	defer cp.l.RUnlock()
 
@@ -231,11 +242,11 @@ func (cp *CoolorColorsPalette) GetItem(idx uint) *CoolorColor {
 
 
 func (cp *CoolorColorsPalette) PaletteEvent(
-	t ObservableEventType,
+	t events.ObservableEventType,
 	color *CoolorColor,
 ) {
 	cp.Notify(*MainC.NewObservableEvent(t, "palette_event", color, cp))
-	MainC.eventNotifier.Notify(
+	MainC.EventNotifier.Notify(
 		*MainC.NewObservableEvent(t, "palette_event", color, cp),
 	)
 }
@@ -256,7 +267,7 @@ func (cp *CoolorColorsPalette) AddCoolorColor(color *CoolorColor) *CoolorColor {
 	cp.l.Lock()
 	cp.Colors = append(cp.Colors, color)
 	cp.l.Unlock()
-	cp.PaletteEvent(PaletteColorModifiedEvent, color)
+	cp.PaletteEvent(events.PaletteColorModifiedEvent, color)
 	return cp.Colors[len(cp.Colors)-1]
 }
 

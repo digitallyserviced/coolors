@@ -77,6 +77,11 @@ type Primitive interface {
 	NextFocusableComponent(FocusDirection) Primitive
 }
 
+type AnimatedPrimitive interface {
+  Primitive
+  SetAnimating(bool)
+  GetAnimating() bool
+}
 type PageSentDirection int
 
 const(
@@ -85,6 +90,7 @@ const(
 )
 
 type Paged interface {
+  Name() string
   Shown(*Pages)
   Hidden(*Pages)
   Moved(*Pages, PageSentDirection)

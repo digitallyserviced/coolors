@@ -30,9 +30,9 @@ var theme *Theme
 func init() {
 	theme = &Theme{ //0x303030
 		HeaderBackground: tcell.GetColor("#1C1C1C"),
-		GrayerBackground: tcell.GetColor("#303030"),
+		GrayerBackground: tcell.GetColor("#282c34"),
 		SidebarBackground: tcell.GetColor("#21252B"),
-		ContentBackground: tcell.GetColor("#282c34"),
+		ContentBackground: tcell.GetColor("#303030"),
 		SidebarLines:      tcell.GetColor("#5c6370"),
 		Border:            tcell.GetColor("#1C1C1C"),
 		TopbarBorder:      tcell.GetColor("#5c6370"),
@@ -41,10 +41,13 @@ func init() {
 	}
 	theme.SetStyleFgBgAttr(
 		"palette_name",
-		tcell.ColorBlack,
-		tcell.ColorBlue,
+		tcell.ColorWhite,
+    tcell.ColorRed,
+    // tcell.GetColor("#890a37"),
+		// tcell.ColorGreen,
 		tcell.AttrBold,
 	)
+	// theme.SetStyleFgBg("action", tcell.ColorBlack, tcell.ColorYellow)
 	theme.SetStyleFgBg("action", tcell.ColorBlack, tcell.ColorYellow)
 	theme.SetStyleFg("list_main", tcell.ColorGreen)
 	theme.SetStyleFg("list_second", tcell.ColorBlue)

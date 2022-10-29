@@ -6,6 +6,7 @@ import (
 
 	"github.com/digitallyserviced/coolors/status"
 	"github.com/digitallyserviced/coolors/coolor/lister"
+	. "github.com/digitallyserviced/coolors/coolor/events"
 	"github.com/digitallyserviced/coolors/coolor/shortcuts"
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
@@ -19,8 +20,8 @@ type CoolorToolMenu struct {
 	mc            *MainContainer
 	app           *tview.Application
 	selectedColor *CoolorColor
-	*eventObserver
-	*eventNotifier
+	*EventObserver
+	*EventNotifier
 	menuItems        []*CoolorButtonMenuItem
 	visibleItems     []*CoolorButtonMenuItem
 	selected         int
@@ -76,7 +77,7 @@ func NewCoolorColorMainMenu(app *tview.Application) *CoolorToolMenu {
 		mc:               MainC,
 		app:              app,
 		selectedColor:    &CoolorColor{},
-		eventObserver:    NewEventObserver("menu"),
+		EventObserver:    NewEventObserver("menu"),
 		menuItems:        []*CoolorButtonMenuItem{},
 		visibleItems:     []*CoolorButtonMenuItem{},
 		selected:         0,

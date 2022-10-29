@@ -48,7 +48,7 @@ func NewCoolorColorFloater(ncc *CoolorColor) *CoolorColorFloater {
 	centerFlex := tview.NewFlex()
 	centerFlex.SetDirection(tview.FlexRow)
 	centerFlex.AddItem(nil, 0, 1, false)
-	centerFlex.AddItem(spf.Color.Flex, 13, 0, true)
+	centerFlex.AddItem(spf.Color.Flex, 12, 0, true)
 	centerFlex.AddItem(nil, 0, 1, false)
 
 	spf.SetDirection(tview.FlexColumn)

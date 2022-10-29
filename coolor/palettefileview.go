@@ -4,15 +4,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/digitallyserviced/tview"
 	"github.com/fsnotify/fsnotify"
 	"github.com/gdamore/tcell/v2"
-	"github.com/samber/lo"
 
 	"github.com/digitallyserviced/coolors/coolor/plugin"
 	"github.com/digitallyserviced/coolors/coolor/util"
@@ -43,7 +40,7 @@ type PaletteFileView struct {
 	infoView         *tview.TextView
 	colorsView       *ColorsView
 	contentView      *PaletteFileEditor
-	currentFile      *tree.FSNode
+	currentFile      *tree.TreeNode
 	currentConfig    *koanf.Koanf
 	selectionChanged chan struct{}
 	swallowed        bool
@@ -244,7 +241,7 @@ func (v *PaletteFileView) RunColorSchemeJS() {
 	}
 }
 
-func (v *PaletteFileView) SetPreview(fsnode *tree.FSNode) {
+func (v *PaletteFileView) SetPreview(fsnode *tree.TreeNode) {
 	defer func() {
 		if err := recover(); err != nil {
 			err, ok := err.(error)
@@ -364,83 +361,6 @@ type CoolorStrings []string
 func (cs CoolorStrings) GetPalette() (ccp *CoolorColorsPalette) {
 	ccp = NewCoolorColorsPaletteFromCssStrings([]string(cs))
 	return ccp
-}
-
-func getColorsFromArray(m []interface{}) (strs []string) {
-	for _, v := range m {
-		switch v := v.(type) {
-		case string:
-			strs = append(strs, v)
-		case map[string]interface{}:
-			mstrs := getColorsFromMap(v)
-			strs = append(strs, mstrs...)
-		}
-	}
-	return strs
-}
-
-func getColorsFromMap(mapd map[string]interface{}) (strs []string) {
-	for _, v := range mapd {
-		switch m := v.(type) {
-		case string:
-			strs = append(strs, m)
-		case []string:
-			strs = append(strs, m...)
-		case []interface{}:
-			mstrs := getColorsFromArray(m)
-			strs = append(strs, mstrs...)
-			// for _, vv := range m {
-			// 	str, ok := vv.(string)
-			// 	if ok {
-			// 		strs = append(strs, str)
-			// 	}
-			// }
-		case map[string]interface{}:
-			mstrs := getColorsFromMap(m)
-			strs = append(strs, mstrs...)
-		}
-	}
-	// switch m := v.(type) {
-	// case map[string]interface{}:
-	// 	for _, v := range m {
-	// 		mstrs := getColorsFromMap(v)
-	// 		strs = append(strs, mstrs...)
-	// 	}
-	// case []string:
-	// 	strs = append(strs, m...)
-	// case []interface{}:
-	// 	for _, v := range m {
-	//      str, ok := v.(string)
-	//      if ok {
-	//        strs = append(strs, str)
-	//      }
-	// 	}
-	// }
-	strs = lo.FilterMap[string, string](strs, func(s string, i int) (string, bool) {
-		if []rune(s)[0] == '#' {
-			return s, true
-		}
-		return "", false
-	})
-	strs = lo.Uniq[string](strs)
-	return strs
-}
-
-func formatPath(p string) string {
-	dir := filepath.Dir(p)
-	base := filepath.Base(p)
-
-	home := os.Getenv("HOME")
-
-	if strings.HasPrefix(dir, home) {
-		dir = strings.Replace(dir, home, "~", 1)
-	}
-
-	if dir == "/" {
-		return fmt.Sprintf("[blue]/[normal]%s", base)
-	}
-
-	return fmt.Sprintf("[blue]%s/[normal]%s", dir, base)
 }
 
 func (cv *ColorsView) Draw(screen tcell.Screen) {

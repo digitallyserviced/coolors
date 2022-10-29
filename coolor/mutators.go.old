@@ -1,0 +1,15 @@
+package coolor
+
+import (
+	// "fmt"
+
+	"fmt"
+	"math"
+
+	"github.com/digitallyserviced/tview"
+
+	"github.com/digitallyserviced/coolors/coolor/zzlog"
+	. "github.com/digitallyserviced/coolors/coolor/events"
+	. "github.com/digitallyserviced/coolors/coolor/anim"
+	// "github.com/gookit/goutil/dump"
+)

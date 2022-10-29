@@ -3,19 +3,17 @@ package coolor
 import (
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
 
-	"github.com/rakyll/autopprof"
-
+	"github.com/digitallyserviced/coolors/coolor/anim"
+	xxp "github.com/digitallyserviced/coolors/coolor/xp"
 	"github.com/digitallyserviced/coolors/status"
 	// "github.com/gdamore/tcell/v2/terminfo"
 )
 
 // import {WezTerm} from "./wezterm"
-
 
 type Model struct {
 	app      *tview.Application
@@ -23,14 +21,14 @@ type Model struct {
 	rootView *tview.Flex
 	status   *status.StatusBar
 	scr      tcell.Screen
-  pages *tview.Pages
-	main    *MainContainer
-  anims *tview.Pages
-  w,h int
+	pages    *tview.Pages
+	main     *MainContainer
+	anims    *tview.Pages
+	w, h     int
 }
 
 type Animations struct {
-  *tview.Pages
+	*tview.Pages
 }
 
 // func init() {
@@ -38,91 +36,102 @@ type Animations struct {
 // 		log.Fatal(err)
 // 	}
 // }
-  // scr.SetContent(x int, y int, primary rune, combining []rune, style tcell.Style)
-  // ti, _ := terminfo.LookupTerminfo("xterm-256color")
-  // ti.TPuts
-  
-  // if err != nil {
-  //   // panic(err)
-  // }
-	// cmd := exec.Command("zsh", "-c", "echo", "-n", str)
-	// output := &bytes.Buffer{}
-	// errs := &bytes.Buffer{}
-	// cmd.Stdout = output
- //  cmd.Stderr = errs
- //
-	// if err := cmd.Run(); err != nil {
- //    panic(err)
-	// }
- //  dump.P(errs.String(),output.String(), len(output.Bytes()))
+// scr.SetContent(x int, y int, primary rune, combining []rune, style tcell.Style)
+// ti, _ := terminfo.LookupTerminfo("xterm-256color")
+// ti.TPuts
+
+// if err != nil {
+//   // panic(err)
+// }
+// cmd := exec.Command("zsh", "-c", "echo", "-n", str)
+// output := &bytes.Buffer{}
+// errs := &bytes.Buffer{}
+// cmd.Stdout = output
+//  cmd.Stderr = errs
+//
+// if err := cmd.Run(); err != nil {
+//    panic(err)
+// }
+//  dump.P(errs.String(),output.String(), len(output.Bytes()))
 var AppModel Model
+
 func StartApp() {
+	// setupOut()
 	setupLogger()
-  tty, ok := os.LookupEnv("GOTTY")
-  var scr tcell.Screen
-  if !ok {
-    scr, _ = tcell.NewTerminfoScreen()
-  } else {
-    ok := false
-    for !ok {
-      l, err := os.Readlink(tty)
-      if checkErrX(err, l){
-        ok= true
-        err = nil
-      }
-    }
-    tty, _ := tcell.NewDevTtyFromDev(tty)
-    scr, _ = tcell.NewTerminfoScreenFromTty(tty)
-  }
-autopprof.Capture(autopprof.CPUProfile{
-    Duration: 15 * time.Second,
-})
-  zlog.Info("SHIT")
-  setupExpVars()
-  err := scr.Init()
+	tty, ok := os.LookupEnv("GOTTY")
+	var scr tcell.Screen
+	if !ok {
+		scr, _ = tcell.NewTerminfoScreen()
+	} else {
+		ok := false
+		for !ok {
+			l, err := os.Readlink(tty)
+			if checkErrX(err, l) {
+				ok = true
+				err = nil
+			} else {
+				stat, err := os.Stat(tty)
+				if err != nil || stat.IsDir() {
+					fmt.Println(err)
+				} else {
+					fmt.Println(stat)
+					ok = true
+					err = nil
+				}
+				// fmt.Println(err)
+			}
+		}
+		tty, _ := tcell.NewDevTtyFromDev(tty)
+		scr, _ = tcell.NewTerminfoScreenFromTty(tty)
+	}
+	zlog.Info("SHIT")
+	xxp.SetupExpVars()
+	err := scr.Init()
 	if err != nil {
 		panic(err)
 	}
- if scr.HasMouse() {
-  scr.EnableMouse()
-  }
-  scr.SetCursorStyle(tcell.CursorStyleBlinkingBar)
-  scr.EnablePaste()
+	if scr.HasMouse() {
+		// scr.EnableMouse()
+	}
+	scr.SetCursorStyle(tcell.CursorStyleBlinkingBar)
+	// scr.EnablePaste()
 	AppModel.scr = scr
 	AppModel.app = tview.NewApplication()
 	AppModel.app.SetScreen(AppModel.scr)
-  AppModel.w,AppModel.h = AppModel.scr.Size()
+	AppModel.w, AppModel.h = AppModel.scr.Size()
 	AppModel.status = status.NewStatusBar(AppModel.app)
 	AppModel.helpbar = &HelpBar{}
+	AppModel.pages = tview.NewPages()
+	AppModel.anims = tview.NewPages()
+  anim.Init(AppModel.app, AppModel.scr, AppModel.pages, AppModel.anims)
 	AppModel.main = NewMainContainer(AppModel.app)
 	AppModel.rootView = tview.NewFlex().SetDirection(tview.FlexRow)
 	AppModel.helpbar = NewHelpBar(AppModel.app)
 	AppModel.rootView.
-		AddItem(AppModel.status, 1, 1, false).
+		AddItem(MakeBoxItem("", ""), 1, 1, false).
 		AddItem(AppModel.main, 0, 10, true).
-		AddItem(AppModel.helpbar, 1, 1, false)
-  AppModel.pages = tview.NewPages()
-  AppModel.pages.AddAndSwitchToPage("main", AppModel.rootView, true)
-  AppModel.anims = tview.NewPages()
-  AppModel.anims.SetBackgroundColor(0)
-  AppModel.anims.Box.SetDontClear(true)
-  AppModel.pages.AddPage("animation", AppModel.anims, true, true)
-  spaceB := tview.NewBox()
-  spaceB.SetDontClear(true)
-  spaceB.SetRect(0, 0, AppModel.w, AppModel.h)
-  AppModel.anims.AddPage("spacer", spaceB, true, true)
-  AppModel.anims.ShowPage("spacer")
-  spaceB.SetRect(0, 0, AppModel.w, AppModel.h)
-  AppModel.pages.ShowPage("animation")
-  AppModel.anims.SetRect(0, 0, AppModel.w, AppModel.h)
-  AppModel.anims.SetVisible(true)
+		AddItem(AppModel.status, 2, 1, false)
+		// AddItem(AppModel.helpbar, 1, 1, false)
+	AppModel.pages.AddAndSwitchToPage("main", AppModel.rootView, true)
+	AppModel.anims.SetBackgroundColor(0)
+	AppModel.anims.Box.SetDontClear(true)
+	AppModel.pages.AddPage("animation", AppModel.anims, true, true)
+	spaceB := tview.NewBox()
+	spaceB.SetDontClear(true)
+	spaceB.SetRect(0, 0, AppModel.w, AppModel.h)
+	AppModel.anims.AddPage("spacer", spaceB, true, true)
+	AppModel.anims.ShowPage("spacer")
+	spaceB.SetRect(0, 0, AppModel.w, AppModel.h)
+	AppModel.pages.ShowPage("animation")
+	AppModel.anims.SetRect(0, 0, AppModel.w, AppModel.h)
+	AppModel.anims.SetVisible(true)
 	if err := AppModel.app.SetRoot(AppModel.pages, true).Run(); err != nil {
 		panic(err)
 	}
 
 	AppModel.main.CloseConfig()
 	colors := AppModel.main.GetPalette()
-  fmt.Println(colors)
+	fmt.Println(colors)
 }
 
 // sp_block_l_begin='▌'         ; sp_block_l_middl=''       ; sp_block_l_close='▐'

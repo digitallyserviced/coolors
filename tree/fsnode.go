@@ -19,10 +19,11 @@ import (
 	// "github.com/gookit/goutil/fsutil"
 )
 
-type FSNode struct {
+type TreeNode struct {
 	Name     string
   Virtual bool
   Children func(*tview.TreeNode) []*tview.TreeNode
+  ref interface{}
 	Path     string
   Icon string
 	IsDir    bool
@@ -33,7 +34,7 @@ type FSNode struct {
 	MimeType string
 }
 
-func newRootFsnode(path string) *FSNode {
+func newRootFsnode(path string) *TreeNode {
 	stat, _ := os.Stat(path)
 	return newFsnode(filepath.Dir(path), stat)
 }
@@ -51,12 +52,28 @@ func NewRootNode(path string) *tview.TreeNode {
 // 
 // '▀', '▁', '▂', '▃', '▅', '▆' , '▇', '█', '▉', '▊', '▋', '▌', '▍', '▎', '▏', 
 //'▐', '░', '▒', '▓', '▔', '▕', '▖', '▗', '▘', '▙', '▚', '▛', '▜', '▝', '▞', '▟', '🭰', '🭱', '🭲', '🭳', '🭴', '🭶', '🭷', '🭸', '🭹', '🭺', '🭻', '🭼', '🭽', '🭾', '🭿', '🮀', '🮁', '🮂', '🮃', '🮄', '🮅', '🮆', '🮇', '🮈', '🮉', '🮊', '🮋', '🮌', '🮍', '🮎', '🮏', '🮐', '🮑', '🮒', '■', '□', '▢', '▣', '▥', '▦', '▧', '▨', '▩', '▪', '▫', '▬', '▭', '▮', '▯', '▰', '▱', '▲', '△', '▴', '▵', '▶', '▷', '▸', '▹', '►', '▻', '▼', '▽', '▾', '▿', '◀', '◁', '◂', '◃', '◄', '◅', '◆', '◇', '◈', '◉', '◊', '○', '◌', '◍', '◎', '●', '◐', '◑', '◒', '◓', '◔', '◕', '◖', '◗', '◘', '◙', '◚', '◛', '◜', '◝', '◞', '◟', '◠', '◡', '◢', '◣', '◤', '◥', '◦', '◧', '◨', '◩', '◪', '◫', '◬', '◭', '◮', '◯', '◰', '◱', '◲', '◳', '◴', '◵', '◶', '◷', '◸', '◹', '◺', '◻', '◼', '◽', '◾', '◿', '⑀', '⑁', '⑂', '⑃', '⑄', '⑅', '⑆', '⑇', '⑈', '⑉', '⑊', 
+func (n *TreeNode) SetReference(reference interface{}) *TreeNode {
+	n.ref = reference
+	return n
+}
 
-func NewVirtualNode(name, icon, path string) *FSNode {
+// GetReference returns this node's reference object.
+func (n *TreeNode) GetReference() interface{} {
+	return n.ref
+}
+
+func NewPluginNode(name, icon string, ref interface{}) *TreeNode {
+  vn := newVirtualNode(name, icon, "", nil)
+  vn.ref = ref
+  vn.Node.SetReference(vn)
+  return vn
+}
+
+func NewVirtualNode(name, icon, path string) *TreeNode {
   return newVirtualNode(name, icon, path, nil)
 }
-func newVirtualNode(name, icon, path string, children []*FSNode) *FSNode {
-	fsnode := &FSNode{
+func newVirtualNode(name, icon, path string, children []*TreeNode) *TreeNode {
+	fsnode := &TreeNode{
       Virtual: true,
 		Name:     name,
     Icon: icon,
@@ -76,11 +93,11 @@ func newVirtualNode(name, icon, path string, children []*FSNode) *FSNode {
     return fsnode
 }
 
-func newFsnode(parentPath string, stat fs.FileInfo) *FSNode {
+func newFsnode(parentPath string, stat fs.FileInfo) *TreeNode {
 	name := stat.Name()
 	fpath := filepath.Join(parentPath, name)
 
-	fsnode := &FSNode{
+	fsnode := &TreeNode{
 		Name:     name,
 		Path:     fpath,
 		IsDir:    stat.IsDir(),
@@ -111,23 +128,23 @@ func NewNode(parentPath string, file fs.FileInfo) *tview.TreeNode {
 	return fsnode.Node
 }
 
-func (n *FSNode) Expand() {
+func (n *TreeNode) Expand() {
 	n.ReadChildren()
 	n.Node.Expand()
 	n.Node.SetText(n.Title())
 }
 
-func (n *FSNode) Collapse() {
+func (n *TreeNode) Collapse() {
 	n.Node.ClearChildren()
 	n.Node.Collapse()
 	n.Node.SetText(n.Title())
 }
 
-func (n *FSNode) IsExpanded() bool {
+func (n *TreeNode) IsExpanded() bool {
 	return n.Node != nil && n.Node.IsExpanded()
 }
 
-func (n *FSNode) readChildren(node *FSNode) {
+func (n *TreeNode) readChildren(node *TreeNode) {
   if n.Virtual && n.Path == "" {
     if n.Children != nil {
       n.Node.ClearChildren()
@@ -157,8 +174,8 @@ func (n *FSNode) readChildren(node *FSNode) {
 		}
 
 		sort.Slice(nodes, func(i, j int) bool {
-			a := nodes[i].GetReference().(*FSNode)
-			b := nodes[j].GetReference().(*FSNode)
+			a := nodes[i].GetReference().(*TreeNode)
+			b := nodes[j].GetReference().(*TreeNode)
 
 			if a.IsDir == b.IsDir {
 				return strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name)) < 0
@@ -174,11 +191,11 @@ func (n *FSNode) readChildren(node *FSNode) {
 	}
 }
 
-func (n *FSNode) ReadChildren() {
+func (n *TreeNode) ReadChildren() {
 	n.readChildren(nil)
 }
 
-func (n *FSNode) CreateParent() *FSNode {
+func (n *TreeNode) CreateParent() *TreeNode {
 	dir := filepath.Dir(n.Path)
 	log.Printf("Create parent for: %s => %s", n.Path, dir)
 
@@ -194,7 +211,7 @@ func (n *FSNode) CreateParent() *FSNode {
 	return rnode
 }
 
-func (n *FSNode) Title(args... string) string {
+func (n *TreeNode) Title(args... string) string {
 	icon := "  "
 	if n.IsDir {
 		if n.IsExpanded() {
@@ -204,10 +221,13 @@ func (n *FSNode) Title(args... string) string {
 		}
 	}
   if n.Virtual && n.Icon != "" {
-    eicon := ""
-		if n.IsExpanded() {
-			eicon = ""
-		}
+    eicon := ""
+    if n.IsDir {
+      eicon = ""
+      if n.IsExpanded() {
+        eicon = ""
+      }
+    }
     icon = fmt.Sprintf("%s %s", eicon, n.Icon)
   } else if n.Virtual {
     icon = "  "
@@ -219,7 +239,7 @@ func (n *FSNode) Title(args... string) string {
 	return fmt.Sprintf("%s %s%s", icon, str, strings.Repeat(" ", 50))
 }
 
-func createNode(n *FSNode) *tview.TreeNode {
+func createNode(n *TreeNode) *tview.TreeNode {
 	node := tview.NewTreeNode(n.Title()).
 		SetReference(n).
 		SetSelectable(true)
