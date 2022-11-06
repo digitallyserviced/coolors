@@ -19,7 +19,7 @@ type Model struct {
 	app      *tview.Application
 	helpbar  *HelpBar
 	rootView *tview.Flex
-	status   *status.StatusBar
+	status   *status.StatusBars
 	scr      tcell.Screen
 	pages    *tview.Pages
 	main     *MainContainer
@@ -108,7 +108,7 @@ func StartApp() {
 	AppModel.rootView = tview.NewFlex().SetDirection(tview.FlexRow)
 	AppModel.helpbar = NewHelpBar(AppModel.app)
 	AppModel.rootView.
-		AddItem(MakeBoxItem("", ""), 1, 1, false).
+		AddItem(AppModel.status.Title, 1, 1, false).
 		AddItem(AppModel.main, 0, 10, true).
 		AddItem(AppModel.status, 2, 1, false)
 		// AddItem(AppModel.helpbar, 1, 1, false)
@@ -128,6 +128,7 @@ func StartApp() {
 	if err := AppModel.app.SetRoot(AppModel.pages, true).Run(); err != nil {
 		panic(err)
 	}
+			GetStore().Close()
 
 	AppModel.main.CloseConfig()
 	colors := AppModel.main.GetPalette()

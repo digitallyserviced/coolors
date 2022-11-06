@@ -4,18 +4,15 @@ import (
 	"fmt"
 	// log "github.com/sirupsen/logrus"
 	"math/rand"
-	"os"
-	"os/signal"
 	"regexp"
-	"syscall"
 	"time"
 
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
 	"github.com/gookit/goutil/dump"
 
-	"github.com/digitallyserviced/coolors/coolor/zzlog"
 	. "github.com/digitallyserviced/coolors/coolor/events"
+	"github.com/digitallyserviced/coolors/coolor/zzlog"
 
 	// "github.com/gookit/goutil/errorx"
 	msgpack "github.com/vmihailenco/msgpack/v5"
@@ -239,37 +236,6 @@ func checkErr(err error) {
     zlog.Error(fmt.Sprintf("checkErr: %T", err), zzlog.String("msg", err.Error()))
 		panic(err)
 	}
-}
-
-func handleSignals() {
-	signal_chan := make(chan os.Signal, 1)
-	signal.Notify(signal_chan,
-		syscall.SIGHUP,
-		syscall.SIGINT,
-		syscall.SIGTERM,
-		syscall.SIGQUIT)
-
-	exit_chan := make(chan int)
-	go func() {
-		for {
-			s := <-signal_chan
-			switch s {
-			// kill -SIGHUP XXXX
-			case syscall.SIGHUP:
-			case syscall.SIGINT:
-			case syscall.SIGTERM:
-				exit_chan <- 0
-			case syscall.SIGQUIT:
-				exit_chan <- 0
-			default:
-				exit_chan <- 1
-			}
-			GetStore().Close()
-		}
-	}()
-
-	code := <-exit_chan
-	os.Exit(code)
 }
 
 func startBoltStats() {
@@ -499,41 +465,6 @@ func FocusNextIfPossible(
 	if focusNext != nil {
 		app.SetFocus(focusNext)
 	}
-}
-
-type Stack []interface{}
-
-// Create a new stack
-func NewStack() *Stack {
-	return &Stack{}
-}
-
-// Get size of stack
-func (this *Stack) Len() int {
-	return len(*this)
-}
-
-// View the top item on the stack
-func (this *Stack) Peek() interface{} {
-	if len(*this) == 0 {
-		return nil
-	}
-	return (*this)[0]
-}
-
-// Pop the top item of the stack and return it
-func (this *Stack) Pop() interface{} {
-	if len(*this) == 0 {
-		return nil
-	}
-	elem := this.Peek()
-	*this = (*this)[:(len(*this) - 1)]
-	return elem
-}
-
-// Push a value onto the top of the stack
-func (this *Stack) Push(elem interface{}) {
-	*this = append(*this, elem)
 }
 
 func debounce[T any](min time.Duration, max time.Duration, input <-chan T) chan T {

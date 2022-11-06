@@ -55,9 +55,9 @@ func setupLogger(){
 		{
 			Filename: "out.log",
 			Ropt: zzlog.RotateOptions{
-				MaxSize:    1,
-				MaxAge:     1,
-				MaxBackups: 1,
+				MaxSize:    4,
+				// MaxAge:     1,
+				// MaxBackups: 1,
 			},
 			Lef: func(lvl zzlog.Level) bool {
         return true
@@ -286,5 +286,53 @@ func formatPath(p string) string {
 
 	return fmt.Sprintf("[blue]%s/[normal]%s", dir, base)
 }
+func MakeCenteredCircleInts(center, num int) []int {
+	nums := lo.RangeFrom(0, num)
+	center = center % num
+	nums = reverse(nums, 0, len(nums)-1)
+	nums = reverse(nums, 0, center-1)
+	nums = reverse(nums, center, len(nums)-1)
+	return nums
+	// nums = lo.Reverse[int](nums)
+}
+
+func reverse(n []int, start, end int) []int {
+	// nums := make([]int, len(n))
+	// nums := copy([]int{}, n)
+	for start >= 0 && end >= 0 {
+		if start >= end {
+			break
+		}
+		t := n[start]
+		n[start] = n[end]
+		n[end] = t
+		start++
+		end--
+	}
+	return n
+}
+
+/*
+function rotate3(nums, k) {
+ k = k % nums.length;
+ reverse(nums, 0, nums.length - 1);
+ reverse(nums, 0, k - 1);
+ reverse(nums, k, nums.length - 1);
+ return nums;
+
+ function reverse(nums, start, end) {
+   while (start < end) {
+     let temporary = nums[start];
+     nums[start] = nums[end];
+     nums[end] = temporary;
+     start++;
+     end -- ;
+   }
+   return nums;
+ }
+}
+
+  var proportionSum int
+*/
 
 // vim: ts=2 sw=2 et ft=go

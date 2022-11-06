@@ -48,7 +48,7 @@ func NewTagEditFloater(cp *CoolorColorsPalette) *RootFloatContainer {
 }
 
 func (cct *CoolorColorTagsView) UpdateView() {
-	MainC.app.QueueUpdateDraw(func() {
+	// MainC.app.QueueUpdateDraw(func() {
     cct.gridView.SetGap(1, 1)
     cct.gridView.SetBorderPadding(0,0,3,3).SetBorder(false)
     tagKeys := cct.CoolorColorsPalette.TagsKeys(false)
@@ -125,5 +125,5 @@ func (cct *CoolorColorTagsView) UpdateView() {
 		cct.SetDirection(tview.FlexColumn)
     // cct.gridView.SetSize(3, 12, 5, 7)
 		// cct.gridView.SetOffset(0, 0)
-	})
+	// })
 }

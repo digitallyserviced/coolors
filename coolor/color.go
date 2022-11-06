@@ -1,6 +1,8 @@
 package coolor
 
 import (
+	// "bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -9,36 +11,45 @@ import (
 
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
-
-	// "github.com/digitallyserviced/coolors/theme"
-
 	. "github.com/digitallyserviced/coolors/coolor/events"
-	// "github.com/gookit/goutil/dump"
 	"github.com/samber/lo"
 	_ "github.com/samber/lo"
-
-	// "github.com/gookit/color"
-	// "github.com/lucasb-eyer/go-colorful"
 	"golang.org/x/term"
 )
 
 type CoolorColor struct {
-	*tview.Box
-	handlers map[string]EventHandlers
-	Color    *tcell.Color `gorm:"uniqueIndex"`
-	l        *sync.RWMutex
-	pallette *CoolorPaletteMainView
-  *Tagged `gorm:"-"`
-	name     string
-	infoline string
-	static   bool
-	selected bool
-	dirty    bool
-	plain    bool
-	centered bool
-	idx      int8
-	valid    bool
-	locked   bool
+	*tview.Box `msgpack:"-" clover:"-,omitempty"`
+	handlers   map[string]EventHandlers
+	Color      *tcell.Color `msgpack:"-" clover:",omitempty"`
+	l          *sync.RWMutex
+	pallette   *CoolorPaletteMainView
+	*Tagged    `msgpack:"-" clover:"-,omitempty"`
+	name       string
+	infoline   string
+	Favorite   bool `clover:"favorite"`
+	static     bool
+	selected   bool
+	dirty      bool
+	plain      bool
+	centered   bool
+	idx        int8
+	valid      bool
+	locked     bool
+}
+
+// UnmarshalJSON implements json.Unmarshaler
+func (cc *CoolorColor) UnmarshalJSON(b []byte) error {
+  fmt.Println(b)
+  m := make(map[string]interface{})
+  cc = NewDefaultCoolorColor()
+  err := json.Unmarshal(b, &m)
+  if err != nil {
+    return err
+  }
+fmt.Printf("#%06x", int32(m["Color"].(float64)))
+  cc.SetColorCss(fmt.Sprintf("#%06x", int32(m["Color"].(float64))))
+  cc.Favorite = m["Favorite"].(bool)
+  return nil
 }
 
 func NewCoolorColor(col string) *CoolorColor {
@@ -65,82 +76,98 @@ func NewStaticCoolorColor(col string) *CoolorColor {
 func NewCoolorBox() *tview.Box {
 	return tview.NewBox()
 }
-func (cc *CoolorColor) DrawFunc() (func(screen tcell.Screen, x int, y int, width int, height int) (int, int, int, int)) {
-  return  func(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
-			centerY := y + height/2
-			lowerCenterY := centerY + height/3
-			txtColor := cc.GetFgColor()
-			// marker := fmt.Sprintf
-			markers := []string{"", ""}
-			// fill := lo.Repeat(width, " ")
-			spcs := strings.Join(make([]string, width-1), " ")
-			needles := fmt.Sprintf("%s%s%s", markers[0], spcs, markers[1])
 
-			if cc.static || cc.centered {
-				if cc.infoline == " " {
-					tview.Print(
-						screen,
-						needles,
-						x,
-						centerY,
-						width,
-						tview.AlignCenter,
-						tcell.ColorDarkRed,
-					)
-				}
-				for cx := x + 1; cx < x+width-2; cx++ {
-					col := tcell.StyleDefault.Foreground(tcell.ColorWhite).
+func (cc *CoolorColor) DrawFunc() func(screen tcell.Screen, x int, y int, width int, height int) (int, int, int, int) {
+	return func(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
+		centerY := y + height/2
+		lowerCenterY := centerY + height/3
+		txtColor := cc.GetFgColor()
+		// marker := fmt.Sprintf
+		markers := []string{"", ""}
+		// fill := lo.Repeat(width, " ")
+		spcs := strings.Join(make([]string, width-1), " ")
+		needles := fmt.Sprintf("%s%s%s", markers[0], spcs, markers[1])
+
+		if cc.static || cc.centered {
+			if cc.infoline == " " {
+				tview.Print(
+					screen,
+					needles,
+					x,
+					centerY,
+					width,
+					tview.AlignCenter,
+					tcell.ColorDarkRed,
+				)
+			}
+			for cx := x + 1; cx < x+width-2; cx++ {
+				col := tcell.StyleDefault.Foreground(tcell.ColorWhite).
+					Background(*cc.Color)
+				lw := tview.BoxDrawingsLightHorizontal
+				if !cc.valid {
+					lw = tview.BoxDrawingsHeavyHorizontal
+					col = tcell.StyleDefault.Foreground(tcell.ColorRed).
 						Background(*cc.Color)
-					lw := tview.BoxDrawingsLightHorizontal
-					if !cc.valid {
-						lw = tview.BoxDrawingsHeavyHorizontal
-						col = tcell.StyleDefault.Foreground(tcell.ColorRed).
-							Background(*cc.Color)
-					}
-					// screen.SetContent(cx, centerY, lw, nil, col)
-					if !cc.plain {
-						screen.SetContent(cx, centerY, lw, nil, col)
-					}
 				}
-				if cc.infoline != "" {
-					tview.Print(
-						screen,
-						cc.infoline,
-						x+1,
-						centerY,
-						width-1,
-						tview.AlignCenter,
-						txtColor,
-					)
+				// screen.SetContent(cx, centerY, lw, nil, col)
+				if !cc.plain {
+					screen.SetContent(cx, centerY, lw, nil, col)
 				}
-			} else {
-				// cc.InRect(lowerCenterY +2)
-				if width-2 >= 8 && lowerCenterY+1 <= y+height-2 {
-					// for cx := x + 1; cx < x+width-1; cx++ {
-					tview.Print(screen, fmt.Sprintf("[#%06x:-:b]%s[-:-:-]", cc.GetFgColor().Hex(), strings.ToUpper(fmt.Sprintf("%06x", cc.Color.Hex()))), x+1, lowerCenterY+2, width-2, tview.AlignCenter, txtColor)
-					// screen.SetContent(cx, lowerCenterY + 4, tview.BoxDrawingsLightHorizontal, nil, tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(*cc.color))
-					// }
-				}
-				// {{define "locked"}}{{- if locked -}}{{- end -}}{{- end -}}
-				// {{define "selected"}}{{- if selected -}}{{- end -}}{{- end -}}
-				status_tpl := MakeTemplate("color_status", `
+			}
+			if cc.infoline != "" {
+				tview.Print(
+					screen,
+					cc.infoline,
+					x+1,
+					centerY,
+					width-1,
+					tview.AlignCenter,
+					txtColor,
+				)
+			}
+		} else {
+			// cc.InRect(lowerCenterY +2)
+			if width-2 >= 8 && lowerCenterY+1 <= y+height-2 {
+				// for cx := x + 1; cx < x+width-1; cx++ {
+				// tcol, _ := MakeColor(cc)
+				// r, g, b := tcol.RGB255()
+				//        yiq := rgbToYIQ(uint(r), uint(g), uint(b))
+				// fmt.Println()
+				tview.Print(screen, fmt.Sprintf("[#%06x:-:b]%s[-:-:-]", cc.GetFgColor().Hex(), strings.ToUpper(fmt.Sprintf("%06x", cc.Color.Hex()))), x+1, lowerCenterY+2, width-2, tview.AlignCenter, txtColor)
+				// tview.Print(screen, fmt.Sprintf("[#%06x:-:b]%0.2f[-:-:-]", cc.GetFgColor().Hex(), yiq), x+1, lowerCenterY+3, width-2, tview.AlignCenter, txtColor)
+				// screen.SetContent(cx, lowerCenterY + 4, tview.BoxDrawingsLightHorizontal, nil, tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(*cc.color))
+				// }
+			}
+			status_tpl := MakeTemplate("color_status", `
       {{define "locked"}}{{- if not locked }}  {{ else }}  {{ end -}}{{- end -}}
       {{define "selected"}}{{- if selected }}   {{ else }}   {{ end -}}{{- end -}}
     `, template.FuncMap{
-					"locked":   cc.GetLocked,
-					"selected": cc.GetSelected,
-					"dirty":    cc.GetDirty,
-					"css":      cc.GetColor,
-				})
-				// sel := status_tpl(`{{- template "selected" . -}}`, cc)
-				lock := status_tpl(`{{- template "locked" . -}}`, cc)
-				// tview.Print(screen, sel, x+1, (lowerCenterY - centerY) / 2, width-2, tview.AlignCenter, txtColor)
-				tview.Print(screen, lock, x+1, lowerCenterY, width-2, tview.AlignCenter, txtColor)
-			}
+				"locked":   cc.GetLocked,
+				"selected": cc.GetSelected,
+				"dirty":    cc.GetDirty,
+				"css":      cc.GetColor,
+			})
+			// sel := status_tpl(`{{- template "selected" . -}}`, cc)
+			lock := status_tpl(`{{- template "locked" . -}}`, cc)
+			// tview.Print(screen, sel, x+1, (lowerCenterY - centerY) / 2, width-2, tview.AlignCenter, txtColor)
+			tview.Print(screen, lock, x+1, lowerCenterY, width-2, tview.AlignCenter, txtColor)
+		}
+    if cc.selected {
+      if cc.pallette == nil || cc.pallette.menu == nil || cc.pallette.menu.list == nil {
+        return x + 1, centerY + 1, width - 2, height - (centerY + 1 - y)
+      }
+      cc.GetMenuPosition(cc.pallette.menu.list)
+      cc.pallette.menu.list.Draw(screen)
+    }
+    // if cc.selected {
+    //   cc.GetMenuPosition()
+    //   cc.pallette.menu.list.SetRect(x int, y int, width int, height int)
+    // }
 
-			// Space for other content.
-			return x + 1, centerY + 1, width - 2, height - (centerY + 1 - y)
-  }
+		// Space for other content.
+		return x + 1, centerY + 1, width - 2, height - (centerY + 1 - y)
+		// return x + 1, y + 1, width - 2, height
+	}
 }
 
 func NewDefaultCoolorColor() *CoolorColor {
@@ -179,7 +206,6 @@ func NewRandomCoolorColor() *CoolorColor {
 	return NewIntCoolorColor(c.Hex())
 }
 
-//
 func (cc *CoolorColor) RGBA() (r, g, b, a uint32) {
 	// ri, gi, bi := cc.color.RGB()
 	// fmt.Println(ri,gi,bi)
@@ -206,24 +232,24 @@ func (cc *CoolorColor) Unstatic() *CoolorColor {
 }
 
 func (cc *CoolorColor) Coolor() *Coolor {
-  if cc == nil || cc.Color == nil {
+	if cc == nil || cc.Color == nil {
 
-    return &Coolor{
-    	Color: 0,
-    }
-  }
-  return &Coolor{
-  	Color: *cc.Color,
-  }
+		return &Coolor{
+			Color: 0,
+		}
+	}
+	return &Coolor{
+		Color: *cc.Color,
+	}
 }
 
 func (cc *CoolorColor) GetColorable() *Color {
-  c := MakeColorFromTcell(*cc.Color)
-  return &c
+	c := MakeColorFromTcell(*cc.Color)
+	return &c
 }
 
 func (cc *CoolorColor) U64() uint64 {
-  return uint64(cc.Color.Hex())
+	return uint64(cc.Color.Hex())
 }
 
 func (cc *CoolorColor) GetCC() *CoolorColor {
@@ -243,7 +269,6 @@ func (cc *CoolorColor) Clone() *CoolorColor {
 	ccc.pallette = cc.pallette
 	return ccc
 }
-
 
 func (cc *CoolorColor) GetSelected() bool {
 	cc.l.RLock()
@@ -269,9 +294,9 @@ func (c *CoolorColor) Random() bool {
 		return false
 	}
 	c.dirty = true
-  col := MakeRandomColor()
-  c.SetColor(col)
-  SeentColor("setcolor", c, c)
+	col := MakeRandomColor()
+	c.SetColor(col)
+	SeentColor("setcolor", c, c)
 	return true
 }
 
@@ -295,7 +320,6 @@ func (c *CoolorColor) SetColor(col *tcell.Color) {
 	c.l.Lock()
 	defer c.l.Unlock()
 	hex := fmt.Sprintf("#%06x", col.Hex())
-	// fmt.Println(hex)
 	colo := tcell.GetColor(hex)
 	c.Color = &colo
 	c.SetBackgroundColor(*c.Color)
@@ -325,10 +349,8 @@ func (c *CoolorColor) SetColorInt(h int32) {
 }
 
 func (cc *CoolorColor) SetLocked(s bool) {
-	// dump.P(cc.Html(), s, cc.locked, cc.selected, cc.plain, cc.static)
 	cc.l.Lock()
 	defer cc.l.Unlock()
-
 	cc.locked = s
 	cc.updateStyle()
 }
@@ -393,8 +415,8 @@ func (cc *CoolorColor) SetSelected(s bool) {
 
 func (cc *CoolorColor) GetFgColorFade(a float64) tcell.Color {
 	tcol, _ := MakeColor(cc)
-  ncc := tcol.BlendLuvLCh(MakeColorFromTcell(cc.GetFgColorShade()), a)
-  return *ncc.GetCC().Color
+	ncc := tcol.BlendLuvLCh(MakeColorFromTcell(cc.GetFgColorShade()), a)
+	return *ncc.GetCC().Color
 }
 
 func (cc *CoolorColor) GetFgColorShade() tcell.Color {
@@ -445,22 +467,22 @@ func (cc *CoolorColor) TVCSSString(spaces bool) string {
 	if cc == nil || cc.Color == nil {
 		return "#000000"
 	}
-  space := " "
-  if !spaces {
-    space = ""
-  }
+	space := " "
+	if !spaces {
+		space = ""
+	}
 	return strings.ToUpper(fmt.Sprintf(
 		"[#%06x:#%06x:-]%s#%06x%s[-:-:-]",
 		cc.GetFgColor().Hex(),
 		cc.Color.Hex(),
-    space,
+		space,
 		cc.Color.Hex(),
-    space,
+		space,
 	))
 }
 
 func (cc *CoolorColor) TVPreview() string {
-  return cc.TVCSSString(true)
+	return cc.TVCSSString(true)
 }
 
 func (cc *CoolorColor) TerminalPreview() string {
@@ -499,16 +521,14 @@ func (cc *CoolorColor) updateStyle() {
 		return
 	}
 	if cc.selected || cc.centered {
-    // cc.GetFgColorShade()
+		// cc.GetFgColorShade()
 		inverse := cc.GetFgColor()
-		cc.Box.SetBorderAttributes(tcell.AttrBold).
-      SetBorder(true).
+		fmt.Println(MakeColorFromTcell(inverse).GetCC().TerminalPreview())
+		cc.Box.
+			SetBorderFocusColor(inverse).
+			SetBorder(true).
 			SetBorderPadding(0, 0, 0, 0).
-      // SetBorderColor(theme.GetTheme().ContentBackground).
-      // SetBorderAttributes(tcell.AttrReverse).
-			SetBorderColor(inverse).
-      // SetBorderVisible(false).
-			SetTitleColor(inverse)
+			SetBorderColor(tcell.GetColor("#101010"))
 		cc.Focus(nil)
 	} else {
 		cc.SetBorderPadding(0, 0, 0, 0)
@@ -518,12 +538,31 @@ func (cc *CoolorColor) updateStyle() {
 }
 
 func (cc *CoolorColor) Draw(screen tcell.Screen) {
+  // cc.GetMenuPosition(cc.pallette.menu)
 	cc.DrawForSubclass(screen, cc)
-	x, y, w, h := cc.GetRect()
-	_, _, _, _ = x, y, w, h
-	if cc.plain || cc.pallette == nil || cc.pallette.menu == nil || !cc.selected {
+	if cc == nil || cc.pallette == nil || cc.pallette.menu == nil || !cc.selected {
 		return
 	}
+	// mw = (((imw * 3) / 3))
+	// centerY := cy + ((ch/2 + (ch / 3) - mh/2) - (mh / 2))
+	// centerY := cy + ((ch/2 + (ch / 2)) - (ch / 3))
+	// shouldReturn := 
+	// if shouldReturn {
+	// 	return
+	// }
+	// cc.pallette.menu.Draw(screen)
+	// cc.pallette.menu.updateState()
+}
+
+func (cc *CoolorColor) GetMenuPosition(p tview.Primitive) {
+	if cc == nil || cc.pallette == nil || cc.pallette.menu == nil {
+    return
+		// return cc.GetRect()
+	}
+  // dump.P(cc.GetRect())
+  // dump.P(cc.GetInnerRect())
+	x, y, w, h := cc.GetRect()
+	_, _, _, _ = x, y, w, h
 	cx, cy, cw, ch := cc.GetInnerRect()
 	cw = ((cw * 2) / 2) - 1
 	cc.SetRect(cx, cy, cw, ch)
@@ -532,33 +571,43 @@ func (cc *CoolorColor) Draw(screen tcell.Screen) {
 	_, _, _, _ = cx, cy, cw, ch
 	mx, my, _, _ := cc.pallette.menu.GetRect()
 	imx, imy, imw, imh := cc.pallette.menu.GetInnerRect()
-	// mw = (((imw * 3) / 3))
+	// mic := cc.pallette.menu.GetItemCount()
+  mic := len(cc.pallette.menu.GetListItems())
+  if mic == 0 {
+    mic = 1
+  }
+
 	mw := 1
-	itemH := cc.pallette.menu.GetItemCount() * 3
+	itemH := mic * 3
 	mh := (itemH) + 2
 	endY := (y + h)
 	centerX := cx + ((cw / 2) - (mw / 2))
-	centerY := y + (mh / cc.pallette.menu.GetItemCount())
+	centerY := y + (mh / mic)
+    // dump.P(centerX, centerY, itemH, mh)
 
 	if centerY+mh > cy+ch-5 {
 		mh = (endY) - centerY
 	}
 	_, _, _, _ = mx, my, mw, mh
 	_, _, _, _ = imx, imy, imw, imh
-	// centerY := cy + ((ch/2 + (ch / 3) - mh/2) - (mh / 2))
-	// centerY := cy + ((ch/2 + (ch / 2)) - (ch / 3))
-	cc.pallette.menu.SetRect(centerX, centerY, mw, mh)
-	cc.pallette.menu.Draw(screen)
-	// cc.pallette.menu.updateState()
+
+  if p != nil {
+	p.SetRect(centerX, centerY, mw, mh)
+
+  }
 }
 
 func (cc CoolorColors) Strings() []string {
-  cssStrings := lo.Map[*CoolorColor, string](cc, func(cc *CoolorColor, i int) string {
-    return cc.Html()
-  })
-  return cssStrings
+	cssStrings := lo.Map[*CoolorColor, string](
+		cc,
+		func(cc *CoolorColor, i int) string {
+			return cc.Html()
+		},
+	)
+	return cssStrings
 }
 func (cc *CoolorColor) GetRef() interface{} {
 	return cc
 }
+
 // vim: ts=2 sw=2 et ft=go

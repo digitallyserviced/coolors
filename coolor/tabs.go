@@ -187,6 +187,8 @@ func (tv *TabbedView) SetCurrentTab(prevTab, newTab int) {
 	}
 	oe := tv.NewObservableEvent(SelectedEvent, "tab_selected", tb, tv)
 	tv.Notify(*oe)
+  tb.Content.show(tb)
+  // tv.sho
 	tv.UpdateView()
 }
 
@@ -237,12 +239,12 @@ func (tv *TabbedView) AddTab(tab *TabView) *TabbedView {
 		return nil
 	}
 	tv.tabs = append(tv.tabs, tab)
-	MainC.app.QueueUpdateDraw(func() {
+	// MainC.app.QueueUpdateDraw(func() {
 		tv.SetCurrentTab(0, 0)
-		tv.Register(SelectedEvent, tab)
 		tv.UpdateView()
 		tv.UpdateTabSelector()
-	})
+		tv.Register(SelectedEvent, tab)
+	// })
 	return tv
 }
 

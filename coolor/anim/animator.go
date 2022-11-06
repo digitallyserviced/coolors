@@ -13,6 +13,7 @@ import (
 	"github.com/gookit/goutil/errorx"
 
 	. "github.com/digitallyserviced/coolors/coolor/events"
+	"github.com/digitallyserviced/coolors/coolor/stack"
 )
 
 type animator struct {
@@ -21,6 +22,7 @@ type animator struct {
 	App        *tview.Application
 	RootLayer  *tview.Pages
 	AnimLayer  *tview.Pages
+  LayerStack *stack.PageStack
 	Screen     tcell.Screen
 	LayerName  string
 	*EventObserver
@@ -43,6 +45,7 @@ func Init(
 			App:           app,
 			RootLayer:     viewRoot,
 			AnimLayer:     viewAnim,
+			LayerStack:    stack.NewPageStack(viewAnim),
 			Screen:        scr,
 			LayerName:     "anims",
 			EventObserver: NewEventObserver("animator"),
@@ -62,7 +65,7 @@ func (a *animator) watcher() {
 			if ObservableEventType(
 				AnimationPlaying | AnimationIdle | AnimationLooped | AnimationNext | AnimationPrevious | AnimationUpdate,
 			).Is(anim.State) {
-        a.App.Draw()
+        // a.App.Draw()
 				// a.App.QueueUpdateDraw(func() {
 				// 	if anim == nil {
 				// 		return

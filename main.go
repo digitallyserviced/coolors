@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	// "internal/profile"
+	// "runtime/pprof"
 	"syscall"
 
 	// "fmt"
@@ -91,9 +93,19 @@ func main() {
   // _ = query.CoolorColor
   // query.CoolorColor
   // u := query.Query
-  
+ // fc, err := os.Create("cpu.prof")
+ //        if err != nil {
+ //            log.Fatal("could not create CPU profile: ", err)
+ //        }
+ //        defer fc.Close() // error handling omitted for example
+ //        if err := pprof.StartCPUProfile(fc); err != nil {
+ //            log.Fatal("could not start CPU profile: ", err)
+ //        }
+ //        defer pprof.StopCPUProfile() 
+  // pprof.StartCPUProfile
   setupOut()
 	go http.ListenAndServe("0.0.0.0:1234", nil)
+  
 	f, err := os.Create("dump")
 	defer f.Close()
 	if err != nil {

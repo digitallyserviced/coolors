@@ -86,9 +86,9 @@ type Tagger interface {
 }
 
 type Tagged struct {
-	TagType *TagType
-	Item    interface{}
-	Tags    []*TagItem
+  TagType *TagType `msgpack:"-" clover:"-"`
+	Item    interface{} `msgpack:"-" clover:"-"`
+	Tags    []*TagItem `msgpack:"-" clover:"-"`
 }
 
 type TagTypeField struct {
@@ -128,7 +128,7 @@ type TagType struct {
 type TagTypeCallbackFunc func(tti *TagType, ti *TagItem, tgd *Tagged)
 
 type TagTypeCallbacks struct {
-	callbacks map[string]*TagTypeCallbackFunc
+	callbacks map[string]TagTypeCallbackFunc
 }
 
 type TagItem struct {
@@ -172,7 +172,7 @@ func NewTagTypeField(name string, data interface{}, typed reflect.Type, flag Tag
 func NewTagTypeInfo(name, desc string, exclusive bool, fields []TagTypeField) TagType {
 	tti := &TagType{
 		TagTypeCallbacks: &TagTypeCallbacks{
-			callbacks: make(map[string]*TagTypeCallbackFunc),
+			callbacks: make(map[string]TagTypeCallbackFunc),
 		},
 		name:             name,
 		desc:             desc,
@@ -204,13 +204,13 @@ func (tti *TagType) NewTagList(name string) *TagList {
 }
 
 func (tti *TagTypeCallbacks) SetCallback(name string, f TagTypeCallbackFunc) {
-  tti.callbacks[name] = &f
+  tti.callbacks[name] = f
 }
 
 func (tti *TagTypeCallbacks) Callback(name string, tgd *Tagged, ti *TagItem) {
   cb, ok := tti.callbacks[name]
   if ok && cb != nil {
-    (*cb)(ti.TagType, ti, tgd)
+    cb(ti.TagType, ti, tgd)
   }
 }
 
@@ -446,9 +446,9 @@ func (tl *TagList) GetTag(idx int) *TagItem {
 
 func GetTerminalColorsAnsiTags() *TagList {
 	items := Base16Tags.NewTagList("base16 color scheme")
-  Base16Tags.SetCallback("set", func(tti *TagType, ti *TagItem, tgd *Tagged) {
-
-  })
+  // Base16Tags.SetCallback("set", func(tti *TagType, ti *TagItem, tgd *Tagged) {
+  //
+  // })
 	items.AddTagItemWithData("fg", "foreground", "default foreground", true, true)
 	items.AddTagItemWithData("bg", "background", "default background", true, true)
 	items.AddTagItemWithData("cursor", "cursor", "cursor color", true, true)

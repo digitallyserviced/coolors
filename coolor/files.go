@@ -319,13 +319,13 @@ func (cp *CoolorColorsPalette) UpdateHash() uint64 {
   return cp.Hash
 }
 
-func (cp *Coolors) HashColors() uint64 {
-  hashed := lo.Reduce[*Coolor, uint64](cp.Colors, func(h uint64, c *Coolor, i int) uint64 {
-    return h + uint64(c.Color.Hex())
-  }, 0)
-  cp.Hash = hashed
-  return hashed
-}
+// func (cp *Coolors) HashColors() uint64 {
+//   hashed := lo.Reduce[*Coolor, uint64](cp.Colors, func(h uint64, c *Coolor, i int) uint64 {
+//     return h + uint64(c.Color.Hex())
+//   }, 0)
+//   cp.Hash = hashed
+//   return hashed
+// }
 
 func (cp *CoolorColorsPalette) HashColors() uint64 {
 	// var hash uint64 = 0

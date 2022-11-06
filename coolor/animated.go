@@ -3,11 +3,15 @@ package coolor
 import (
 	"fmt"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/harmonica"
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
+	"github.com/samber/lo"
+
+	// "github.com/gookit/goutil/dump"
 
 	// "github.com/gookit/goutil/dump"
 
@@ -33,6 +37,7 @@ func NewAnimatedBox(
 			NewBoxAnimated(b),
 		)
 		fm.Tween = NewTween(start, target)
+    fm.SetStartMotion(MotionValues{start, 0})
 		kf.AddMotion(fm)
 		anim.AddKeyFrame(kf)
 
@@ -42,6 +47,7 @@ func NewAnimatedBox(
 			NewBoxAnimated(b),
 		)
 		rfm.Tween = fm.Tween.GetReverse()
+    rfm.SetStartMotion(MotionValues{start, 0})
 		rkf.AddMotion(rfm)
 		anim.AddKeyFrame(rkf)
 
@@ -49,116 +55,125 @@ func NewAnimatedBox(
 	})
 }
 
-func NewNotification(name, text string) *Animation {
-	return GetAnimator().NewAnimation("notif", func(name string) *Animation {
-		// anim := NewAnimatedBox(
-		// 	"notif",
-		// 	b.Box,
-		// 	float64(w+40),
-		// 	float64(w-46),
-		// 	RectXMutator,
-		// )
-		// b.Box.SetAnimating(true)
-		// anim.Reanimate = func(anim *Animation) bool {
-		// 	if AppModel.anims.HasPage("notif") {
-		// 		AppModel.anims.ShowPage("notif")
-		// 	}
-		// 	// MainC.app.QueueUpdateDraw(func() {
-		// 	b.SetRect(w+30, 3, 40, 4)
-		// 	MainC.app.Draw(b)
-		// 	// })
-		//
-		// 	return true
-		// }
-	b := tview.NewTextView()
-	b.SetTitle(name)
-	b.SetText(text).SetTextAlign(tview.AlignCenter)
-	w, _ := AppModel.scr.Size()
-    AppModel.app.QueueUpdateDraw(func() {
+var notiIdx = 0
 
-	AppModel.anims.AddPage("notif", b, false, true)
-	AppModel.anims.ShowPage("notif")
-	b.SetRect(30, 3, 40, 4)
+func Notid(t string) string {
+	notiIdx += 1
+	return fmt.Sprintf("%s_%d", t, notiIdx)
+}
+
+func NewNotification(id, icon, text string) *Animation {
+	return GetAnimator().NewAnimation(id, func(name string) *Animation {
+    b := tview.NewFlex()
+    tv := tview.NewTextView()
+    tv.SetDynamicColors(true)
+    licon := MakeBoxItem("", "#276979")
+    licon.SetBorderPadding(0, 0, 0, 0)
+    licon.SetDrawFunc(func(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
+      tview.Print(screen, icon, x, y + (height / 2), width, tview.AlignCenter, tcell.GetColor("#f1f1f1"))
+      width=6
+      height=3
+      return x,y,width,height
     })
-	// MainC.app.Draw(AppModel.anims)
-	// b.SetRect(w+30, 3, 40, 4)
+    b.AddItem(licon, 6, 0, false)
+    b.AddItem(tv, 34, 0, false)
+		tv.SetText(text).SetTextAlign(tview.AlignCenter)
+    tv.SetBorder(true).SetBorderPadding(0, 0, 0, 0).SetBorderSides(true, false, true, true).SetBorderColor(tcell.GetColor("#276979"))
+		w, _ := AppModel.scr.Size()
+    GetAnimator().LayerStack.Push(id, b, false)
+		// b.SetRect(w-1, 3, 40, 3)
 		b.SetAnimating(true)
 
-	b.SetWordWrap(true).SetWrap(true)
-	b.SetBorder(false).SetBorderPadding(0, 0, 1, 1)
-	b.SetDontClear(false)
-	b.SetBackgroundColor(tcell.ColorBlack)
-	b.SetVisible(true)
-	// b.SetRect(w+30, 3, 40, 4)
-    anim := NewAnimation()
-    b.SetAnimating(true)
+		tv.SetWordWrap(true).SetWrap(true)
+		b.SetBorderPadding(0, 0, 0, 0)
+		b.SetDontClear(true)
+		tv.SetBackgroundColor(tcell.ColorBlack)
+		anim := NewAnimation()
+		b.SetAnimating(true)
 
-    start := w+30
-    target := w - 46
-    cm := NewCallbackMutator(func(m MotionValues, i interface{}) bool {
-        x,y,w,h := b.GetRect()
-        x = int(m.X)
-        b.SetRect(x, y, w, h)
-        return true
-      })
+		start := w+40
+    yPos := 3
+    currents := lo.CountBy[string](Animator.LayerStack.Names, func(s string) bool {
+     return strings.Contains(s, "notif_")
+    })
+    if currents > 1 {
+      yPos = (currents-1) * 4 + yPos
+    }
+		target := w - 46
+		cm := NewCallbackMutator(func(m *MotionValues, i interface{}) bool {
+			x, y, w, h := b.GetRect()
+			x = int(m.X)
+			b.SetRect(x, y, w, h)
+			return true
+		})
 		kf := anim.NewKeyFrame()
 		fm := kf.NewFrameMotion(
-			NewMotion("MotionAxisX", MotionAxisX, *NewMotionMutator(NewCallbackMutator(func(m MotionValues, i interface{}) bool {
-        x,y,w,h := b.GetRect()
-        x = int(m.X)
-        b.SetRect(x, y, w, h)
-        return true
-      }))),
+			NewMotion(
+				"MotionAxisX",
+				MotionAxisX,
+				*NewMotionMutator(NewCallbackMutator(func(m *MotionValues, i interface{}) bool {
+					x, y, w, h := b.GetRect()
+          x = int(m.X)
+					Animator.App.QueueUpdateDraw(func() {
+
+						b.SetRect(x, y, w, h)
+					})
+					return true
+				})),
+			),
 			NewBoxAnimated(b.Box),
 		)
 		fm.Tween = NewTween(float64(start), float64(target))
+    fm.SetStartMotion(MotionValues{float64(start), 0})
 		kf.AddMotion(fm)
 		anim.AddKeyFrame(kf)
 
 		rkf := anim.NewKeyFrame()
-    cm.AddCallback(FinishedMutating, NotifyFinishedMutate(func(m MotionValues, i interface{}) bool {
-      anim.Control.Close()
-      GetAnimator().Animations["notif"]=nil
-      return true
-    }))
-    finmot := *NewMotionMutator(cm)
-    // finmot.Mutator.Finished(idx int, startX float64, targetX float64, prevMv .MotionValues, newMv .MotionValues, i interface{})
-    // finmot.
+		cm.AddCallback(
+			FinishedMutating,
+			NotifyFinishedMutate(func(m *MotionValues, i interface{}) bool {
+				anim.Control.Close()
+				GetAnimator().Animations[id] = nil
+				return true
+			}),
+		)
+		finmot := *NewMotionMutator(cm)
 		rfm := rkf.NewFrameMotion(
 			NewMotion("RevMotionAxisX", MotionAxisX, finmot),
 			NewBoxAnimated(b.Box),
 		)
 		rfm.Tween = NewTween(float64(target), float64(start))
+    rfm.SetStartMotion(MotionValues{float64(target), 0})
 		rkf.AddMotion(rfm)
 		anim.AddKeyFrame(rkf)
-    anim.Register(AnimationFinished, NewAnonymousHandlerFunc(func(o ObservableEvent) bool {
-      if !o.Type.Is(AnimationFinished){
-        return true
-      }
-        return true
-    }))
-    
+		anim.Register(
+			AnimationFinished,
+			NewAnonymousHandlerFunc(func(o ObservableEvent) bool {
+				if ObservableEventType(
+					AnimationFinished | AnimationDone | AnimationCanceled,
+				).Is(o.Type) {
+          GetAnimator().LayerStack.Pop(id)
+					return true
 
-		// b.Box.SetRect(w+30, 3, 40, 4)
+				}
+				return true
+			}),
+		)
+
 		MainC.app.SetFocus(MainC.pages)
-		MainC.app.QueueUpdateDraw(func() {
-			b.SetRect(w+20, 3, 40, 4)
-			MainC.app.Draw(b)
-    // b.SetAnimating(true)
-			// b.SetRect(123, 3, 40, 4)
-		})
-		// b.SetRect(w+30, 3, 40, 4)
+		b.SetRect(start, yPos, 40, 3)
+		MainC.app.Draw(b)
 		anim.Start()
 
 		return anim
-	},func(a *Animation) bool{
-      if a != nil {
-        a.Control.Close()
-        a = nil
-      }
-      AppModel.anims.RemovePage("notif")
-      return false
-    })
+	}, func(a *Animation) bool {
+		if a != nil {
+			a.Control.Close()
+			a = nil
+		}
+		AppModel.anims.RemovePage(id)
+		return true
+	})
 }
 
 func NewFrameAnimator() *Animation {
@@ -177,7 +192,7 @@ func NewFrameAnimator() *Animation {
 		// 🮇🮈🮉🮊🮋▉  ▉▊▋▌▍▎▏🮇🮈🮉🮊🮋▉
 		// ▁▂▃▅▆▇█▔🮂🮃🮄🮅🮆▉██▇▆▅▃▂▁
 		makeMut := func(x int) *CallbackMutator {
-			return NewCallbackMutator(func(m MotionValues, i interface{}) bool {
+			return NewCallbackMutator(func(m *MotionValues, i interface{}) bool {
 				// fmt.Println(m.X)
 				fmn := int(
 					MapVal(
@@ -239,12 +254,12 @@ func NewDynamicTargetAnimation(
 ) *Animation {
 	return GetAnimator().NewAnimation(name, func(name string) *Animation {
 		anim := NewAnimation()
-		mut8r := NewCallbackMutator(func(m MotionValues, i interface{}) bool {
+		mut8r := NewCallbackMutator(func(m *MotionValues, i interface{}) bool {
 			mut.Mutate(m, i)
 			return true
 		})
 		mut8r.FinishedCallback = MutatorFinishedCallback(
-			func(idx int, startX, targetX float64, prevMv, newMv MotionValues, i interface{}) ObservableEventType {
+			func(idx int, startX, targetX float64, prevMv, newMv *MotionValues, i interface{}) ObservableEventType {
 				current, _, _ := tgtUpd(anim)
 				if idx > 1 && math.Abs(prevMv.Xvelocity-newMv.Xvelocity) < 0.001 &&
 					math.Abs(float64(current)-newMv.X) < 1 {

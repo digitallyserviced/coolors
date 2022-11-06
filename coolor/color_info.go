@@ -132,10 +132,14 @@ func (cci *CoolorColorClusterInfo) Debug() string {
 
 func (cci *CoolorColorClusterInfo) String() string {
 	rand.Seed(time.Now().UnixNano())
-	suff2 := lo.Sample[string](levels)
+	// suff2 := lo.Sample[string](levels)
+  
+
 	main := cci.clusters[0].cluster.name
   fondler := cci.DemoteGray(cci.clusters[1].cluster.name, cci.clusters[2].cluster.name)
-	return fmt.Sprintf("%s [yellow:-:-]%s %s[-:-:-]", cci.color.TVPreview(), fmt.Sprintf(suff2, fondler), main)
+  adj := Generator().Adjectives(1)
+  adjd := fmt.Sprintf("%s %s", adj[0], fondler)
+	return fmt.Sprintf("%s [yellow:-:-]%s %s[-:-:-]", cci.color.TVPreview(), adjd, main)
 }
 
 func (cci *CoolorColorClusterInfo) DemoteGray(b, a string) string {

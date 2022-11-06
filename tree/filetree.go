@@ -64,9 +64,9 @@ func NewFileTree(theme *Theme) *FileTree {
 		ft.changed(node)
 	})
 
-	view.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		return ft.inputCapture(event)
-	})
+	// view.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+	// 	return ft.inputCapture(event)
+	// })
 
 	// Disable mouse scroll
 	view.SetMouseCapture(
@@ -121,7 +121,6 @@ func (ft *FileTree) Draw(screen tcell.Screen) {
 	ft.Box.DrawForSubclass(screen, ft)
 	ft.view.Box.DrawForSubclass(screen, ft.view)
 	ft.view.Draw(screen)
-	// ft.tr.DrawForSubclass(screen, ft)
 }
 
 func (ft *FileTree) GetRect() (int, int, int, int) {
@@ -137,7 +136,64 @@ func (ft *FileTree) SetRect(x, y, width, height int) {
 }
 
 func (ft *FileTree) InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
-	return ft.view.InputHandler()
+  return ft.WrapInputHandler(func(event *tcell.EventKey, f func(p tview.Primitive)) {
+	n := ft.view.GetCurrentNode()
+	fsnode := get(n)
+	if event.Modifiers() == tcell.ModShift {
+		return
+	}
+	switch event.Key() {
+	case tcell.KeyLeft:
+		if fsnode.Virtual {
+			return
+		}
+		parent := ft.GetParentNode(fsnode)
+		if fsnode.IsDir && fsnode.IsExpanded() {
+			fsnode.Collapse()
+		} else if !ft.IsRoot(parent) {
+			ft.SetCurrent(parent)
+		}
+		return
+
+	case tcell.KeyRight:
+		// if fsnode.Virtual && !fsnode.IsExpanded() {
+		// fsnode.Node.Expand()
+		// return nil
+		// }
+		// if !fsnode.IsExpanded() {
+      if fsnode ==nil || (len(n.GetChildren()) == 0 && fsnode.Children == nil ){
+        return
+      }
+			fsnode.Expand()
+		// }
+		return
+
+	case tcell.KeyEnter:
+		if ft.onOpen != nil {
+			ft.onOpen(fsnode)
+		}
+		return
+
+		// case tcell.KeyRune:
+		// 	switch event.Rune() {
+		// 	case 'K':
+		// 		return nil // noop
+		//
+		//    case '^':
+		// 		ft.SetRoot(get(ft.root).CreateParent())
+		// 		return nil
+		//
+		// 	case 'o':
+		// 		if ft.onOpen != nil {
+		// 			ft.onOpen(fsnode)
+		// 		}
+		// 		return nil
+		// 	}
+	}
+    ft.view.InputHandler()(event, f)
+    ft.view.Process()
+  })
+	// return ft.view.InputHandler()
 }
 
 func (ft *FileTree) Focus(delegate func(p tview.Primitive)) {
@@ -283,6 +339,7 @@ func (ft *FileTree) SetVirtualRoot(fsnode *TreeNode) {
 	ft.virtualRoot.ClearChildren()
 	ft.root.AddChild(fsnode.Node)
   ft.view.SetCurrentNode(ft.virtualRoot)
+  ft.virtualRoot.ExpandAll()
 }
 func (ft *FileTree) SetLocalRoot(fsnode *TreeNode) {
 	ft.localRoot = fsnode.Node

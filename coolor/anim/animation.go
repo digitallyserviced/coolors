@@ -269,7 +269,7 @@ func (fm *FrameMotion) Evolve(delta, offset float64, full bool) MotionValues {
 				break
 			}
 		} else {
-			switch fm.Transition(mv) {
+			switch fm.Transition(&mv) {
 			case AnimationPlaying:
 			case AnimationPaused:
 				fallthrough
@@ -335,11 +335,14 @@ func (fm *FrameMotion) Update() (mv MotionValues, done bool) {
 	if fm.idx == 0 {
 		fm.started = time.Now()
 	}
+  // oldX := fm.CurrentMotion.X
+  // fmt.Println(oldX)
 	mv = fm.CurrentMotion
 	oldVel := mv.Xvelocity
 	mv.X, mv.Xvelocity = fm.Tween.Spring.Update(mv.X, oldVel, fm.targetX)
+  // fmt.Println(mv.X)
 	// fm.Motions = append(fm.Motions, &mv)
-	switch fm.Transition(mv) {
+	switch fm.Transition(&mv) {
     case AnimationPlaying:
     case AnimationPaused:
       fallthrough
@@ -353,12 +356,12 @@ func (fm *FrameMotion) Update() (mv MotionValues, done bool) {
 	return
 }
 
-func (fm *FrameMotion) Transition(mv MotionValues) ObservableEventType {
+func (fm *FrameMotion) Transition(mv *MotionValues) ObservableEventType {
 	return fm.MotionMutator.Mutator.Finished(
 		fm.idx,
 		fm.startX,
 		fm.targetX,
-		fm.CurrentMotion,
+		&fm.CurrentMotion,
 		mv,
 		fm.Animated.Item,
 	)
@@ -368,7 +371,7 @@ func (fm *FrameMotion) Tick(ac *AnimControl) {
 	mv, done := fm.Update()
 	xp.Xp.MotionX.Set(math.Abs(mv.X))
 	xp.Xp.MotionVel.Set(math.Abs(mv.Xvelocity))
-	if !fm.MotionMutator.Mutator.Mutate(mv, fm.Animated.Item) {
+	if !fm.MotionMutator.Mutator.Mutate(&mv, fm.Animated.Item) {
 		ac.Pause()
 	}
 	if done {
@@ -442,6 +445,10 @@ func (fms *KeyFrame) MakeFrameMotion(
 	return fm
 }
 
+func (fm *FrameMotion) SetStartMotion(cm MotionValues) *FrameMotion {
+  fm.CurrentMotion = cm
+  return fm
+}
 func (fms *KeyFrame) AddMotion(frame *FrameMotion) *KeyFrame {
 	fms.Motions = append(fms.Motions, frame)
 	return fms

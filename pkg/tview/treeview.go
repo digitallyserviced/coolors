@@ -86,6 +86,9 @@ func (n *TreeNode) Walk(callback func(node, parent *TreeNode) bool) *TreeNode {
 
 		// Add children in reverse order.
 		for index := len(node.children) - 1; index >= 0; index-- {
+      if node.children[index] == nil {
+        continue
+      }
 			node.children[index].parent = node
 			nodes = append(nodes, node.children[index])
 		}
@@ -433,7 +436,7 @@ func (t *TreeView) GetRowCount() int {
 
 // process builds the visible tree, populates the "nodes" slice, and processes
 // pending selection actions.
-func (t *TreeView) process() {
+func (t *TreeView) Process() {
 	_, _, _, height := t.GetInnerRect()
 
 	// Determine visible nodes and their placement.
@@ -624,7 +627,7 @@ func (t *TreeView) Draw(screen tcell.Screen) {
 	}
 	_, totalHeight := screen.Size()
 
-	t.process()
+	t.Process()
 
 	// Scroll the tree.
 	x, y, width, height := t.GetInnerRect()
@@ -781,7 +784,7 @@ func (t *TreeView) InputHandler() func(event *tcell.EventKey, setFocus func(p Pr
 			selectNode()
 		}
 
-		t.process()
+		t.Process()
 	})
 }
 

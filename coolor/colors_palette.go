@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/gookit/goutil/dump"
@@ -15,7 +16,21 @@ import (
 	// . "github.com/digitallyserviced/coolors/coolor/events"
 )
 
-
+type (
+	// CoolorColorsPaletteMeta struct {
+ //  }
+	CoolorColorsPalette struct {
+		l              *sync.RWMutex
+		*events.EventObserver `msgpack:"-" clover:"-,omitempty"`
+		*events.EventNotifier `msgpack:"-" clover:"-,omitempty"`
+		tagType        *TagType `msgpack:"-" clover:"-,omitempty"`
+		Name           string
+		ptype          string
+		Colors         CoolorColors // `clover:"foreignKey:Color"`
+		Hash           uint64       // `gorm:"uniqueIndex"`
+		selectedIdx    int
+	}
+)
 
 func (cp *CoolorColorsPalette) GetItemCount() int {
 	return cp.Len()
@@ -25,19 +40,18 @@ func (cp *CoolorColorsPalette) GetPalette() *CoolorColorsPalette {
 	return cp
 }
 
-
-func (cp *CoolorColorsPalette) Coolors() *Coolors {
-	// colors :=
-	css := &Coolors{
-		Key:    cp.Name,
-		Colors: make([]*Coolor, 0),
-		Saved:  false,
-	}
-	for _, v := range cp.Colors {
-		css.Colors = append(css.Colors, v.Coolor())
-	}
-	return css
-}
+// func (cp *CoolorColorsPalette) Coolors() *Coolors {
+// 	// colors :=
+// 	css := &Coolors{
+// 		Key:    cp.Name,
+// 		Colors: make([]*Coolor, 0),
+// 		Saved:  false,
+// 	}
+// 	for _, v := range cp.Colors {
+// 		css.Colors = append(css.Colors, v.Coolor())
+// 	}
+// 	return css
+// }
 
 func (cp *CoolorColorsPalette) Each(f func(*CoolorColor, int)) {
 	// MainC.app.QueueUpdate(func() {
@@ -122,6 +136,7 @@ func (cp *CoolorColorsPalette) IconPalette(
 }
 
 func (cp *CoolorColorsPalette) TagsKeys(random bool) CoolorPaletteTagsMeta {
+  dump.P(cp)
 	tagKeys := make(map[string]*Coolor)
 	cptm := &CoolorPaletteTagsMeta{
 		tagCount:     0,
@@ -146,6 +161,9 @@ func (cp *CoolorColorsPalette) TagsKeys(random bool) CoolorPaletteTagsMeta {
 	cp.Each(func(cc *CoolorColor, i int) {
 		tags := cc.GetTags()
 		for _, t := range tags {
+      if t == nil {
+        continue
+      }
 			k := t.GetKey()
 			cptm.TaggedColors[k] = cc.Coolor()
 			cptm.tagCount += 1
@@ -245,6 +263,9 @@ func (cp *CoolorColorsPalette) PaletteEvent(
 	t events.ObservableEventType,
 	color *CoolorColor,
 ) {
+  if cp == nil || MainC == nil {
+    return
+  }
 	cp.Notify(*MainC.NewObservableEvent(t, "palette_event", color, cp))
 	MainC.EventNotifier.Notify(
 		*MainC.NewObservableEvent(t, "palette_event", color, cp),

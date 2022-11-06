@@ -10,6 +10,7 @@ type Primitive interface {
 	// screen's ShowCursor() function but should only do so when they have focus.
 	// (They will need to keep track of this themselves.)
 	Draw(screen tcell.Screen) 
+  DrawBorder(borderVisible bool, background tcell.Style, screen tcell.Screen) bool
 
 	// Sets whether the primitive should be drawn onto the screen.
 	SetVisible(bool)

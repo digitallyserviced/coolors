@@ -8,9 +8,9 @@ import (
 	"github.com/knadh/koanf"
 	"go.uber.org/zap/zapcore"
 
+	. "github.com/digitallyserviced/coolors/coolor/events"
 	"github.com/digitallyserviced/coolors/coolor/plugin"
 	"github.com/digitallyserviced/coolors/coolor/util"
-	. "github.com/digitallyserviced/coolors/coolor/events"
 )
 
 type (
@@ -39,16 +39,17 @@ type PluginSchemeFile struct {
 }
 
 type Plugin struct {
-	Name, Path    string
+	manager *PluginsManager
+	monitor <-chan PluginEvent
+	Worker  *PluginWorker
+	*PluginData
 	OriginUrl     url.URL
+	Name          string
+	Path          string
 	PluginType    PluginType
-	manager       *PluginsManager
-	monitor       <-chan PluginEvent
 	DetectionType PluginDetectionType
 	EventTypes    PluginEventType
 	KeyMapTypes   PluginKeyMapType
-	Worker        *PluginWorker
-	*PluginData
 }
 type PluginData struct {
 	ConfigKeys         []string `json:"configKeys"`
@@ -68,10 +69,10 @@ type PluginsManager struct {
 	start     chan struct{}
 	done      chan struct{}
 	cancel    chan struct{}
-	Plugins   []*Plugin
-	monitors  []chan PluginEvent
 	*EventNotifier
 	*EventObserver
+	Plugins  []*Plugin
+	monitors []chan PluginEvent
 }
 
 // GetRef implements Referenced
@@ -105,6 +106,7 @@ const (
 
 	PlaygroundPlugin
 
+  ColorSchemeFilesPlugin = ColorSchemeImportPlugin | ColorSchemeDetectPlugin
 	FullColorSchemePlugin = ColorSchemeImportPlugin | ColorSchemeExportPlugin | ColorSchemeDetectPlugin | ColorSchemeTaggedPlugin
 )
 
@@ -158,53 +160,54 @@ var (
 )
 
 var PluginTypes = []EnumName{
-	{uint64(ColorSchemeImportPlugin), "ColorSchemeImportPlugin"},
-	{uint64(ColorSchemeExportPlugin), "ColorSchemeExportPlugin"},
-	{uint64(ColorSchemeDetectPlugin), "ColorSchemeDetectPlugin"},
-	{uint64(ColorSchemeTaggedPlugin), "ColorSchemeTaggedPlugin"},
+	{V: uint64(ColorSchemeImportPlugin), S: "ColorSchemeImportPlugin"},
+	{V: uint64(ColorSchemeExportPlugin), S: "ColorSchemeExportPlugin"},
+	{V: uint64(ColorSchemeDetectPlugin), S: "ColorSchemeDetectPlugin"},
+	{V: uint64(ColorSchemeTaggedPlugin), S: "ColorSchemeTaggedPlugin"},
 
-	{uint64(ColorModPlugin), "ColorModPlugin"},
-	{uint64(ColorPalettePlugin), "ColorPalettePlugin"},
-	{uint64(ColorPaletteGeneratorPlugin), "ColorPaletteGeneratorPlugin"},
+	{V: uint64(ColorModPlugin), S: "ColorModPlugin"},
+	{V: uint64(ColorPalettePlugin), S: "ColorPalettePlugin"},
+	{V: uint64(ColorPaletteGeneratorPlugin), S: "ColorPaletteGeneratorPlugin"},
 
-	{uint64(PreviewPlugin), "PreviewPlugin"},
-	{uint64(FilePlugin), "FilePlugin"},
+	{V: uint64(PreviewPlugin), S: "PreviewPlugin"},
+	{V: uint64(FilePlugin), S: "FilePlugin"},
 
-	{uint64(CommandPlugin), "CommandPlugin"},
-	{uint64(ActionPlugin), "ActionPlugin"},
+	{V: uint64(CommandPlugin), S: "CommandPlugin"},
+	{V: uint64(ActionPlugin), S: "ActionPlugin"},
 
-	{uint64(GlobalPlugin), "GlobalPlugin"},
-	{uint64(HookPlugin), "HookPlugin"},
+	{V: uint64(GlobalPlugin), S: "GlobalPlugin"},
+	{V: uint64(HookPlugin), S: "HookPlugin"},
 
-	{uint64(PlaygroundPlugin), "PlaygroundPlugin"},
+	{V: uint64(PlaygroundPlugin), S: "PlaygroundPlugin"},
 
-	{uint64(FullColorSchemePlugin), "FullColorSchemePlugin"},
+	{V: uint64(ColorSchemeFilesPlugin), S: "ColorSchemeFilesPlugin"},
+	{V: uint64(FullColorSchemePlugin), S: "FullColorSchemePlugin"},
 }
 
 var PluginEventTypes = []EnumName{
-	{uint64(PluginInit), "PluginInit"},
-	{uint64(PluginModified), "PluginModified"},
-	{uint64(PluginReloaded), "PluginReloaded"},
-	{uint64(PluginBundled), "PluginBundled"},
-	{uint64(PluginScanConfigPaths), "PluginScanConfigPaths"},
-	{uint64(PluginScanConfigResult), "PluginScanConfigResult"},
-	{uint64(PluginCreatedKeyMap), "PluginCreatedKeyMap"},
-	{uint64(PluginWindBlows), "PluginWindBlows"},
+	{V: uint64(PluginInit), S: "PluginInit"},
+	{V: uint64(PluginModified), S: "PluginModified"},
+	{V: uint64(PluginReloaded), S: "PluginReloaded"},
+	{V: uint64(PluginBundled), S: "PluginBundled"},
+	{V: uint64(PluginScanConfigPaths), S: "PluginScanConfigPaths"},
+	{V: uint64(PluginScanConfigResult), S: "PluginScanConfigResult"},
+	{V: uint64(PluginCreatedKeyMap), S: "PluginCreatedKeyMap"},
+	{V: uint64(PluginWindBlows), S: "PluginWindBlows"},
 }
 
 var PluginKeyMapTypes = []EnumName{
-	{uint64(PluginTagsKeyMap), "PluginTagsKeyMap"},
-	{uint64(PluginMetaKeyMap), "PluginMetaKeyMap"},
-	{uint64(PluginExtrasKeyMap), "PluginExtrasKeyMap"},
-	{uint64(PluginColorsKeyMap), "PluginColorsKeyMap"},
-	{uint64(PluginFeaturesKeyMap), "PluginFeaturesKeyMap"},
+	{V: uint64(PluginTagsKeyMap), S: "PluginTagsKeyMap"},
+	{V: uint64(PluginMetaKeyMap), S: "PluginMetaKeyMap"},
+	{V: uint64(PluginExtrasKeyMap), S: "PluginExtrasKeyMap"},
+	{V: uint64(PluginColorsKeyMap), S: "PluginColorsKeyMap"},
+	{V: uint64(PluginFeaturesKeyMap), S: "PluginFeaturesKeyMap"},
 }
 
 var PluginDetectionTypes = []EnumName{
-	{uint64(FilenameDetection), "FilenameDetection"},
-	{uint64(ConfigKeysDetection), "ConfigKeysDetection"},
-	{uint64(RegexDetection), "RegexDetection"},
-	{uint64(FunctionDetection), "FunctionDetection"},
+	{V: uint64(FilenameDetection), S: "FilenameDetection"},
+	{V: uint64(ConfigKeysDetection), S: "ConfigKeysDetection"},
+	{V: uint64(RegexDetection), S: "RegexDetection"},
+	{V: uint64(FunctionDetection), S: "FunctionDetection"},
 }
 
 func (a PluginDetectionType) Is(b PluginDetectionType) bool {

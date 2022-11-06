@@ -361,13 +361,6 @@ func (b *Box) SetReverse(on bool) *Box {
 	b.reverse = on
 	return b
 }
-func (b *Box) GetAnimating() bool {
-	return b.animating
-}
-func (b *Box) SetAnimating(anim bool) {
-	b.animating = anim
-	// return b
-}
 
 // SetBorder sets the flag indicating whether or not the box should have a
 // border.
@@ -510,12 +503,58 @@ func (b *Box) DrawForSubclass(screen tcell.Screen, p Primitive) {
 	}
 
 	// Draw border.
+	b.DrawBorder(borderVisible, background, screen)
+
+	// Call custom draw function.
+	if b.draw != nil {
+		b.innerX, b.innerY, b.innerWidth, b.innerHeight = b.draw(
+			screen,
+			b.x,
+			b.y,
+			b.width,
+			b.height,
+		)
+	} else {
+		// Remember the inner rect.
+		b.innerX = -1
+		b.innerX, b.innerY, b.innerWidth, b.innerHeight = b.GetInnerRect()
+	}
+
+  if !b.animating {
+	// Clamp inner rect to screen.
+	width, height := screen.Size()
+	if b.innerX < 0 {
+		b.innerWidth += b.innerX
+		b.innerX = 0
+	}
+	if b.innerX+b.innerWidth >= width {
+		b.innerWidth = width - b.innerX
+	}
+	if b.innerY+b.innerHeight >= height {
+		b.innerHeight = height - b.innerY
+	}
+	if b.innerY < 0 {
+		b.innerHeight += b.innerY
+		b.innerY = 0
+	}
+
+	if b.innerWidth < 0 {
+		b.innerWidth = 0
+	}
+	if b.innerHeight < 0 {
+		b.innerHeight = 0
+	}
+  }
+	return
+}
+
+func (b *Box) DrawBorder(borderVisible bool, background tcell.Style, screen tcell.Screen) bool {
 	if b.border && b.width >= 2 && b.height >= 1 {
 		var borderStyle tcell.Style
 		if b.hasFocus {
-      if b.borderVisible {
-        borderVisible = true
-      }
+			if b.borderVisible {
+				borderVisible = true
+			}
 			borderStyle = background.Foreground(b.borderFocusColor)
 			IsVtxxx := func() bool {
 				return true
@@ -533,12 +572,12 @@ func (b *Box) DrawForSubclass(screen tcell.Screen, p Primitive) {
 
 		vertical, horizontal, topLeft, topRight, bottomLeft, bottomRight := ' ', ' ', ' ', ' ', ' ', ' '
 		leftVertical, topHorizontal, rightVertical, bottomHorizontal := ' ', ' ', ' ', ' '
-    ifc := func(a,b rune) rune {
-      if a == rune(0) {
-        return b
-      }
-      return a
-    }
+		ifc := func(a, b rune) rune {
+			if a == rune(0) {
+				return b
+			}
+			return a
+		}
 		if borderVisible {
 
 			horizontal = Borders.Horizontal
@@ -547,15 +586,15 @@ func (b *Box) DrawForSubclass(screen tcell.Screen, p Primitive) {
 			topRight = Borders.TopRight
 			bottomLeft = Borders.BottomLeft
 			bottomRight = Borders.BottomRight
-      leftVertical = ifc(Borders.LeftVertical, vertical)
-      rightVertical = ifc(Borders.RightVertical, vertical)
-      topHorizontal = ifc(Borders.TopHorizontal, horizontal)
-      bottomHorizontal = ifc(Borders.TopHorizontal, horizontal)
+			leftVertical = ifc(Borders.LeftVertical, vertical)
+			rightVertical = ifc(Borders.RightVertical, vertical)
+			topHorizontal = ifc(Borders.TopHorizontal, horizontal)
+			bottomHorizontal = ifc(Borders.BottomHorizontal, horizontal)
 
 		} else {
 
 		}
-		//Special case in order to render only the title-line of something properly.
+
 		if b.borderTop {
 			for x := b.x + 1; x < b.x+b.width-1; x++ {
 				screen.SetContent(x, b.y, topHorizontal, nil, borderStyle)
@@ -574,7 +613,6 @@ func (b *Box) DrawForSubclass(screen tcell.Screen, p Primitive) {
 			}
 		}
 
-		//Special case in order to render only the title-line of something properly.
 		if b.height > 1 {
 			if b.borderBottom {
 				for x := b.x + 1; x < b.x+b.width-1; x++ {
@@ -649,7 +687,6 @@ func (b *Box) DrawForSubclass(screen tcell.Screen, p Primitive) {
 			}
 		}
 
-		// Draw title.
 		if b.title != "" && b.width >= 4 {
 			printed, _ := Print(
 				screen,
@@ -675,48 +712,7 @@ func (b *Box) DrawForSubclass(screen tcell.Screen, p Primitive) {
 			}
 		}
 	}
-
-	// Call custom draw function.
-	if b.draw != nil {
-		b.innerX, b.innerY, b.innerWidth, b.innerHeight = b.draw(
-			screen,
-			b.x,
-			b.y,
-			b.width,
-			b.height,
-		)
-	} else {
-		// Remember the inner rect.
-		b.innerX = -1
-		b.innerX, b.innerY, b.innerWidth, b.innerHeight = b.GetInnerRect()
-	}
-
-  if !b.animating {
-	// Clamp inner rect to screen.
-	width, height := screen.Size()
-	if b.innerX < 0 {
-		b.innerWidth += b.innerX
-		b.innerX = 0
-	}
-	if b.innerX+b.innerWidth >= width {
-		b.innerWidth = width - b.innerX
-	}
-	if b.innerY+b.innerHeight >= height {
-		b.innerHeight = height - b.innerY
-	}
-	if b.innerY < 0 {
-		b.innerHeight += b.innerY
-		b.innerY = 0
-	}
-
-	if b.innerWidth < 0 {
-		b.innerWidth = 0
-	}
-	if b.innerHeight < 0 {
-		b.innerHeight = 0
-	}
-  }
-	return
+	return false
 }
 
 // Focus is called when this primitive receives focus.
@@ -759,6 +755,13 @@ func (b *Box) NextFocusableComponent(direction FocusDirection) Primitive {
 	}
 
 	return nil
+}
+func (b *Box) GetAnimating() bool {
+	return b.animating
+}
+func (b *Box) SetAnimating(anim bool) {
+	b.animating = anim
+	// return b
 }
 
 // HasFocus returns whether or not this primitive has focus.

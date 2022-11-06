@@ -12,6 +12,7 @@ type page struct {
 	Resize  bool      // Whether or not to resize the page when it is drawn.
 	Visible bool      // Whether or not this page is visible.
 }
+type Page = page
 
 // Pages is a container for other primitives laid out on top of each other,
 // overlapping or not. It is often used as the application's root primitive. It
@@ -63,17 +64,28 @@ func (p *Pages) GetPageCount() int {
 // primitive will be set to the size available to the Pages primitive whenever
 // the pages are drawn.
 func (p *Pages) AddPage(name string, item Primitive, resize, visible bool) *Pages {
-	hasFocus := p.HasFocus()
-	for index, pg := range p.pages {
-		if pg.Name == name {
+  p.Addpage(p.NewPage(name, item, resize, visible))
+	// for index, pg := range p.pages {
+	// 	if pg.Name == name {
+	// 		p.pages = append(p.pages[:index], p.pages[index+1:]...)
+	// 		break
+	// 	}
+	// }
+  // pg := &page{Item: item, Name: name, Resize: resize, Visible: visible}
+  // if pag, ok := item.(Paged); ok {
+  //   pg.Page = pag
+  // }
+	return p
+}
+
+func (p *Pages) Addpage(pg *page) *Pages {
+	for index, pgs := range p.pages {
+		if pg.Name == pgs.Name {
 			p.pages = append(p.pages[:index], p.pages[index+1:]...)
 			break
 		}
 	}
-  pg := &page{Item: item, Name: name, Resize: resize, Visible: visible}
-  if pag, ok := item.(Paged); ok {
-    pg.Page = pag
-  }
+	hasFocus := p.HasFocus()
 	p.pages = append(p.pages, pg)
 	if p.changed != nil {
 		p.changed()
@@ -81,7 +93,15 @@ func (p *Pages) AddPage(name string, item Primitive, resize, visible bool) *Page
 	if hasFocus {
 		p.Focus(p.setFocus)
 	}
-	return p
+  return p
+}
+
+func (p *Pages) NewPage(name string, item Primitive, resize, visible bool) *page {
+  pg := &page{Item: item, Name: name, Resize: resize, Visible: visible}
+  if pag, ok := item.(Paged); ok {
+    pg.Page = pag
+  }
+  return pg
 }
 
 // AddAndSwitchToPage calls AddPage(), then SwitchToPage() on that newly added
@@ -123,7 +143,6 @@ func (p *Pages) RemovePage(name string) *Pages {
 	}
 	return p
 }
-type Page = page
 
 // GetPage returns page if a page with the given name exists in this object.
 func (p *Pages) GetPage(name string) *Page {

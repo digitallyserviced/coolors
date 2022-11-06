@@ -13,24 +13,24 @@ import (
 
 
 type PropertyFinishedMutating interface {
-	Finished(idx int, startX, targetX float64, prevMv, newMv MotionValues, i interface{}) ObservableEventType
+	Finished(idx int, startX, targetX float64, prevMv, newMv *MotionValues, i interface{}) ObservableEventType
 }
 type PropertyMutator interface {
 	PropertyFinishedMutating
-	Mutate(m MotionValues, i interface{}) bool
+	Mutate(m *MotionValues, i interface{}) bool
 }
 type MutatorNotify interface {
-	Notify(m MotionValues, i interface{}) bool
+	Notify(m *MotionValues, i interface{}) bool
 }
 
 type RectAnimator func(r Rect, m Motion, rm RectMutator)
-type PropertyMutatorFunction func(m MotionValues, i interface{}) bool
-type NotifyBeforeMutate func(m MotionValues, i interface{}) bool
-type NotifyAfterMutate func(m MotionValues, i interface{}) bool
-type NotifyFinishedMutate func(m MotionValues, i interface{}) bool
-type RectMutator func(r Rect, m MotionValues) Rect
-type AnyMutator func(a interface{}, m MotionValues) Rect
-type MutatorFinishedCallback func(idx int, startX float64, targetX float64, prevMv MotionValues, newMv MotionValues, i interface{}) ObservableEventType
+type PropertyMutatorFunction func(m *MotionValues, i interface{}) bool
+type NotifyBeforeMutate func(m *MotionValues, i interface{}) bool
+type NotifyAfterMutate func(m *MotionValues, i interface{}) bool
+type NotifyFinishedMutate func(m *MotionValues, i interface{}) bool
+type RectMutator func(r Rect, m *MotionValues) Rect
+type AnyMutator func(a interface{}, m *MotionValues) Rect
+type MutatorFinishedCallback func(idx int, startX float64, targetX float64, prevMv *MotionValues, newMv *MotionValues, i interface{}) ObservableEventType
 
 type MotionMutator struct {
 	data    map[string]interface{}
@@ -55,32 +55,32 @@ const (
 )
 
 var (
-	RectYMutator = NewBoxRectPropertyMutator(func(r Rect, m MotionValues) Rect {
+	RectYMutator = NewBoxRectPropertyMutator(func(r Rect, m *MotionValues) Rect {
 		r.y = int(m.X)
 		return r
 	})
-	RectXMutator = NewBoxRectPropertyMutator(func(r Rect, m MotionValues) Rect {
+	RectXMutator = NewBoxRectPropertyMutator(func(r Rect, m *MotionValues) Rect {
 		r.x = int(m.X)
 		return r
 	})
-	RectHMutator = NewBoxRectPropertyMutator(func(r Rect, m MotionValues) Rect {
+	RectHMutator = NewBoxRectPropertyMutator(func(r Rect, m *MotionValues) Rect {
 		r.height = int(m.X)
 		return r
 	})
-	RectWMutator = NewBoxRectPropertyMutator(func(r Rect, m MotionValues) Rect {
+	RectWMutator = NewBoxRectPropertyMutator(func(r Rect, m *MotionValues) Rect {
 		r.width = int(m.X)
 		return r
 	})
 )
 
 func NewPropertyMutator(rMut AnyMutator) PropertyMutator {
-	return NewBoxMutator(func(m MotionValues, i interface{}) bool {
+	return NewBoxMutator(func(m *MotionValues, i interface{}) bool {
 		rMut(i, m)
 		return true
 	})
 }
 func NewBoxRectPropertyMutator(rMut RectMutator) PropertyMutator {
-	return NewBoxMutator(func(m MotionValues, i interface{}) bool {
+	return NewBoxMutator(func(m *MotionValues, i interface{}) bool {
 		var b *tview.Box
 		var ok bool
 		b, ok = i.(*tview.Box)
@@ -122,7 +122,7 @@ func NewRect(x, y, width, height int) Rect {
 	r := Rect{x, y, width, height}
 	return r
 }
-func DrawAfterMutate(m MotionValues, i interface{}) bool {
+func DrawAfterMutate(m *MotionValues, i interface{}) bool {
 	var b *tview.Box
 	var ok bool
 	b, ok = i.(*tview.Box)
@@ -132,33 +132,33 @@ func DrawAfterMutate(m MotionValues, i interface{}) bool {
   fmt.Println(b)
 	return true
 }
-func (bm *BoxMutator) Mutate(m MotionValues, i interface{}) bool {
+func (bm *BoxMutator) Mutate(m *MotionValues, i interface{}) bool {
 	return bm.Mutator(m, i)
 }
-func (nbm NotifyFinishedMutate) Notify(m MotionValues, i interface{}) bool {
+func (nbm NotifyFinishedMutate) Notify(m *MotionValues, i interface{}) bool {
 	return nbm(m, i)
 }
-func (nbm NotifyBeforeMutate) Notify(m MotionValues, i interface{}) bool {
-	return nbm(m, i)
-}
-
-func (nbm NotifyAfterMutate) Notify(m MotionValues, i interface{}) bool {
+func (nbm NotifyBeforeMutate) Notify(m *MotionValues, i interface{}) bool {
 	return nbm(m, i)
 }
 
+func (nbm NotifyAfterMutate) Notify(m *MotionValues, i interface{}) bool {
+	return nbm(m, i)
+}
 
-func (mfc MutatorFinishedCallback) Finished(idx int, startX float64, targetX float64, prevMv MotionValues, newMv MotionValues, i interface{}) ObservableEventType {
+
+func (mfc MutatorFinishedCallback) Finished(idx int, startX float64, targetX float64, prevMv *MotionValues, newMv *MotionValues, i interface{}) ObservableEventType {
   return mfc(idx, startX, targetX, prevMv, newMv, i)
 }
 
 // Finished implements PropertyMutator
-func (cm *CallbackMutator) Notify(t MutateCallbackType, m MotionValues, i interface{}) bool {
+func (cm *CallbackMutator) Notify(t MutateCallbackType, m *MotionValues, i interface{}) bool {
 	if fn, ok := cm.Callbacks[t]; ok {
 		return fn.Notify(m, i)
 	}
 	return true
 }
-func (cm *CallbackMutator) Finished(idx int, startX float64, targetX float64, prevMv MotionValues, newMv MotionValues, i interface{}) ObservableEventType {
+func (cm *CallbackMutator) Finished(idx int, startX float64, targetX float64, prevMv *MotionValues, newMv *MotionValues, i interface{}) ObservableEventType {
   fini := AnimationPlaying
   if cm.FinishedCallback != nil {
     fini = cm.FinishedCallback.Finished(idx, startX, targetX, prevMv, newMv, i)
@@ -176,7 +176,7 @@ func (cm *CallbackMutator) Finished(idx int, startX float64, targetX float64, pr
 func (cm *CallbackMutator) AddCallback(t MutateCallbackType, n MutatorNotify) {
 	cm.Callbacks[t] = n
 }
-func (cm *CallbackMutator) Mutate(m MotionValues, i interface{}) (res bool) {
+func (cm *CallbackMutator) Mutate(m *MotionValues, i interface{}) (res bool) {
 	if res = cm.Notify(BeforeMutate, m, i); !res {
 		return
 	}

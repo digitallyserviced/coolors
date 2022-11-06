@@ -1,7 +1,10 @@
 package events
 
 import (
+	"fmt"
+
 	"github.com/gdamore/tcell/v2"
+
 	. "github.com/digitallyserviced/coolors/coolor/sequenced"
 )
 
@@ -40,6 +43,7 @@ func (o *EventNotifier) Deregister(l Observer) {
 }
 
 func (p *EventNotifier) Notify(e ObservableEvent) {
+  fmt.Println(e)
 	for o, _ := range p.observers {
 		if !o.HandleEvent(e) {
 		} else {

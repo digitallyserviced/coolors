@@ -27,7 +27,7 @@ import (
 
 	"github.com/digitallyserviced/tview"
 
-	// "github.com/digitallyserviced/coolors/coolor/events"
+	"github.com/digitallyserviced/coolors/coolor/events"
 	. "github.com/digitallyserviced/coolors/coolor/events"
 	"github.com/digitallyserviced/coolors/coolor/plugin"
 	"github.com/digitallyserviced/coolors/coolor/util"
@@ -92,6 +92,9 @@ func eajs[R any](val R, e error) R {
 
 var pmOnLoads []PluginManagerOnLoad
 func addPluginOnLoad(name string, pmol PluginManagerOnLoad){
+  if PluginManager != nil {
+    pmol.Exec(PluginManager)
+  }
   if pmOnLoads == nil {
     pmOnLoads = make([]PluginManagerOnLoad, 0) 
   }
@@ -131,6 +134,7 @@ func NewPluginsManager() *PluginsManager {
   for _, v := range pmOnLoads {
     v(pm)
   }
+  pmOnLoads = []PluginManagerOnLoad{}
 
 	return pm
 }
@@ -178,14 +182,13 @@ func (pw *PluginWorker) Work() {
 		case <-pw.done:
 			return
     case w := <-pw.Plugin.monitor:
-      pw.events <- &w
-		case w := <-pw.events:
-			zlog.Info(
-				"worker event",
-				PluginLogFields.Watcher.With(
-					zzlog.Object("plugin", pw.Plugin),
-					zzlog.String("event", w.eventType.String()),
-				)...)
+      // pw.events <- &w
+			// zlog.Info(
+			// 	"worker event",
+			// 	PluginLogFields.Watcher.With(
+			// 		zzlog.Object("plugin", pw.Plugin),
+			// 		zzlog.String("event", w.eventType.String()),
+			// 	)...)
 			rtTimeout.Reset(workerTimeout)
 			switch {
 			case w.eventType.Is(PluginCreatedKeyMap):
@@ -193,12 +196,13 @@ func (pw *PluginWorker) Work() {
 				w.plugin.ScanConfigPaths()
 			case w.eventType.Is(PluginScanConfigResult):
 			case w.eventType.Is(PluginBundled):
+			case w.eventType.Is(PluginInit), w.eventType.Is(PluginModified):
 				err := pw.Plugin.LoadMeta()
 				if err != nil {
 					panic(err)
 				}
-			case w.eventType.Is(PluginInit), w.eventType.Is(PluginModified):
-				pw.Plugin.manager.bundler <- *w
+				pw.Plugin.manager.bundler <- w
+      default:
 			}
 		case <-rtTimeout.C:
 			// pw.Plugin.ScanConfigPaths()
@@ -392,7 +396,7 @@ func (p *Plugin) ScanConfigPaths() []*tview.TreeNode {
       }
       zlog.Debug(fmt.Sprintf("%s %s emitting result", psf.Name, psf.Author), PluginLogFields.Plugin.With(zzlog.Object("scheme_file", psf))...)
       pe := p.NewPluginEvent(psf.Name,PluginScanConfigResult,  psf)
-      p.EmitEvent(pe)
+        events.Global.Notify(*p.manager.NewObservableEvent(PluginEvents, p.Name, pe, p.manager))
 		})
 	}
 
@@ -838,18 +842,6 @@ func (pm *PluginsManager) SupportedFilenames() []string {
 	)
 }
 
-func (pm *PluginsManager) GetTreeEntries() func(f *tview.TreeNode) []*tview.TreeNode {
-	return func(f *tview.TreeNode) []*tview.TreeNode {
-		nodes := make([]*tview.TreeNode, 0)
-		for _, v := range PluginManager.Plugins {
-			vn := tree.NewPluginNode(v.Name, "", v)
-      vn.Node.SetChildren(v.ScanConfigPaths())
-			nodes = append(nodes, vn.Node)
-		}
-		return nodes
-	}
-}
-
 func (pm *PluginsManager) Each(
 	f func(p *Plugin, pm *PluginsManager, idx int) error,
 ) {
@@ -930,7 +922,7 @@ func (pm *PluginsManager) DispatchEvent(
       //   "dispatch global event",
       //   zzlog.Reflect("event", pe),
       // )
-    pm.global <- *pe
+    // pm.global <- *pe
       // zlog.Debug(
       //   "post dispatch global event",
       //   zzlog.Reflect("event", pe),
@@ -1011,30 +1003,25 @@ func (pm *PluginsManager) StartPluginMonitor() error {
 		for {
 			select {
       case i := <-pm.global:
+      _ = i
       // zlog.Debug("received global pe", PluginLogFields.Manager.With(
       //   zzlog.Reflect("manager", pm),
       //   zzlog.Reflect("event", i),
       //   )...)
       // events.Global.Notify(*pm.NewObservableEvent(PluginEvents, i.name, &i, pm))
-        pm.Notify(*pm.NewObservableEvent(PluginEvents, i.name, &i, pm))
 
       // zlog.Debug("sent observable notify", PluginLogFields.Manager.With(
       //   zzlog.Reflect("manager", pm),
       //   zzlog.Reflect("event", i),
       //   )...)
 			case i := <-debouncedChan:
-				event := i.(fsnotify.Event)
-				p, m := pm.getPluginByPath(filepath.Dir(event.Name))
-				if p == nil {
+      _ = i
+				// event := i.(fsnotify.Event)
+				// p, m := pm.getPluginByPath(filepath.Dir(event.Name))
 					pm.Scan("js/plugins")
-				} else {
-					e := NewPluginEvent(PluginModified, "fsmods", p)
-					m <- *e
-      zlog.Debug("sent plugin event", PluginLogFields.Manager.With(
-        zzlog.Reflect("event", e),
-        )...)
-				}
-			}
+				// if p == nil {
+				// }
+    }
 		}
 
 	}()
@@ -1048,8 +1035,8 @@ func (pm *PluginsManager) StartPluginMonitor() error {
 func (pm *PluginsManager) InitPlugin(ppath string) error {
 	fmt.Println(ppath)
 	if pm.Loaded(ppath) {
-		p, m := pm.getPluginByPath(ppath)
-		m <- *NewPluginEvent(PluginModified, "modded", p)
+		// p, m := pm.getPluginByPath(ppath)
+		// m <- *NewPluginEvent(PluginModified, "modded", p)
 		return nil
 	}
 
@@ -1073,11 +1060,10 @@ func (pm *PluginsManager) InitPlugin(ppath string) error {
 
 	_, _ = p.Bundle()
 
-	// dump.P(result)
 	pm.monitors = append(pm.monitors, monitor)
 
 	p.LoadMeta()
-	pm.watcher.Add(ppath)
+	// pm.watcher.Add(ppath)
 	p.NewWorker(func(p *Plugin) {
 
 	})
@@ -1086,10 +1072,11 @@ func (pm *PluginsManager) InitPlugin(ppath string) error {
 
 	pm.Plugins = append(pm.Plugins, p)
 
-	p, m := pm.getPluginByPath(ppath)
-	m <- *NewPluginEvent(PluginModified, "modded", p)
+	// p, m := pm.getPluginByPath(ppath)
+	// m <- *NewPluginEvent(PluginModified, "modded", p)
 	// m <- *NewPluginEvent(PluginModified, "modded", nil)
-  pm.DispatchEvent(NewPluginEvent(PluginInit, p.Name, p))
+  // pm.DispatchEvent()
+        pm.Notify(*pm.NewObservableEvent(PluginEvents, p.Name, NewPluginEvent(PluginInit, p.Name, p), pm))
 
 	return nil
 }

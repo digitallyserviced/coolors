@@ -77,16 +77,27 @@ var SimpleBorderStyle = struct {
 }{
 	Horizontal:       tview.BoxDrawingsHeavyHorizontal,
 	Vertical:         tview.BoxDrawingsHeavyVertical,
-	TopLeft:          tview.BoxDrawingsHeavyDownAndRight,
-	TopRight:         tview.BoxDrawingsHeavyDownAndLeft,
-	BottomLeft:       tview.BoxDrawingsHeavyUpAndRight,
-	BottomRight:      tview.BoxDrawingsHeavyUpAndLeft,
-//    ▁▁▁ ▔▔▔ 🮀🮀🮀 ▁▔▕▏▏
+	TopLeft:        '🭽', //  tview.BoxDrawingsHeavyDownAndRight,
+	TopRight:       '🭾', //  tview.BoxDrawingsHeavyDownAndLeft,
+	BottomLeft:     '🭼', //  tview.BoxDrawingsHeavyUpAndRight,
+	BottomRight:    '🭿',//  tview.BoxDrawingsHeavyUpAndLeft,
+
+//    ▁▁▁ ▔▔▔ 🮀🮀🮀 ▁▔▔▔▔▕▏▏
     // ▏▕
-	// TopHorizontal:    tview.BoxDrawingsHeavyHorizontal,
-	// BottomHorizontal: tview.BoxDrawingsHeavyHorizontal,
-	// LeftVertical:     tview.BoxDrawingsHeavyVertical,
-	// RightVertical:    tview.BoxDrawingsHeavyVertical,
+ // ▁▁▁▁▁▁▁▁▁
+ // ▎      ▋
+ // ▎      ▋
+ // ▎      ▋
+ // ▔▔▔▔▔▔▔▔▕▔ 🭼🭽🭾🭿                       
+   // ▏        ▕                         
+   // ▏        ▕                         
+   // ▏  ▏     ▕ ▕                         
+   // ▏        ▕
+
+	TopHorizontal:    '▔',
+	BottomHorizontal:'▁', //  '',  // tview.BoxDrawingsHeavyHorizontal,
+	LeftVertical:     '▏',
+	RightVertical:    '▕', // tview.BoxDrawingsHeavyVertical,
 	LeftT:            tview.BoxDrawingsHeavyVerticalAndRight,
 	RightT:           tview.BoxDrawingsHeavyVerticalAndLeft,
 	TopT:             tview.BoxDrawingsHeavyDownAndHorizontal,

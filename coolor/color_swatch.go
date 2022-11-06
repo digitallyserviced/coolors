@@ -135,6 +135,7 @@ func NewCoolorColorSwatch(
 	ccs.Table.SetContent(ccs.TableContent)
 	ccs.Table.SetSelectable(true, true)
 	ccs.Table.SetBordersColor(tview.Styles.PrimitiveBackgroundColor)
+  ccs.Table.SetBorderVisible(false)
 	ccs.Table.SetBorders(true).SetBorder(true).SetBorderPadding(0, 0, 1, 1)
 	ccs.Table.SetSelectedFunc(func(row, column int) {
 		col := ccs.GetColorIndex(
@@ -246,7 +247,7 @@ func (ccs *CoolorColorSwatch) InputHandler() func(event *tcell.EventKey, setFocu
 			case tcell.KeyRune:
 				ch := event.Rune()
 				switch ch {
-				case 'f':
+				case 'x':
 					r, c := ccs.Table.GetSelection()
 					col := ccs.GetColorIndex(
 						r,
@@ -255,9 +256,10 @@ func (ccs *CoolorColorSwatch) InputHandler() func(event *tcell.EventKey, setFocu
 						ccs.TableContent.cols,
 					)
 					ccs.Notify(
-						*ccs.NewObservableEvent(ColorSelectedEvent, "favorited", col, ccs),
+						*ccs.NewObservableEvent(ColorUnfavoriteEvent, "unfavorited", col, ccs),
 					)
-					// GetStore().MetaService.ToggleFavorite(col)
+					GetStore().MetaService.ToggleFavorite(col)
+          ccs.UpdateView()
 					return
 				}
 			}

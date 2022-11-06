@@ -10,6 +10,8 @@ const (
 	ColorSelectedEvent
 	ColorSelectionEvent
 	ColorEvent
+	ColorFavoriteEvent
+	ColorUnfavoriteEvent
 
 	PrimaryEvent
 	SecondaryEvent
@@ -48,7 +50,7 @@ const (
 
   PromptedEvents ObservableEventType = PrimaryEvent | SecondaryEvent | CancelledEvent
 
-	AllEvents ObservableEventType = SelectedEvent | ColorSeentEvent | ColorEvent | ColorSelectedEvent | ColorSelectionEvent | PrimaryEvent | SecondaryEvent | CancelledEvent | ChangedEvent | StatusEvent | InputEvent | DrawEvent | EditEvent | CancelableEvent | ExclusiveEvent | PaletteColorModifiedEvent | PaletteColorRemovedEvent | PaletteMetaUpdatedEvent | PaletteCreatedEvent | PaletteSavedEvent | PaletteColorSelectedEvent | PaletteColorSelectionEvent | AnimationInit | AnimationPlaying | AnimationPaused | AnimationDone | AnimationIdle | AnimationNext | AnimationSet | AnimationUpdate | AnimationFinished | AnimationLooped | AnimationCanceled | AnimationPrevious | PluginEvents
+	AllEvents ObservableEventType = SelectedEvent | ColorSeentEvent | ColorEvent | ColorSelectedEvent | ColorSelectionEvent | PrimaryEvent | SecondaryEvent | CancelledEvent | ChangedEvent | StatusEvent | InputEvent | DrawEvent |ColorFavoriteEvent | 	ColorUnfavoriteEvent| EditEvent | CancelableEvent | ExclusiveEvent | PaletteColorModifiedEvent | PaletteColorRemovedEvent | PaletteMetaUpdatedEvent | PaletteCreatedEvent | PaletteSavedEvent | PaletteColorSelectedEvent | PaletteColorSelectionEvent | AnimationInit | AnimationPlaying | AnimationPaused | AnimationDone | AnimationIdle | AnimationNext | AnimationSet | AnimationUpdate | AnimationFinished | AnimationLooped | AnimationCanceled | AnimationPrevious | PluginEvents
 )
 
 var observableEventTypes = []EnumName{
@@ -59,6 +61,8 @@ var observableEventTypes = []EnumName{
 	{uint64(InputEvent), "InputEvent"},
 	{uint64(DrawEvent), "DrawEvent"},
 	{uint64(ColorEvent), "ColorEvent"},
+{uint64(ColorFavoriteEvent), "ColorFavoriteEvent"},
+{uint64(ColorUnfavoriteEvent), "ColorUnfavoriteEvent"},
 	{uint64(EditEvent), "EditEvent"},
 	{uint64(CancelableEvent), "CancelableEvent"},
 	{uint64(ExclusiveEvent), "ExclusiveEvent"},

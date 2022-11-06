@@ -714,6 +714,69 @@ func (a *Application) draw() *Application {
 	return a
 }
 
+// GetComponentAt returns the highest level component at the given coordinates
+// or zero if no component can be found.
+func (a *Application) GetComponentAt(x, y int) *Primitive {
+	return getComponentAtRecursively(a.root, x, y, a)
+}
+
+func getComponentAtRecursively(primitive Primitive, x, y int, a *Application) *Primitive {
+  if primitive == nil {
+    return nil
+  }
+	if !primitive.IsVisible() {
+		return nil
+	}
+
+	flex, isFlex := primitive.(*Flex)
+	if isFlex {
+		for _, child := range flex.items {
+      child.Item.DrawBorder(true, tcell.StyleDefault, a.screen)
+			found := getComponentAtRecursively(child.Item, x, y, a)
+			if found != nil {
+				return found
+			}
+		}
+		return getSelfIfCoordinatesMatch(primitive, x, y)
+	}
+
+	grid, isGrid := primitive.(*Grid)
+	if isGrid {
+		for _, child := range grid.items {
+			found := getComponentAtRecursively(child.Item, x, y, a)
+			if found != nil {
+				return found
+			}
+		}
+		return getSelfIfCoordinatesMatch(primitive, x, y)
+	}
+
+	pages, isPages := primitive.(*Pages)
+	if isPages {
+		for _, page := range pages.pages {
+			if page.Visible {
+				found := getComponentAtRecursively(page.Item, x, y, a)
+				if found != nil {
+					return found
+				}
+				break
+			}
+		}
+		return getSelfIfCoordinatesMatch(primitive, x, y)
+	}
+
+	return getSelfIfCoordinatesMatch(primitive, x, y)
+}
+
+func getSelfIfCoordinatesMatch(primitive Primitive, x, y int) *Primitive {
+	componentX, componentY, width, height := primitive.GetRect()
+	// Subtracting -1 from height and width, since we got a pixel with coordinate already.
+	if componentX <= x && componentY <= y && (componentX+width-1) >= x && (componentY+height-1) >= y {
+		return &primitive
+	}
+
+	return nil
+}
 // Sync forces a full re-sync of the screen buffer with the actual screen during
 // the next event cycle. This is useful for when the terminal screen is
 // corrupted so you may want to offer your users a keyboard shortcut to refresh

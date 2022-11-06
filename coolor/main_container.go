@@ -5,20 +5,21 @@ import (
 	"flag"
 	"fmt"
 	"math"
-	"strings"
+	// "strings"
 	"time"
 
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
 	"github.com/gookit/goutil/dump"
 	"github.com/gookit/goutil/structs"
-	"github.com/gookit/goutil/strutil"
+	// "github.com/gookit/goutil/strutil"
 
 	// "github.com/samber/lo"
 
 	"github.com/digitallyserviced/coolors/coolor/anim"
 	. "github.com/digitallyserviced/coolors/coolor/anim"
 	"github.com/digitallyserviced/coolors/coolor/events"
+	"github.com/digitallyserviced/coolors/coolor/stack"
 	"github.com/digitallyserviced/coolors/coolor/util"
 
 	"github.com/digitallyserviced/coolors/theme"
@@ -51,36 +52,12 @@ type MainContainer struct {
 	screen     *tcell.Screen
 	*events.EventNotifier
 	inputSwallowed bool
-	*PageStack
+	*stack.PageStack
 }
 
-type PageStack struct {
-	Stack
-	Pages *tview.Pages
-}
-
-func NewPageStack(p *tview.Pages) *PageStack {
-	ps := &PageStack{
-		Stack: *NewStack(),
-		Pages: p,
-	}
-	return ps
-}
-
-func (ps *PageStack) Pop() bool {
-	ipg := ps.Stack.Pop()
-	if pg, ok := ipg.(*tview.Page); ok {
-		ps.Pages.RemovePage(pg.Name)
-		return true
-	}
-	return false
-}
-
-func (ps *PageStack) Push(name string, p tview.Primitive, rz bool) {
-	pg := ps.Pages.NewPage(name, p, rz, true)
-	ps.Stack.Push(pg)
-	ps.Pages.Addpage(pg)
-	ps.Pages.ShowPage(pg.Name)
+// GetRef implements events.Referenced
+func (mc *MainContainer) GetRef() interface{} {
+  return mc
 }
 
 var MainC *MainContainer
@@ -91,13 +68,13 @@ func CreateStartupPalette() *CoolorMainPalette {
 	values := flag.Args()
 
 	colsize := 0
-	var pal *CoolorColorsPaletteMeta
-	if len(*cpName) > 0 {
-		pal = Store.FindNamedPalette(*cpName)
-	}
-	if pal != nil {
-		return NewCoolorColorsPaletteFromMeta(pal)
-	}
+	// var pal *CoolorColorsPaletteMeta
+	// if len(*cpName) > 0 {
+	// 	pal = Store.FindNamedPalette(*cpName)
+	// }
+	// if pal != nil {
+	// 	return NewCoolorColorsPaletteFromMeta(pal)
+	// }
 	if len(values) > 0 {
 		colsize = len(values)
 	} else {
@@ -115,6 +92,7 @@ func CreateStartupPalette() *CoolorMainPalette {
 }
 
 func NewMainContainer(app *tview.Application) *MainContainer {
+	tview.Borders = SimpleBorderStyle
 	pgs := tview.NewPages()
 	MainC = &MainContainer{
 		Flex:    tview.NewFlex(),
@@ -127,9 +105,31 @@ func NewMainContainer(app *tview.Application) *MainContainer {
 		conf:          NewPaletteHistoryFile(),
 		EventNotifier: events.NewEventNotifier("main"),
 		current:       nil,
-		PageStack:     NewPageStack(pgs),
+		PageStack:     stack.NewPageStack(pgs),
 	}
 
+	addPluginOnLoad("register palette file view", func(pm *PluginsManager) {
+		pm.Register(events.PluginEvents, events.NewAnonymousHandlerFunc(func(e events.ObservableEvent) bool {
+			if e.Type.Is(events.PluginEvents) {
+				if pe, ok := e.Ref.(*PluginEvent); ok {
+					txt := fmt.Sprintf("Loaded Plugin %s", pe.name)
+					status.NewStatusUpdate("action_str", txt)
+					id := Notid("notif_")
+					noti := anim.GetAnimator().GetAnimation(id)
+					if noti == nil {
+						noti = NewNotification(
+							id,
+							"  ",
+							txt,
+						)
+					}
+					noti.Control.Play()
+				}
+
+			}
+			return true
+		}))
+	})
 	MainC.menu = NewCoolorColorMainMenu(app)
 	MainC.palette = CreateStartupPalette()
 	MainC.conf.AddPalette("random", MainC.palette)
@@ -140,12 +140,12 @@ func NewMainContainer(app *tview.Application) *MainContainer {
 	MainC.editor = NewCoolorEditor(app, MainC.palette)
 	MainC.preview = NewRecursiveSquare(MainC.palette.GetPalette(), 5)
 	// MainC.fileviewer = NewFileViewer()
-	MainC.filetree = NewPaletteFileTree()
+	// MainC.filetree = NewPaletteFileTree()
 	MainC.Init()
+	InitPlugins()
 	return MainC
 }
 func (mc *MainContainer) Init() {
-	InitPlugins()
 	mc.SetBackgroundColor(ct.GetTheme().SidebarBackground)
 	mc.SetDirection(tview.FlexRow)
 	MainC.ScrollLine = NewScrollLine()
@@ -153,7 +153,7 @@ func (mc *MainContainer) Init() {
 	mc.AddItem(MainC.ScrollLine, 1, 0, false)
 	mc.pages.AddPage("editor", mc.editor, true, false)
 	mc.pages.AddPage("preview", mc.preview, true, true)
-	mc.pages.AddPage("filetree", mc.filetree, false, false)
+	// mc.pages.AddPage("filetree", mc.filetree, false, false)
 	mc.pages.AddAndSwitchToPage("palette", mc.palette, true)
 	mc.pages.SetChangedFunc(func() {
 		name, page := mc.pages.GetFrontPage()
@@ -235,134 +235,58 @@ func (mc *MainContainer) InputHandler() func(event *tcell.EventKey, setFocus fun
 			kp := event.Key()
 			name, page := mc.pages.GetFrontPage()
 			if kp == tcell.KeyEscape {
-				if mc.menu.Activated() != nil {
-					mc.menu.Activated().Cancel()
-				}
-        strutil.HasOneSub(name, []string{"floater", "sidebar", "colorpick", "info", })
-        if !strutil.HasOneSub(name, []string{"palette", "mixer", "shades"}){
+				events.Global.Notify(*events.Global.NewObservableEvent(events.CancelledEvent, "esc", mc, nil))
+				// if mc.menu.Activated() != nil {
+				// 	mc.menu.Activated().Cancel()
+				// }
+        if mc.PageStack.FrontPageStacked() {
           mc.Pop()
+          mc.app.SetFocus(page)
         }
-				if name == "floater" {
-					mc.pages.HidePage("floater")
-					page.Blur()
-					mc.pages.RemovePage("floater")
-					mc.floater = nil
-				}
+
+				// strutil.HasOneSub(name, []string{"floater", "sidebar", "colorpick", "info"})
+				// if !strutil.HasOneSub(name, []string{"palette", "mixer", "shades"}) {
+				// 	mc.Pop()
+				// }
+				// if name == "floater" {
+				// 	mc.pages.HidePage("floater")
+				// 	page.Blur()
+				// 	mc.pages.RemovePage("floater")
+				// 	mc.floater = nil
+				// }
 				return
 			}
 			switch ch {
 			case 'P':
 				mc.Pop()
-				tv := NewTabbedView()
-				tst := NewColorPicker(&HSLChannel)
-        tst.OnAdd = func(c Color) {
-          MainC.palette.AddCoolorColor(c.GetCC())
-        }
-        tst.Register(events.PromptedEvents, events.NewAnonymousHandlerFunc(func(e events.ObservableEvent) bool {
-          mc.Pop()
-          return true
-        }))
-				hsvpick := NewTabView("  RGB", tv.TakeNext(), tst)
-				tv.AddTab(hsvpick)
-				tv.UpdateView()
-				sb := NewSideBar("colorpick", tv, 0, 40)
+				shouldReturn := OpenColorPicker(mc)
+				if shouldReturn {
+					return
+				}
+			case 'F':
+				mc.Pop()
+				sb := OpenFavoritesView()
 				mc.Push("colorpick", sb, true)
-				mc.app.SetFocus(tst)
-			case 'L':
-				mc.app.QueueUpdateDraw(func() {
-					if mc.sidebar == nil {
-						// ccsTwo := NewCoolorColorSwatch(
-						// 	func(cs *CoolorColorSwatch) *CoolorColorsPalette {
-						// 		cp := NewCoolorPaletteWithColors(
-						// 			GenerateRandomColors(20),
-						// tv.AddTab(NewTabView(" Favorites", tv.TakeNext(), ccsTwo))
-						// tv.AddTab(NewTabView("ﱬ Stream", tv.TakeNext(), ccsTwo))
-						// tv.AddTab(NewTabView("Alter Fuck",tv.TakeNext(), ccs111))
-						tv := NewTabbedView()
-						mc.sidebar = NewFixedFloater("QuickColors", tv)
-						ccps := NewCoolorColorsPaletteSwatch(
-							func(cs *CoolorColorsPaletteSwatch) []*CoolorColorsPalette {
-								cps := make([]*CoolorColorsPalette, 0)
-								ccps := GetStore().PaletteHistory(false)
-								for _, v := range ccps {
-									if v.Current == nil || v.Current.Colors == nil ||
-										len(v.Current.Colors) == 0 {
-										continue
-									}
-									cps = append(cps, v.Current.GetPalette())
-								}
-								return cps
-							},
-						)
-						ccs := NewCoolorColorSwatch(
-							func(cs *CoolorColorSwatch) *CoolorColorsPalette {
-								cp := GetStore().FavoriteColors.GetPalette()
-								return cp
-							},
-						)
-						ccpstv := NewTabView(" Palettes", tv.TakeNext(), ccps)
-						ccpstv.SetBackgroundColor(ct.GetTheme().GrayerBackground)
-						ccstv := NewTabView(" Favorites", tv.TakeNext(), ccs)
-						ccstv.SetBackgroundColor(ct.GetTheme().GrayerBackground)
-						f := events.NewAnonymousHandlerFunc(
-							func(e events.ObservableEvent) bool {
-								switch {
-								case e.Type&events.ColorSelectedEvent != 0:
-									col, ok := e.Ref.(*CoolorColor)
-									if ok && col != nil {
-										ccstv.Frame.Clear().
-											AddText(col.GetMeta().String(), false, tview.AlignCenter, tcell.ColorRed)
-										return true
-									}
-								case e.Type&events.ColorSelectionEvent != 0:
-									col, ok := e.Ref.(*CoolorColor)
-									if ok {
-										MainC.palette.AddCoolorColor(col)
-										return true
-									}
-								case e.Type&events.PaletteColorSelectionEvent != 0 || e.Type&events.PaletteColorSelectedEvent != 0:
-									pal, ok := e.Ref.(*CoolorColorsPalette)
-
-									sqs := fmt.Sprintf(
-										" %s ",
-										strings.Join(
-											pal.GetPalette().MakeSquarePalette(false),
-											" ",
-										),
-									)
-									if ok {
-										ccpstv.Frame.Clear().
-											AddText(sqs, false, tview.AlignCenter, tcell.ColorRed)
-									}
-								default:
-									fmt.Println(e)
-
-								}
-								return true
-							},
-						)
-						ccps.Register(events.ColorSelectionEvent, f)
-						ccs.Register(events.ColorSelectedEvent, f)
-						tv.AddTab(ccpstv)
-						tv.AddTab(ccstv)
-						tv.UpdateView()
-						mc.pages.AddPage("sidebar", mc.sidebar.GetRoot(), true, true)
-						mc.pages.ShowPage("sidebar")
-						mc.app.SetFocus(mc.sidebar.GetRoot().Item)
-					} else {
-						// name, page := mc.pages.GetFrontPage()
-						if name == "sidebar" {
-							mc.pages.HidePage("sidebar")
-							page.Blur()
-							mc.pages.RemovePage("sidebar")
-							mc.sidebar = nil
-						} else {
-							mc.pages.ShowPage("sidebar")
-							mc.app.SetFocus(mc.sidebar.GetRoot().Item)
-						}
-						AppModel.helpbar.SetTable("sidebar")
-					}
-				})
+				mc.app.SetFocus(sb.Item)
+				// mc.app.QueueUpdateDraw(func() {
+				// 	if mc.sidebar == nil {
+				// 		mc.pages.AddPage("sidebar", mc.sidebar.GetRoot(), true, true)
+				// 		mc.pages.ShowPage("sidebar")
+				// 		mc.app.SetFocus(mc.sidebar.GetRoot().Item)
+				// 	} else {
+				// 		// name, page := mc.pages.GetFrontPage()
+				// 		if name == "sidebar" {
+				// 			mc.pages.HidePage("sidebar")
+				// 			page.Blur()
+				// 			mc.pages.RemovePage("sidebar")
+				// 			mc.sidebar = nil
+				// 		} else {
+				// 			mc.pages.ShowPage("sidebar")
+				// 			mc.app.SetFocus(mc.sidebar.GetRoot().Item)
+				// 		}
+				// 		AppModel.helpbar.SetTable("sidebar")
+				// 	}
+				// })
 			case 't':
 				//  
 			case 'i':
@@ -384,7 +308,9 @@ func (mc *MainContainer) InputHandler() func(event *tcell.EventKey, setFocus fun
 					AppModel.helpbar.SetTable("info")
 				}
 			case '$':
-				mc.OpenTagView(mc.palette.CoolorColorsPalette)
+
+				AppModel.app.GetComponentAt(20, 20)
+				// mc.OpenTagView(mc.palette.CoolorColorsPalette)
 			case '#':
 				if mc.scratch == nil {
 					p := NewCoolorPaletteWithColors(GenerateRandomColors(8))
@@ -404,17 +330,24 @@ func (mc *MainContainer) InputHandler() func(event *tcell.EventKey, setFocus fun
 					AppModel.helpbar.SetTable("scratch")
 				}
 			case 'f':
-				if name != "filetree" {
-					mc.pages.ShowPage("filetree")    // .HidePage("editor")
-					mc.pages.SendToFront("filetree") // .HidePage("editor")
-					mc.app.SetFocus(mc.filetree)
-					AppModel.helpbar.SetTable("filetree")
-				} else {
-					mc.pages.HidePage("filetree") // .HidePage("editor")
-					mc.pages.SendToBack("filetree")
-					mc.app.SetFocus(mc.palette)
-					AppModel.helpbar.SetTable("palette")
+				if mc.filetree == nil {
+					mc.filetree = NewPaletteFileTree()
 				}
+				mc.Pop()
+				mc.Push("filetree", mc.filetree, false)
+				mc.app.SetFocus(mc.filetree)
+
+				// if name != "filetree" {
+				// 	mc.pages.ShowPage("filetree")    // .HidePage("editor")
+				// 	mc.pages.SendToFront("filetree") // .HidePage("editor")
+				// 	mc.app.SetFocus(mc.filetree)
+				// 	AppModel.helpbar.SetTable("filetree")
+				// } else {
+				// 	mc.pages.HidePage("filetree") // .HidePage("editor")
+				// 	mc.pages.SendToBack("filetree")
+				// 	mc.app.SetFocus(mc.palette)
+				// 	AppModel.helpbar.SetTable("palette")
+				// }
 			// case 'F':
 			// 	mc.pages.SwitchToPage("fileviewer") // .HidePage("editor")
 			// 	mc.app.SetFocus(mc.fileviewer.treeView)
@@ -451,16 +384,11 @@ func (mc *MainContainer) InputHandler() func(event *tcell.EventKey, setFocus fun
 			// case 'g':
 			// 	bDamping -= 0.1
 			case 'u':
-				noti := anim.GetAnimator().GetAnimation("notif")
-				dump.P(noti)
-				if noti == nil {
-					noti = NewNotification(
-						"SHIT",
-						"This is a test notification of the notification broadcastsing systems.\n!!",
-					)
-				} else {
-					noti.Next()
-				}
+				noti := NewNotification(
+					Notid("notif_"),
+					"  ",
+					fmt.Sprintf("Favorited %s", NewCoolorColor("#fb3292").TVPreview()),
+				)
 				noti.Control.Play()
 
 				// })
@@ -506,11 +434,35 @@ func (mc *MainContainer) InputHandler() func(event *tcell.EventKey, setFocus fun
 	)
 }
 
+// 
+//        ﱣ                             ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ
+//     ﱣ ﱣ ﱣ                          ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ
+//    ﱣ ﱣ                        ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ
+//                        ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ
+//                       ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ
+//                          ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ
+//                          ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ
+//                           ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ
+//                             ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ
+//                               ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ⬢ ⬣  ⬡
+//                              ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ
+//                                         ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ⬢ ⬣  ⬡
+//                                             ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ
+//                                 ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ⬢ ⬣  ⬡
+//                     ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ
+//                      ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ
+//                 ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ⬢ ⬣  ⬡
+//                    ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ
+//                      ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ⬢ ⬣  ⬡
+//                    ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ  
+//                   ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ  ⬢ ⬣   ⬡
+
 func (mc *MainContainer) Draw(s tcell.Screen) {
 	mc.Box.DrawForSubclass(s, mc)
 	mc.Flex.Draw(s)
 	mc.ScrollLine.Box.DrawForSubclass(s, mc.ScrollLine)
 	mc.ScrollLine.Draw(s)
+  // mc.menu.Draw(s)
 }
 
 func (mc *MainContainer) NewShades(base *CoolorColor) {
@@ -639,32 +591,7 @@ func NewScrollLine() *ScrollLine {
 		vel:             1,
 	}
 
-  idx := 0
-  notid := func(t string) string{
-idx+=1
-return fmt.Sprintf("t_%d", t, idx)
-  }
 	events.Global.Register(events.PaletteColorSelectedEvent, sl)
-  addPluginOnLoad("register palette file view", func(pm *PluginsManager) {
-    pm.Register(events.PluginEvents, events.NewAnonymousHandlerFunc(func(e events.ObservableEvent) bool {
-      fmt.Println("SHIT")
-    if e.Type.Is(events.PluginEvents) {
-      if pe, ok := e.Ref.(*PluginEvent); ok {
-        status.NewStatusUpdate("action_str", fmt.Sprintf("Loaded Plugin %s", pe.name))
-				noti := anim.GetAnimator().GetAnimation(notid("notif_"))
-				if noti == nil {
-					noti = NewNotification(
-						"SHIT",
-						"This is a test notification of the notification broadcastsing systems.\n!!",
-					)
-				}
-        noti.Control.Play()
-      }
-
-    }
-    return true
-  }))
-  })
 	btmLine.SetDrawFunc(
 		func(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
 			x, y, width, height = sl.GetRect()
@@ -723,7 +650,7 @@ return fmt.Sprintf("t_%d", t, idx)
 		btmLine,
 		0,
 		100,
-		NewCallbackMutator(func(m MotionValues, i interface{}) bool {
+		NewCallbackMutator(func(m *MotionValues, i interface{}) bool {
 			sl.x = m.X
 			// if vel != math.Abs(m.Xvelocity) {
 			//   vel = math.Abs(((vel * 2) + m.Xvelocity) / 3)
@@ -789,5 +716,6 @@ return fmt.Sprintf("t_%d", t, idx)
 // mc.pages.AddPage("floater", mc.floater.GetRoot(), true, true)
 // mc.pages.ShowPage("floater")
 // mc.app.SetFocus(mc.floater.GetRoot())
+
 //
 // vim: ts=2 sw=2 et ft=go

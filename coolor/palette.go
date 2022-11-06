@@ -9,6 +9,7 @@ import (
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
 
+	"github.com/digitallyserviced/coolors/coolor/events"
 	. "github.com/digitallyserviced/coolors/coolor/events"
 	"github.com/digitallyserviced/coolors/status"
 )
@@ -25,17 +26,6 @@ type (
 	Palette      interface {
 		GetPalette() *CoolorColorsPalette
 	}
-	CoolorColorsPalette struct {
-	l              *sync.RWMutex
-	*EventObserver `gorm:"-"`
-	*EventNotifier `gorm:"-"`
-	tagType        *TagType
-	Name           string
-	ptype          string
-    Colors         CoolorColors `gorm:"foreignKey:Color"`
-	Hash           uint64 `gorm:"uniqueIndex"`
-	selectedIdx    int
-}
 	CoolorPaletteMainView struct {
 		ColorContainer *tview.Flex
 		// ScrollLine     *ScrollLine
@@ -75,38 +65,7 @@ func NewPaddles() []*PalettePaddle {
 	return []*PalettePaddle{left, right}
 }
 
-func NewCoolorColorsPaletteFromMeta(
-	ccm *CoolorColorsPaletteMeta,
-) *CoolorMainPalette {
-	colors := make([]string, len(ccm.Current.Colors))
-	for i, v := range ccm.Current.Colors {
-		// colors = append(colors, v.Clone())
-		colors[i] = v.Escalate().Html()
-	}
-	ccp := NewCoolorPaletteFromCssStrings(colors)
-	ccp.CoolorColorsPalette.Name = ccm.Named
-	ccp.UpdateHash()
-	// ccp := ccm.Current
-	// ccp.Colors = make(CoolorColors, 0)
-	// ccp.l = &sync.RWMutex{}
-	// ccp.EventObserver = NewEventObserver("palette")
-	// ccp.EventNotifier = NewEventNotifier("palette")
-	// cmp := &CoolorMainPalette{
-	// 	CoolorPaletteMainView: LoadedCoolorPalette(ccp),
-	// 	name:                  "random untitled",
-	// }
-	//  // cmp.UpdateSize()
-	//  // cmp.ResetViews()
-	// for _, v := range colors {
-	//   cmp.AddCssCoolorColor(v)
-	// }
-	// ccp.SetSelected(0)
-	// ccp.UpdateHash()
-	MainC.conf.Meta = append(MainC.conf.Meta, ccm)
-	return ccp
-}
-
-func NewCoolorColorsPalette() *CoolorColorsPalette {
+func NewCoolorColorsPalette(colors ...string) *CoolorColorsPalette {
 	ccp := &CoolorColorsPalette{
 		l:             &sync.RWMutex{},
 		EventObserver: NewEventObserver("palette"),
@@ -118,8 +77,8 @@ func NewCoolorColorsPalette() *CoolorColorsPalette {
 		selectedIdx:   0,
 		tagType:       &Base16Tags,
 	}
-	ccm := NewCoolorColorsPaletteMeta(Generator().GenerateName(2), ccp)
-	ccm.Update()
+	// ccm := NewCoolorColorsPaletteMeta(Generator().GenerateName(2), ccp)
+	// ccm.Update()
 	// MainC.conf.Meta = append(MainC.conf.Meta, ccm)
 	return ccp
 }
@@ -149,7 +108,6 @@ func LoadedCoolorPalette(ccp *CoolorColorsPalette) *CoolorPaletteMainView {
 	cp.AddItem(cp.paddles[1], PaddleMinWidth, 0, false)
 	return cp
 }
-
 
 func BlankCoolorPalette() *CoolorPaletteMainView {
 	cp := &CoolorPaletteMainView{
@@ -332,6 +290,7 @@ func (cp *CoolorPaletteMainView) SetMenu(menu *CoolorToolMenu) {
 	}
 
 	cp.CoolorColorsPalette.Register(PaletteColorSelectedEvent, cp.menu)
+	events.Global.Register(CancelledEvent, cp.menu)
 	cp.SpawnSelectionEvent(cc, i)
 }
 
@@ -445,10 +404,17 @@ func (cp *CoolorPaletteMainView) SetSelected(idx int) error {
 	// if cp.CoolorColorsPalette.GetMeta().Saved {
 	//   dirty = ""
 	// } %s
-  cc := cp.Colors[cp.selectedIdx]
+	cc := cp.Colors[cp.selectedIdx]
 	status.NewStatusUpdate(
 		"name",
-    fmt.Sprintf("[red:gray:-][-:-:-][-:gray:-]  [-:-:-][gray:red:-][-:-:-][black:red:b] %s [-:-:-][red:gray:-][-:gray:-]  [gray:pink:-][black::b] %d [pink:gray:-][-:gray:-]  [gray:%s:-][black::b]%s[%s:-:-][-:-:-]", "untitled", cp.Len(), cc.Html(),cc.TVPreview(),cc.Html()/* , cp.CoolorColorsPalette.Name, dirty */),
+		fmt.Sprintf(
+			"[red:gray:-][-:-:-][-:gray:-]  [-:-:-][gray:red:-][-:-:-][black:red:b] %s [-:-:-][red:gray:-][-:gray:-]  [gray:pink:-][black::b] %d [pink:gray:-][-:gray:-]  [gray:%s:-][black::b]%s[%s:-:-][-:-:-]",
+			"base16",
+			cp.Len(),
+			cc.Html(),
+			cc.TVPreview(),
+			cc.Html(), /* , cp.CoolorColorsPalette.Name, dirty */
+		),
 		// fmt.Sprintf("%s %s", cp.CoolorColorsPalette.Name, dirty),
 	)
 	cp.UpdateSize()
@@ -525,6 +491,7 @@ func (cp *CoolorPaletteMainView) Draw(screen tcell.Screen) {
 	// 	it.Draw(screen)
 	// }
 	cp.Flex.Draw(screen)
+  // cp.menu.Draw(screen)
 	// cp.ScrollLine.Draw(screen)
 }
 
@@ -571,7 +538,11 @@ func (cp *CoolorMainPalette) InputHandler() func(event *tcell.EventKey, setFocus
 			MainC.app.QueueUpdateDraw(func() {
 				ch := event.Rune()
 				kp := event.Key()
-				_ = kp
+        fmt.Println(kp)
+     //    if kp == tcell.KeyESC {
+     //      fmt.Println("SHIT")
+					// color, _ := cp.GetSelected()
+     //    }
 				switch ch {
 				case '*':
 					cp.Randomize()
@@ -581,8 +552,7 @@ func (cp *CoolorMainPalette) InputHandler() func(event *tcell.EventKey, setFocus
 					cp.GetPalette().Sort()
 				case 'e':
 					color, _ := cp.GetSelected()
-					cp.AddCoolorColor(color.Clone())
-					SeentColor("duped", color, color.pallette)
+					OpenColorPicker(MainC, color)
 				case 'd':
 					color, _ := cp.GetSelected()
 					cp.AddCoolorColor(color.Clone())

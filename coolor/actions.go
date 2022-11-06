@@ -393,7 +393,6 @@ func (cca *CoolorColorActor) Every(cc *CoolorColor) bool {
 }
 
 func (cca *CoolorColorActor) Before(
-	cp *CoolorPaletteMainView,
 	cc *CoolorColor,
 ) bool {
 	return cca.CoolorColorActionFunctions.Before(cca, cc)
@@ -1020,7 +1019,7 @@ func tagFunc() *CoolorColorActionFunctions {
 						})
 						ccol.SetTag(ti)
 						cca.SetValue("tag", lis.(*TagItem))
-						cca.Before(ccol.pallette, ccol)
+						cca.Before(ccol)
 						cca.Every(ccol)
 						cca.Finalize(cc)
 					},
@@ -1138,7 +1137,7 @@ func favFunc() *CoolorColorActionFunctions {
 			if cc == nil {
 				return false
 			}
-			// GetStore().MetaService.ToggleFavorite(cc)
+			GetStore().MetaService.ToggleFavorite(cc)
 			cca.Finalize(cc)
 			return false
 		},
@@ -1148,10 +1147,9 @@ func favFunc() *CoolorColorActionFunctions {
 				return false
 			}
       // doCallers()
-			_, idx := GetStore().MetaService.FavoriteColors.Contains(cc)
-			fav := idx >= 0
-			cca.icon = IfElseStr(fav, " ", " ")
-			cca.name = IfElseStr(fav, "unfavorite", "favorite")
+			_, fav := GetStore().MetaService.FavoriteColors.Contains(cc)
+			cca.icon = IfElseStr(!fav, " ", " ")
+			cca.name = IfElseStr(!fav, "unfavorite", "favorite")
 			return false
 		},
 		Every: func(cca *CoolorColorActor, ncc *CoolorColor) bool {
@@ -1159,9 +1157,8 @@ func favFunc() *CoolorColorActionFunctions {
 			if cc == nil {
 				return false
 			}
-			_, idx := GetStore().MetaService.FavoriteColors.Contains(cc)
-			fav := idx >= 0
-			cca.icon = IfElseStr(fav, " ", " ")
+			_, fav:= GetStore().MetaService.FavoriteColors.Contains(cc)
+			cca.icon = IfElseStr(fav, " ", " ")
 			cca.name = IfElseStr(fav, "unfavorite", "favorite")
 			return false
 		},
@@ -1170,10 +1167,9 @@ func favFunc() *CoolorColorActionFunctions {
 			if cc == nil {
 				return 
 			}
-			_, idx := GetStore().MetaService.FavoriteColors.Contains(cc)
-			fav := idx >= 0
-			icon := IfElseStr(fav, " ", " ")
-			name := IfElseStr(fav, "unfavorite", "favorite")
+			_, fav := GetStore().MetaService.FavoriteColors.Contains(cc)
+			icon := IfElseStr(!fav, " ", " ")
+			name := IfElseStr(!fav, "unfavorite", "favorite")
 			status.NewStatusUpdateWithTimeout(
 				"action_str",
 				fmt.Sprintf(
