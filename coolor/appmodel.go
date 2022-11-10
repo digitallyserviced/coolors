@@ -7,7 +7,9 @@ import (
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
 
+	"github.com/aymanbagabas/go-osc52"
 	"github.com/digitallyserviced/coolors/coolor/anim"
+	"github.com/digitallyserviced/coolors/coolor/events"
 	xxp "github.com/digitallyserviced/coolors/coolor/xp"
 	"github.com/digitallyserviced/coolors/status"
 	// "github.com/gdamore/tcell/v2/terminfo"
@@ -40,19 +42,22 @@ type Animations struct {
 // ti, _ := terminfo.LookupTerminfo("xterm-256color")
 // ti.TPuts
 
-// if err != nil {
-//   // panic(err)
-// }
+//	if err != nil {
+//	  // panic(err)
+//	}
+//
 // cmd := exec.Command("zsh", "-c", "echo", "-n", str)
 // output := &bytes.Buffer{}
 // errs := &bytes.Buffer{}
 // cmd.Stdout = output
-//  cmd.Stderr = errs
 //
-// if err := cmd.Run(); err != nil {
-//    panic(err)
-// }
-//  dump.P(errs.String(),output.String(), len(output.Bytes()))
+//	cmd.Stderr = errs
+//
+//	if err := cmd.Run(); err != nil {
+//	   panic(err)
+//	}
+//
+//	dump.P(errs.String(),output.String(), len(output.Bytes()))
 var AppModel Model
 
 func StartApp() {
@@ -84,17 +89,33 @@ func StartApp() {
 		tty, _ := tcell.NewDevTtyFromDev(tty)
 		scr, _ = tcell.NewTerminfoScreenFromTty(tty)
 	}
-	zlog.Info("SHIT")
+	// zlog.Info("SHIT")
 	xxp.SetupExpVars()
 	err := scr.Init()
 	if err != nil {
 		panic(err)
 	}
 	if scr.HasMouse() {
-		// scr.EnableMouse()
+		scr.EnableMouse()
 	}
+	GetStore().MetaService.Current = nil
+	events.Global.Register(
+		events.InputEvent,
+		events.NewAnonymousHandlerFunc(func(e events.ObservableEvent) bool {
+			if events.ObservableEventType(events.CopyEvent).Is(e.Type) {
+				str := e.Note
+				ref := e.Ref.(string)
+				ico := e.Src.(string)
+				notif := NewNotification(Notid("cpnotif_"), ref, NewNotificationStatus(ico, "#f7e6b5"))
+				osc52.Copy(str)
+				notif.Control.Play()
+			}
+			return true
+		}),
+	)
+	defer GetStore().Close()
 	scr.SetCursorStyle(tcell.CursorStyleBlinkingBar)
-	// scr.EnablePaste()
+	scr.EnablePaste()
 	AppModel.scr = scr
 	AppModel.app = tview.NewApplication()
 	AppModel.app.SetScreen(AppModel.scr)
@@ -103,7 +124,7 @@ func StartApp() {
 	AppModel.helpbar = &HelpBar{}
 	AppModel.pages = tview.NewPages()
 	AppModel.anims = tview.NewPages()
-  anim.Init(AppModel.app, AppModel.scr, AppModel.pages, AppModel.anims)
+	anim.Init(AppModel.app, AppModel.scr, AppModel.pages, AppModel.anims)
 	AppModel.main = NewMainContainer(AppModel.app)
 	AppModel.rootView = tview.NewFlex().SetDirection(tview.FlexRow)
 	AppModel.helpbar = NewHelpBar(AppModel.app)
@@ -125,10 +146,17 @@ func StartApp() {
 	AppModel.pages.ShowPage("animation")
 	AppModel.anims.SetRect(0, 0, AppModel.w, AppModel.h)
 	AppModel.anims.SetVisible(true)
+	// err = clipboard.Init()
+	// if err != nil {
+	// panic(err)
+	// }
+	// txt := clipboard.Read(clipboard.FmtText)
+	// fmt.Printf("%s", txt)
+	// AppModel.scr.SetClipboard("p", "HOLSYHITBALLS")
+	//   fmt.Println("SHITS", AppModel.scr.GetClipboard("c"), AppModel.scr.GetClipboard("p"))
 	if err := AppModel.app.SetRoot(AppModel.pages, true).Run(); err != nil {
 		panic(err)
 	}
-			GetStore().Close()
 
 	AppModel.main.CloseConfig()
 	colors := AppModel.main.GetPalette()

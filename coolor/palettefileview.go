@@ -190,10 +190,10 @@ func (ft *PaletteFileView) SetRect(x, y, width, height int) {
 func (ft *PaletteFileView) InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
 	return ft.WrapInputHandler(
 		func(ek *tcell.EventKey, f func(p tview.Primitive)) {
-			if ek.Modifiers() == tcell.ModShift {
-				ek = DirectionalFocusHandling(ek, AppModel.app)
-				return
-			}
+			// if ek.Modifiers() == tcell.ModShift {
+			// 	ek = DirectionalFocusHandling(ek, AppModel.app)
+			// 	return
+			// }
 			ft.view.InputHandler()(ek, f)
 		},
 	)
@@ -342,7 +342,7 @@ func (v *PaletteFileView) SetPreview(fsnode *tree.TreeNode) {
 
 	cols.Sort()
 	i = append(i, strings.Join(cols.SquishPaletteBar(), ""))
-	fmt.Println(strings.Join(i, " "))
+	// fmt.Println(strings.Join(i, " "))
 	// v.infoView.SetDynamicColors(true)
 	v.contentView.View.SetStatusText(strings.Join(i, " "))
 	// v.view.SetRows(3, len(i), len(d.GetPalettes())*5, 0)
@@ -359,7 +359,7 @@ func (v *PaletteFileView) SetPreview(fsnode *tree.TreeNode) {
 type CoolorStrings []string
 
 func (cs CoolorStrings) GetPalette() (ccp *CoolorColorsPalette) {
-	ccp = NewCoolorColorsPaletteFromCssStrings([]string(cs))
+	ccp = NewCoolorColorsPaletteFromCSSStrings([]string(cs))
 	return ccp
 }
 

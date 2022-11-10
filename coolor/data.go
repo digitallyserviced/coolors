@@ -10,7 +10,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gookit/goutil/dump"
+	// "github.com/gookit/goutil/dump"
+	// "github.com/alecthomas/chroma/lexers/v"
+	// "github.com/gookit/goutil/dump"
 	msgpack "github.com/vmihailenco/msgpack/v5"
 	"go.etcd.io/bbolt"
 
@@ -20,8 +22,10 @@ import (
 	q "github.com/ostafen/clover/v2/query"
 	bh "github.com/timshannon/bolthold"
 
+	"github.com/digitallyserviced/coolors/coolor/events"
 	. "github.com/digitallyserviced/coolors/coolor/events"
 	"github.com/digitallyserviced/coolors/coolor/zzlog"
+	"github.com/digitallyserviced/coolors/status"
 )
 
 type (
@@ -89,12 +93,12 @@ type (
 	}
 
 	CoolorColorsPaletteMeta struct {
-    Created time.Time
-    Name string
-    Author string
-    ExtraData map[string]interface{}
-    Palette *CoolorColorsPalette
-  }
+		Created    int64             `clover:",omitempty"`
+		Name      string                 `clover:",omitempty"`
+		Author    string                 `clover:",omitempty"`
+		ExtraData map[string]interface{} `clover:",omitempty"`
+		Palette   *CoolorColorsPalette   `clover:",omitempty"`
+	}
 
 	// 	Current  *Coolors
 	// 	Versions []*Coolors
@@ -113,6 +117,7 @@ type (
 	// 	Used   uint64
 	// 	Origin CoolorColorOrigin
 	// }
+
 	CoolorData struct {
 		*cl.DB
 		*bh.Store
@@ -121,14 +126,15 @@ type (
 	}
 
 	MetaService struct {
-		*EventObserver
+		// *EventObserver
 		*EventNotifier
-		Cache CoolorsCache
-		// Current        *CoolorColorsPaletteMeta
+		Cache   CoolorsCache
+		Current *CoolorColorsPaletteMeta
 		// PaletteMeta    []*CoolorColorsPaletteMeta
 		// RecentColors   Coolors
 		FavoriteColors CoolorsCache
 	}
+
 	DataCollection struct {
 		CollectionKey string
 		Indexes       []string
@@ -148,9 +154,18 @@ type (
 	DocMaker[T coolorDataVal] interface {
 		GetDoc() *DataDoc[T]
 	}
+
 )
 
 var (
+	PluginCollection = &DataCollection{
+		CollectionKey: "plugins",
+		Indexes:       []string{"Name"},
+	}
+	PaletteCollection = &DataCollection{
+		CollectionKey: "palettes",
+		Indexes:       []string{"Name"},
+	}
 	ColorsCollection = &DataCollection{
 		CollectionKey: "colors",
 		Indexes:       []string{"favorite"},
@@ -168,6 +183,9 @@ type (
 
 func FromTcell(col tcell.Color) *Coolor {
 	return MakeColorFromTcell(col).GetCC().Coolor()
+}
+func (ms *MetaService) Name() string {
+	return "meta_service"
 }
 func (ms *MetaService) Service() {
 	// GetStore().FavoriteColors = *GetStore().FavoriteColors.Load("MetaService_Favorites")
@@ -197,6 +215,12 @@ func GetStore() *CoolorData {
 			MetaService: NewMetadataService(),
 		}
 		GetStore().MetaService.LoadFavorites()
+    pals := GetStore().MetaService.LoadPalettes()
+    for _, v := range pals {
+      fmt.Println(v.Palette)
+      
+    }
+
 		// Store.Store = openbolt()
 		// seedbolt(Store.Store)
 		// startBoltStats()
@@ -293,7 +317,7 @@ func NewMetadataService() *MetaService {
 	// recents := make(CoolorsCache)
 	// favs := make(CoolorsCache)
 	ms := &MetaService{
-		EventObserver: NewEventObserver("metaservice"),
+		// EventObserver: NewEventObserver("metaservice"),
 		EventNotifier: NewEventNotifier("metaservice"),
 		Cache:         CoolorsCache{cache: make(map[int32]*CoolorColor)},
 		// RecentColors: Coolors{
@@ -302,6 +326,9 @@ func NewMetadataService() *MetaService {
 		// },
 		FavoriteColors: CoolorsCache{cache: make(map[int32]*CoolorColor)},
 	}
+
+	events.Global.Register(AllEvents, ms)
+	// var o Observer = ms
 	return ms
 }
 
@@ -326,7 +353,7 @@ func (dc DataCollection) Save(docs ...*doc.Document) int {
 	saved := 0
 	for _, v := range docs {
 		err := db.Save(dc.CollectionKey, v)
-		dump.P(v)
+		// dump.P(v)
 		if err != nil {
 			zlog.Error(
 				fmt.Sprintf("Failed saving document: %+v", err),
@@ -387,6 +414,32 @@ func DocNotExists(err error) bool {
 	return false
 }
 
+func NewCoolorColorsPaletteMetaFromDoc(ddc *doc.Document) *CoolorColorsPaletteMeta {
+  ccpm := &CoolorColorsPaletteMeta{
+  	Created:   ddc.Get("Created").(int64),
+  	Name:      ddc.Get("Name").(string),
+  	// Author:    IfElseStr(ddc.Has("Author")&& ddc.Get("Author") != nil, ,""),
+  	ExtraData: make(map[string]interface{}),
+  	Palette:   NewCoolorColorsPalette(),
+  }
+  if author, ok := ddc.Get("Author").(string); ok {
+    ccpm.Author = author
+  }
+
+  pal := ddc.Get("Palette.Colors")
+  for _, v := range pal.([]interface{}) {
+    col := v.(map[string]interface{})
+    ccpm.Palette.AddCoolorColor(NewIntCoolorColor(int32(col["Color"].(uint64))))
+  }
+	// c := NewDefaultCoolorColor()
+	// err = ddc.Unmarshal(cc)
+	// c.SetColorInt(int32(ddc.Get("Color").(uint64)))
+	// c.Favorite = ddc.Get("favorite").(bool)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	return ccpm
+}
 func NewCoolorColorFromDoc(ddc *doc.Document) *CoolorColor {
 	c := NewDefaultCoolorColor()
 	// err = ddc.Unmarshal(cc)
@@ -464,7 +517,10 @@ func NewDataDoc[T coolorDataVal](
 func InitDB() *cl.DB {
 	ddb, err := cl.Open("clover-db")
 	if err != nil {
-		panic(err)
+		ddb, err = cl.Open("clover-dbs")
+		if err != nil {
+			panic(err)
+		}
 	}
 	go handleSignals()
 	db = ddb
@@ -745,6 +801,44 @@ func (ms *MetaService) Save(insert bool) {
 // 	return ccpms
 // }
 
+func (ms *MetaService) LoadPalettes() []*CoolorColorsPaletteMeta {
+  err := db.Delete(PaletteCollection.Query().Where(q.Field("Name").NotExists()))
+	if err != nil {
+		panic(err)
+	}
+	pals, err := db.FindAll(
+		PaletteCollection.Query(),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+  nccpm := make([]*CoolorColorsPaletteMeta, 0)
+  for _, p := range pals {
+    nccpm = append(nccpm, NewCoolorColorsPaletteMetaFromDoc(p))
+ //    fmt.Println(p.AsMap())
+ //    err = p.Unmarshal(nccpm)
+	// if err != nil {
+ //      fmt.Println(err)
+	// 	// panic(err)
+	// }
+
+    // dump.P(nccpm)
+
+	}
+	// palss, err := db.FindAll(
+	// 	PaletteCollection.Query().Where(q.Field("Name").Exists()),
+	// )
+	// if err != nil && !DocNotExists(err) {
+	//
+	// }
+	// for _, v := range palss {
+	// 	fmt.Println(v.Get("Name"))
+	// }
+
+	return nccpm 
+
+}
 func (ms *MetaService) LoadFavorites() *CoolorColors {
 	colors := make(CoolorColors, 0)
 
@@ -758,7 +852,6 @@ func (ms *MetaService) LoadFavorites() *CoolorColors {
 	if err != nil {
 		panic(err)
 	}
-	dump.P(cols)
 
 	for _, v := range cols {
 		// var c CoolorColor
@@ -769,7 +862,7 @@ func (ms *MetaService) LoadFavorites() *CoolorColors {
 		// }
 		c := NewCoolorColorFromDoc(v)
 		ms.FavoriteColors.Add(c)
-		fmt.Println(c.TerminalPreview())
+		// fmt.Println(c.TerminalPreview())
 		colors = append(colors, c)
 	}
 
@@ -799,94 +892,131 @@ func (ms *MetaService) ColorHistory(t time.Duration) *CoolorColors {
 }
 
 func (ms *MetaService) HandleEvent(o ObservableEvent) bool {
+	// if ObservableEventType(
+	// 	ColorSeentEvent | ColorEvent | SelectedEvent,
+	// ).Is(o.Type) {
+	// 	// col, ok := o.Ref.(*CoolorColor)
+	// 	// if !ok {
+	// 	// 	return true
+	// 	// }
+	// 	// cm, ok := ms.Cache.Contains(col)
+	// 	// if !ok {
+	// 	// 	cmm := ms.Cache.Add(col)
+	// 	// 	cm = &cmm
+	// 	// }
+	// 	// cm.Update(false)
+	// }
+	if ObservableEventType(PaletteCreatedEvent).Is(o.Type) {
+		// fmt.Printf("DICK %+v %T", o.Ref, o.Ref)
+		cp := ms.Current.ToPalette(o.Ref)
+		// cp, ok := o.Ref.(*CoolorPaletteMainView)
+		// if !ok {
+		// 	return false
+		// }
+		if cp == nil {
+			return false
+		}
+		ms.UpdateCurrent(cp)
+
+		if ms.Current.Save() {
+			events.Global.Notify(
+				*events.Global.NewObservableEvent(events.PaletteSavedEvent, "saved_palette", ms.Current.Palette, ms.Current),
+			)
+		}
+	}
 	if ObservableEventType(
-		ColorSeentEvent | ColorEvent | SelectedEvent,
+		PaletteMetaUpdatedEvent,
 	).Is(o.Type) {
-		// col, ok := o.Ref.(*CoolorColor)
-		// if !ok {
-		// 	return true
-		// }
-		// cm, ok := ms.Cache.Contains(col)
-		// if !ok {
-		// 	cmm := ms.Cache.Add(col)
-		// 	cm = &cmm
-		// }
-		// cm.Update(false)
+    status.NewStatusUpdate("title", ms.Current.Name)
 	}
 	// fmt.Printf("*** Data Observed %s %s received: %T  %T\n", o.Note,o.Type.String(), o.Ref, o.Src)
 	// Store.MetaService.ColorHistory(-24 * time.Hour)
 	return true
 }
 
+func (ms *MetaService) UpdateCurrent(cp *CoolorColorsPalette) {
+	if !ms.Current.IsCurrent(cp) {
+		ms.Current = ms.Current.ToMeta(cp)
+			events.Global.Notify(
+				*events.Global.NewObservableEvent(events.PaletteMetaUpdatedEvent, "current_palette", ms.Current.Palette, ms.Current),
+			)
+	}
+}
+// func (ms *MetaService) UpdateCurrent() bool {
+// }
+
+func (ccpm *CoolorColorsPaletteMeta) ToPalette(
+	cp interface{},
+) *CoolorColorsPalette {
+	switch cpp := cp.(type) {
+	case *CoolorColorsPaletteMeta:
+		return cpp.Palette
+	case *CoolorColorsPalette:
+		return cpp
+	case *CoolorPaletteMainView:
+		return cpp.CoolorColorsPalette
+	case Palette:
+		return cpp.GetPalette()
+	}
+	return nil
+}
+
+func (ccpm *CoolorColorsPaletteMeta) ToMeta(
+	cp interface{},
+) (nccpm *CoolorColorsPaletteMeta) {
+	// var nccpm *CoolorColorsPaletteMeta
+	switch cpp := cp.(type) {
+	case *CoolorColorsPaletteMeta:
+		nccpm = cpp
+	case *CoolorColorsPalette:
+		nccpm = NewCoolorColorsPaletteMeta(cpp)
+	case Palette:
+		nccpm = NewCoolorColorsPaletteMeta(cpp.GetPalette())
+	}
+	return
+}
+
+func (ccpm *CoolorColorsPaletteMeta) IsCurrent(cpi interface{}) bool {
+	cp := ccpm.ToPalette(cpi)
+	if ccpm == nil || cp == nil {
+		return false
+	}
+	if cp == ccpm.Palette {
+		return true
+	}
+	if cp.Name() == ccpm.Name {
+		return true
+	}
+	if cp.HashColors() == ccpm.Palette.HashColors() {
+		return true
+	}
+	return false
+}
+
+func (ccpm *CoolorColorsPaletteMeta) Save() bool {
+	fmt.Println(ccpm)
+	if ccpm == nil {
+		return false
+	}
+	dccpm := doc.NewDocumentOf(ccpm)
+	pal, err := db.FindFirst(
+		PaletteCollection.Query().Where(q.Field("Name").Eq(ccpm.Name)),
+	)
+	if err != nil {
+		if !DocNotExists(err) {
+			panic(err)
+		}
+	}
+	if pal != nil {
+		dccpm.Set(doc.ObjectIdField, pal.ObjectId())
+	}
+	n := PaletteCollection.Save(dccpm)
+	return n > 0
+}
+
 var _ msgpack.CustomEncoder = (*CoolorColor)(nil)
 var _ msgpack.CustomDecoder = (*CoolorColor)(nil)
 
-// func (s *Coolors) EncodeMsgpack(enc *msgpack.Encoder) error {
-// 	return enc.EncodeMulti(s.Key, s.Colors)
-// }
-//
-// func (s *Coolors) DecodeMsgpack(dec *msgpack.Decoder) error {
-// 	// var err error
-// 	// fmt.Println(dec)
-// 	// buf := make([]byte, 1024)
-// 	// dec.ReadFull(buf)
-// 	// // var k string
-// 	var b []interface{}
-// 	// // b, err := dec.DecodeBytes()
-// 	// // err = dec.DecodeMulti(&b)
-// 	// checkErr(err)
-// 	// // slice, err := dec.DecodeSlice()
-// 	// // checkErr(err)
-// 	// return nil
-// 	err := dec.DecodeMulti(&s.Key, &b)
-// 	colors := make([]*Coolor, 0)
-// 	for _, v := range b {
-// 		// fmt.Printf("\n\n******%v ", v)
-// 		// fmt.Printf("\n\n******%T", v)
-// 		for _, vv := range v.(map[string]interface{}) {
-// 			// fmt.Printf("\n\n******%T %T %v %v", kk, vv, kk, vv)
-// 			c := &Coolor{
-// 				Color: tcell.Color(vv.(uint64)),
-// 			}
-// 			colors = append(colors, c)
-// 		}
-// 	}
-// 	s.Colors = colors
-// 	// fmt.Println(colors)
-// 	// fmt.Printf("\n***** %T %v", s, s)
-// 	return err
-// }
-
-//
-// func (s *Coolor) EncodeMsgpack(enc *msgpack.Encoder) error {
-// 	return enc.EncodeUint64(uint64(s.Color))
-// }
-//
-// func (s *Coolor) DecodeMsgpack(dec *msgpack.Decoder) error {
-//   u64, err := dec.DecodeUint64()
-//   if err != nil {
-//     return err
-//   }
-// 	s.Color = tcell.Color(u64)
-//   return nil
-// }
-//
-
-// func (v Vector) MarshalBinary() ([]byte, error) {
-// 	// A simple encoding: plain text.
-// 	var b bytes.Buffer
-// 	fmt.Fprintln(&b, v.x, v.y, v.z)
-// 	return b.Bytes(), nil
-// }
-
-// UnmarshalBinary modifies the receiver so it must take a pointer receiver.
-//
-//	func (v *Vector) UnmarshalBinary(data []byte) error {
-//		// A simple encoding: plain text.
-//		b := bytes.NewBuffer(data)
-//		_, err := fmt.Fscanln(b, &v.x, &v.y, &v.z)
-//		return err
-//	}
 func (s *CoolorColor) EncodeMsgpack(enc *msgpack.Encoder) error {
 	return enc.EncodeMulti(s.Color)
 }
@@ -903,17 +1033,30 @@ func (cc *CoolorData) Close() {
 	db.Close()
 }
 
-// func (cc *CoolorData) FindNamedPalette(name string) *CoolorColorsPaletteMeta {
-// 	var ccm CoolorColorsPaletteMeta
-// 	// err := GetStore().FindOne(&ccm, bh.Where("Named").Eq(name))
-// 	// if err != nil {
-// 	// 	if err == bh.ErrNotFound {
-// 	// 		// fmt.Println("not found", err, name)
-// 	// 		return nil
-// 	// 	}
-// 	// }
-// 	return &ccm
-// }
+func (cc *CoolorData) FindNamedPalette(name string) *CoolorColorsPaletteMeta {
+	var ccpm CoolorColorsPaletteMeta
+	ddc, err := GetStore().DB.FindFirst(
+		PaletteCollection.Query().Where(q.Field("Name").Like(fmt.Sprintf("%s", name))),
+	)
+	if err != nil && DocNotExists(err) {
+		return nil
+	}
+	if ddc != nil {
+		err = ddc.Unmarshal(&ccpm)
+		if err != nil {
+			panic(err)
+		}
+	}
+	// fmt.Println(ddc, ccpm)
+	return &ccpm
+	// err := GetStore().FindOne(&ccm, bh.Where("Named").Eq(name))
+	// if err != nil {
+	// 	if err == bh.ErrNotFound {
+	// 		// fmt.Println("not found", err, name)
+	// 		return nil
+	// 	}
+	// }
+}
 
 // func (cc *CoolorMeta) UpdateSeent(t time.Time) {
 // 	return
@@ -964,6 +1107,78 @@ func (cc CoolorColors) Contains(c *CoolorColor) bool {
 		}
 	}
 	return false
+}
+
+func (cc *CoolorColorsPalette) Update(clean bool) {
+	if cc == nil || cc.Colors == nil {
+		return
+	}
+
+	if cc.Hash == 0 && len(cc.Colors) > 0 {
+		cc.UpdateHash()
+	}
+
+	// err := Store.Upsert(cc.Hash, &cc)
+	// if err != nil {
+	// 	panic(err)
+	// }
+}
+
+func (ccs CoolorPaletteTagsMeta) String() string {
+	str := ""
+	for k, col := range ccs.TaggedColors {
+		str = fmt.Sprintf(
+			"%s %s",
+			str,
+			fmt.Sprintf("%s %s", k, col.Escalate().TerminalPreview()),
+		)
+
+	}
+	return str
+}
+
+func (cc CoolorColor) FavString() string {
+	str := fmt.Sprintf(
+		" %s %s ",
+		IfElseStr(cc.Favorite, "  ", "  "),
+		cc.TVPreview(),
+		// cc.Seent.Used,
+	)
+	return str
+}
+
+func handleSignals() {
+	signal_chan := make(chan os.Signal, 1)
+	signal.Notify(signal_chan,
+		syscall.SIGHUP,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT)
+
+	exit_chan := make(chan int)
+	go func() {
+		for {
+			s := <-signal_chan
+			switch s {
+			// kill -SIGHUP XXXX
+			case syscall.SIGHUP:
+			case syscall.SIGINT:
+			case syscall.SIGTERM:
+				exit_chan <- 0
+			case syscall.SIGQUIT:
+				exit_chan <- 0
+			default:
+				exit_chan <- 1
+			}
+			// GetStore().Close()
+		}
+	}()
+
+	code := <-exit_chan
+	fmt.Printf("Closing DB... %d", code)
+	db.Close()
+	AppModel.app.Stop()
+	// os.Exit(code)
 }
 
 // func (cc *CoolorColor) IsFavorite() bool {
@@ -1028,44 +1243,6 @@ func (cc CoolorColors) Contains(c *CoolorColor) bool {
 // 	return &ccm
 // }
 
-func (cc *CoolorColorsPalette) Update(clean bool) {
-	if cc == nil || cc.Colors == nil {
-		return
-	}
-
-	if cc.Hash == 0 && len(cc.Colors) > 0 {
-		cc.UpdateHash()
-	}
-
-	// err := Store.Upsert(cc.Hash, &cc)
-	// if err != nil {
-	// 	panic(err)
-	// }
-}
-
-func (ccs CoolorPaletteTagsMeta) String() string {
-	str := ""
-	for k, col := range ccs.TaggedColors {
-		str = fmt.Sprintf(
-			"%s %s",
-			str,
-			fmt.Sprintf("%s %s", k, col.Escalate().TerminalPreview()),
-		)
-
-	}
-	return str
-}
-
-func (cc CoolorColor) FavString() string {
-	str := fmt.Sprintf(
-		" %s %s ",
-		IfElseStr(cc.Favorite, "  ", "  "),
-		cc.TVPreview(),
-		// cc.Seent.Used,
-	)
-	return str
-}
-
 // func (ccs CoolorsMeta) String() string {
 // 	str := ""
 // 	for _, _ = range ccs {
@@ -1075,89 +1252,55 @@ func (cc CoolorColor) FavString() string {
 // 	// return fmt.Sprintf("%s %s", )
 // }
 
-func seedbolt(store *bh.Store) {
-	// err := store.Bolt().Update(func(tx *bbolt.Tx) error {
-	// 	if tx.Cursor().Bucket().Stats().KeyN == 0 {
-	// 		pals := errAss[*bbolt.Bucket](
-	// 			tx.CreateBucketIfNotExists([]byte("Palettes")),
-	// 		)
-	// 		colors := errAss[*bbolt.Bucket](
-	// 			tx.CreateBucketIfNotExists([]byte("Coolors")),
-	// 		)
-	// 		seent := errAss[*bbolt.Bucket](
-	// 			colors.CreateBucketIfNotExists([]byte("Seent")),
-	// 		)
-	// 		favs := errAss[*bbolt.Bucket](
-	// 			colors.CreateBucketIfNotExists([]byte("Favorites")),
-	// 		)
-	// 		recents := errAss[*bbolt.Bucket](
-	// 			pals.CreateBucketIfNotExists([]byte("Recents")),
-	// 		)
-	// 		anon := errAss[*bbolt.Bucket](
-	// 			pals.CreateBucketIfNotExists([]byte("Anonymous")),
-	// 		)
-	// 		user := errAss[*bbolt.Bucket](
-	// 			pals.CreateBucketIfNotExists([]byte("User")),
-	// 		)
-	// 		_, _, _, _, _ = seent, anon, user, favs, recents
-	// 	}
-	// 	return nil
-	// })
-	// checkErr(err)
-}
+// func seedbolt(store *bh.Store) {
+// err := store.Bolt().Update(func(tx *bbolt.Tx) error {
+// 	if tx.Cursor().Bucket().Stats().KeyN == 0 {
+// 		pals := errAss[*bbolt.Bucket](
+// 			tx.CreateBucketIfNotExists([]byte("Palettes")),
+// 		)
+// 		colors := errAss[*bbolt.Bucket](
+// 			tx.CreateBucketIfNotExists([]byte("Coolors")),
+// 		)
+// 		seent := errAss[*bbolt.Bucket](
+// 			colors.CreateBucketIfNotExists([]byte("Seent")),
+// 		)
+// 		favs := errAss[*bbolt.Bucket](
+// 			colors.CreateBucketIfNotExists([]byte("Favorites")),
+// 		)
+// 		recents := errAss[*bbolt.Bucket](
+// 			pals.CreateBucketIfNotExists([]byte("Recents")),
+// 		)
+// 		anon := errAss[*bbolt.Bucket](
+// 			pals.CreateBucketIfNotExists([]byte("Anonymous")),
+// 		)
+// 		user := errAss[*bbolt.Bucket](
+// 			pals.CreateBucketIfNotExists([]byte("User")),
+// 		)
+// 		_, _, _, _, _ = seent, anon, user, favs, recents
+// 	}
+// 	return nil
+// })
+// checkErr(err)
+// }
 
 // func init(){
 // handleSignals()
 // }
 
-func handleSignals() {
-	signal_chan := make(chan os.Signal, 1)
-	signal.Notify(signal_chan,
-		syscall.SIGHUP,
-		syscall.SIGINT,
-		syscall.SIGTERM,
-		syscall.SIGQUIT)
-
-	exit_chan := make(chan int)
-	go func() {
-		for {
-			s := <-signal_chan
-			switch s {
-			// kill -SIGHUP XXXX
-			case syscall.SIGHUP:
-			case syscall.SIGINT:
-			case syscall.SIGTERM:
-				exit_chan <- 0
-			case syscall.SIGQUIT:
-				exit_chan <- 0
-			default:
-				exit_chan <- 1
-			}
-			// GetStore().Close()
-		}
-	}()
-
-	code := <-exit_chan
-	fmt.Printf("Closing DB... %d", code)
-	db.Close()
-	AppModel.app.Stop()
-	// os.Exit(code)
-}
-
-func openbolt() *bh.Store {
-	store, err := bh.Open("testfile", 0o666, &bh.Options{
-		// Encoder: bh.EncodeFunc(enc),
-		// Decoder: bh.DecodeFunc(dec),
-		Options: &bbolt.Options{
-			FreelistType: bbolt.FreelistMapType,
-		},
-	})
-	checkErr(err)
-	// go Store.MetaService.Service()
-	// go handleSignals()
-
-	return store
-}
+// func openbolt() *bh.Store {
+// 	store, err := bh.Open("testfile", 0o666, &bh.Options{
+// 		// Encoder: bh.EncodeFunc(enc),
+// 		// Decoder: bh.DecodeFunc(dec),
+// 		Options: &bbolt.Options{
+// 			FreelistType: bbolt.FreelistMapType,
+// 		},
+// 	})
+// 	checkErr(err)
+// 	// go Store.MetaService.Service()
+// 	// go handleSignals()
+//
+// 	return store
+// }
 
 //
 // func (i *Item) MarshalMsgpack() ([]byte, error) {
@@ -1244,3 +1387,69 @@ func openbolt() *bh.Store {
 // func (i *CoolorColorsPaletteMeta) SliceIndexes() map[string]bh.SliceIndex {
 // 	return map[string]bh.SliceIndex{}
 // }
+// func (s *Coolors) EncodeMsgpack(enc *msgpack.Encoder) error {
+// 	return enc.EncodeMulti(s.Key, s.Colors)
+// }
+//
+// func (s *Coolors) DecodeMsgpack(dec *msgpack.Decoder) error {
+// 	// var err error
+// 	// fmt.Println(dec)
+// 	// buf := make([]byte, 1024)
+// 	// dec.ReadFull(buf)
+// 	// // var k string
+// 	var b []interface{}
+// 	// // b, err := dec.DecodeBytes()
+// 	// // err = dec.DecodeMulti(&b)
+// 	// checkErr(err)
+// 	// // slice, err := dec.DecodeSlice()
+// 	// // checkErr(err)
+// 	// return nil
+// 	err := dec.DecodeMulti(&s.Key, &b)
+// 	colors := make([]*Coolor, 0)
+// 	for _, v := range b {
+// 		// fmt.Printf("\n\n******%v ", v)
+// 		// fmt.Printf("\n\n******%T", v)
+// 		for _, vv := range v.(map[string]interface{}) {
+// 			// fmt.Printf("\n\n******%T %T %v %v", kk, vv, kk, vv)
+// 			c := &Coolor{
+// 				Color: tcell.Color(vv.(uint64)),
+// 			}
+// 			colors = append(colors, c)
+// 		}
+// 	}
+// 	s.Colors = colors
+// 	// fmt.Println(colors)
+// 	// fmt.Printf("\n***** %T %v", s, s)
+// 	return err
+// }
+
+//
+// func (s *Coolor) EncodeMsgpack(enc *msgpack.Encoder) error {
+// 	return enc.EncodeUint64(uint64(s.Color))
+// }
+//
+// func (s *Coolor) DecodeMsgpack(dec *msgpack.Decoder) error {
+//   u64, err := dec.DecodeUint64()
+//   if err != nil {
+//     return err
+//   }
+// 	s.Color = tcell.Color(u64)
+//   return nil
+// }
+//
+
+// func (v Vector) MarshalBinary() ([]byte, error) {
+// 	// A simple encoding: plain text.
+// 	var b bytes.Buffer
+// 	fmt.Fprintln(&b, v.x, v.y, v.z)
+// 	return b.Bytes(), nil
+// }
+
+// UnmarshalBinary modifies the receiver so it must take a pointer receiver.
+//
+//	func (v *Vector) UnmarshalBinary(data []byte) error {
+//		// A simple encoding: plain text.
+//		b := bytes.NewBuffer(data)
+//		_, err := fmt.Fscanln(b, &v.x, &v.y, &v.z)
+//		return err
+//	}

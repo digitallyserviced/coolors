@@ -66,6 +66,10 @@ require (
 	go.opencensus.io v0.23.0 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
+	golang.design/x/clipboard v0.6.3 // indirect
+	golang.org/x/exp/shiny v0.0.0-20221106115401-f9659909a136 // indirect
+	golang.org/x/image v0.0.0-20220413100746-70e8d0d3baa9 // indirect
+	golang.org/x/mobile v0.0.0-20210716004757-34ab1303b554 // indirect
 	golang.org/x/net v0.0.0-20220728211354-c7608f3a8462 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
@@ -75,6 +79,7 @@ require (
 )
 
 require (
+	github.com/aymanbagabas/go-osc52 v1.2.1
 	github.com/creack/pty v1.1.18
 	github.com/evanw/esbuild v0.15.10
 	github.com/gdamore/encoding v1.0.0 // indirect

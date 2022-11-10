@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image/color"
 	"math"
+	// "strconv"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -353,23 +354,33 @@ func (col Color) Hex() string {
 
 // Hex parses a "html" hex color-string, either in the 3 "#f0c" or 6 "#ff1034" digits form.
 func Hex(scol string) (Color, error) {
-	format := "#%02x%02x%02x"
-	factor := 1.0 / 255.0
-	if len(scol) == 4 {
-		format = "#%1x%1x%1x"
-		factor = 1.0 / 15.0
-	}
-
-	var r, g, b uint8
-	n, err := fmt.Sscanf(scol, format, &r, &g, &b)
-	if err != nil {
-		return Color{}, err
-	}
-	if n != 3 {
-		return Color{}, fmt.Errorf("color: %v is not a hex-color", scol)
-	}
-
-	return Color{float64(r) * factor, float64(g) * factor, float64(b) * factor}, nil
+	// return (v >> 16) & 0xff, (v >> 8) & 0xff, v & 0xff
+  // col := MakeColorFromTcell(tcell.GetColor(scol))
+  r,g,b := tcell.GetColor(scol).RGB()
+  co := &Color{float64(r) / 255.0, float64(g) / 255.0, float64(b) / 255.0}
+  return *co, nil
+ //  if len(scol) == 7 {
+ //    scol = scol[1:]
+ //  }
+ //  tcell.GetColor(name string)
+ //  nt strconv.ParseInt(scol, 16, 32)
+	// format := "#%02x%02x%02x"
+	// factor := 1.0 / 255.0
+	// if len(scol) == 4 {
+	// 	format = "#%1x%1x%1x"
+	// 	factor = 1.0 / 15.0
+	// }
+	//
+	// var r, g, b uint8
+	// n, err := fmt.Sscanf(scol, format, &r, &g, &b)
+	// if err != nil {
+	// 	return Color{}, err
+	// }
+	// if n != 3 {
+	// 	return Color{}, fmt.Errorf("color: %v is not a hex-color", scol)
+	// }
+	//
+	// return Color{float64(r) * factor, float64(g) * factor, float64(b) * factor}, nil
 }
 
 /// Linear ///

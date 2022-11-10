@@ -1,7 +1,7 @@
 package events
 
 import (
-	"fmt"
+	// "fmt"
 
 	"github.com/gdamore/tcell/v2"
 
@@ -43,7 +43,7 @@ func (o *EventNotifier) Deregister(l Observer) {
 }
 
 func (p *EventNotifier) Notify(e ObservableEvent) {
-  fmt.Println(e)
+  // fmt.Println(e)
 	for o, _ := range p.observers {
 		if !o.HandleEvent(e) {
 		} else {

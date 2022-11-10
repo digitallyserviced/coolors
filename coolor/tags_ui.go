@@ -2,7 +2,7 @@ package coolor
 
 import (
 	"github.com/digitallyserviced/tview"
-	"github.com/gookit/goutil/dump"
+	// "github.com/gookit/goutil/dump"
 
 	"github.com/digitallyserviced/coolors/theme"
 )
@@ -58,7 +58,7 @@ func (cct *CoolorColorTagsView) UpdateView() {
       cct.UpdateStatus("No tags set. Set tags or use auto tagger.")
     }
 
-    dump.P(tagKeys)
+    // dump.P(tagKeys)
     dynTags := cct.tagType.tagList.items[:0]
     tags := cct.tagType.tagList.items[:0]
 

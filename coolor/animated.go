@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	// "github.com/charmbracelet/harmonica"
 	"github.com/charmbracelet/harmonica"
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
@@ -18,6 +19,7 @@ import (
 	. "github.com/digitallyserviced/coolors/coolor/anim"
 	. "github.com/digitallyserviced/coolors/coolor/events"
 	"github.com/digitallyserviced/coolors/coolor/util"
+	// "github.com/digitallyserviced/coolors/coolor/util"
 	// "github.com/digitallyserviced/coolors/coolor/zzlog"
 )
 
@@ -62,29 +64,79 @@ func Notid(t string) string {
 	return fmt.Sprintf("%s_%d", t, notiIdx)
 }
 
-func NewNotification(id, icon, text string) *Animation {
-	return GetAnimator().NewAnimation(id, func(name string) *Animation {
-    b := tview.NewFlex()
-    tv := tview.NewTextView()
-    tv.SetDynamicColors(true)
-    licon := MakeBoxItem("", "#276979")
+type NotificationStatus struct {
+  icon string
+  color tcell.Color
+}
+
+var (
+  //  
+  ErrorNotify = NewNotificationStatus(" ","#9F1b35")
+  WarnNotify = NewNotificationStatus(" ","#FDC45C")
+  InfoNotify = NewNotificationStatus(" ","#276979")
+  // WarnNotify = &NotificationStatus{
+  // 	icon:  " ",
+  // 	color: tcell.GetColor("#FDC45C"),
+  // }
+  // InfoNotify = &NotificationStatus{
+  // 	icon:  " ",
+  // 	color: tcell.GetColor("#276979"),
+  // }
+)
+
+func (ns *NotificationStatus) GetIconBox(args ...string) *tview.Box {
+  icon := " "
+  color := tcell.ColorBlack
+  if ns == nil {
+    if len(args) == 2 {
+      icon = args[0]
+      color = tcell.GetColor(args[1])
+    }
+  } else {
+    icon = ns.icon
+    color = ns.color
+  }
+    licon := MakeBoxItem("", "")
+  licon.SetBackgroundColor(color)
     licon.SetBorderPadding(0, 0, 0, 0)
     licon.SetDrawFunc(func(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
-      tview.Print(screen, icon, x, y + (height / 2), width, tview.AlignCenter, tcell.GetColor("#f1f1f1"))
+      tview.Print(screen, icon, x, y + (height / 2), width, tview.AlignCenter, NewIntCoolorColor(color.Hex()).GetFgColor())
       width=6
       height=3
       return x,y,width,height
     })
+  return licon
+}
+
+func NewNotificationStatus(icon, color string) *NotificationStatus {
+  ns := &NotificationStatus{
+  	icon:  icon,
+  	color: tcell.GetColor(color),
+  }
+  return ns
+}
+
+func NewNotification(id, text string, s *NotificationStatus) *Animation {
+	return GetAnimator().NewAnimation(id, func(name string) *Animation {
+    b := tview.NewFlex()
+    tv := tview.NewTextView()
+    tv.SetDynamicColors(true)
+    // var licon *tview.Box
+    licon := s.GetIconBox()
+    tv.SetMaxLines(1)
+    tv.SetWordWrap(false)
+    tv.SetWrap(false)
+
     b.AddItem(licon, 6, 0, false)
     b.AddItem(tv, 34, 0, false)
 		tv.SetText(text).SetTextAlign(tview.AlignCenter)
-    tv.SetBorder(true).SetBorderPadding(0, 0, 0, 0).SetBorderSides(true, false, true, true).SetBorderColor(tcell.GetColor("#276979"))
+    tv.SetBorder(true).SetBorderPadding(0, 0, 0, 0).SetBorderSides(true, false, true, true).SetBorderColor(s.color)
 		w, _ := AppModel.scr.Size()
     GetAnimator().LayerStack.Push(id, b, false)
 		// b.SetRect(w-1, 3, 40, 3)
 		b.SetAnimating(true)
 
-		tv.SetWordWrap(true).SetWrap(true)
+		// tv.SetWordWrap(true).SetWrap(true)
 		b.SetBorderPadding(0, 0, 0, 0)
 		b.SetDontClear(true)
 		tv.SetBackgroundColor(tcell.ColorBlack)
@@ -182,13 +234,15 @@ func NewFrameAnimator() *Animation {
 		// frames := "▔🮂🮃🮄🮅🮆▉"
 		// frames := "▔🮂🮃🮄🮅🮆▉██▇▆▅▃▂▁"
 		// frames := "▔🮂🮃🮄🮅🮆▉██▇▆▅▃▂▁"
-		frames := "▁▂▃▄▅▆▇█"
+    nf := "🬋🬋🬋🬋🬋🬋🬋🬋"
+		// frames := "▁▂▃▄▅▆▇█"
 		// frames := "▔🮂🮃🮄🮅🮆▉█" // █▇▆▅▃▂▁
-		fms := []rune(frames)
-		fmss := append(fms[0:], []rune(util.Reverse(frames))...)
+		fms := []rune(nf)
+    frames := lo.Chunk[rune]([]rune(fms), 2)
+		// fmss := append(fms[0:], []rune(util.Reverse(frames))...)
 		// fmt.Printf("%s\n", string(fmss))
-		start := 2.0
-		target := 6.0
+		start := 1.0
+		target := 40.0
 		// 🮇🮈🮉🮊🮋▉  ▉▊▋▌▍▎▏🮇🮈🮉🮊🮋▉
 		// ▁▂▃▅▆▇█▔🮂🮃🮄🮅🮆▉██▇▆▅▃▂▁
 		makeMut := func(x int) *CallbackMutator {
@@ -196,30 +250,42 @@ func NewFrameAnimator() *Animation {
 				// fmt.Println(m.X)
 				fmn := int(
 					MapVal(
-						math.Floor(m.X),
+            m.X,
+						// math.Floor(m.X) % float64(len(frames)),
 						0,
-						float64(len(fms)-1),
+            target + 20.0,
+						// float64(len(frames)-1),
 						0,
-						float64(len(fms)-1),
+						float64(len(frames)-1),
 					),
 				)
-				frame := fmss[fmn]
-				AppModel.app.QueueUpdate(func() {
+        fmn = util.Clamp[int](fmn, 0, len(frames)-1)
+        // fmn := math.Mod(math.Floor(m.X), float64(len(frames)))
+				frame := frames[int(fmn)]
+				// AppModel.app.QueueUpdateDraw(func() {
 					AppModel.scr.SetContent(
-						x,
+						2 * x,
 						AppModel.h-1,
-						frame,
+						frame[0],
 						nil,
-						tcell.StyleDefault.Foreground(tcell.ColorBlue),
+						tcell.StyleDefault.Foreground(tcell.ColorBlue).Background(0),
+						// Background(tcell.ColorBlack),
+					)
+					AppModel.scr.SetContent(
+						2 * x+1,
+						AppModel.h-1,
+						frame[1],
+						nil,
+						tcell.StyleDefault.Foreground(tcell.ColorBlue).Background(0),
 						// Background(tcell.ColorBlack),
 					)
 					AppModel.scr.Show()
-				})
+				// })
 				return true
 			})
 		}
 		anim := NewAnimation()
-		width := 2
+		width := 10
 		kf := anim.NewKeyFrame()
 		for i := 0; i < width; i++ {
 			nfm := kf.NewFrameMotion(
@@ -232,8 +298,9 @@ func NewFrameAnimator() *Animation {
 					Item: frames,
 				},
 			)
-			nfm.SetTween(start, target, 10.0, 0.3)
-			off := 10 * float64(i+1) * harmonica.FPS(DefaultFPS)
+			nfm.SetTween(start, target, 1.0, 0.3)
+      nfm.Tween.Spring = harmonica.NewSpring(harmonica.FPS(5), 3.0, 1.0)
+			off := 10 * float64(i+1) * harmonica.FPS(5)
 			// fmt.Println(off)
 			nfm.SetStartOffset(off)
 			kf.AddMotion(nfm)

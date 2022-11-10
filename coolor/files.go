@@ -10,7 +10,7 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/gookit/goutil/arrutil"
-	"github.com/gookit/goutil/dump"
+	// "github.com/gookit/goutil/dump"
 	"github.com/zyedidia/micro/cmd/micro/highlight"
 
 	// "github.com/zyedidia/micro/cmd/micro/highlight"
@@ -314,11 +314,6 @@ func (pdc *HistoryDataConfig) AddPalette(name string, p Palette) {
   //
   // }
 
-func (cp *CoolorColorsPalette) UpdateHash() uint64 {
-  cp.Hash = cp.HashColors()
-  return cp.Hash
-}
-
 // func (cp *Coolors) HashColors() uint64 {
 //   hashed := lo.Reduce[*Coolor, uint64](cp.Colors, func(h uint64, c *Coolor, i int) uint64 {
 //     return h + uint64(c.Color.Hex())
@@ -327,26 +322,6 @@ func (cp *CoolorColorsPalette) UpdateHash() uint64 {
 //   return hashed
 // }
 
-func (cp *CoolorColorsPalette) HashColors() uint64 {
-	// var hash uint64 = 0
-  hashed := lo.Reduce[*CoolorColor, uint64](cp.Colors, func(h uint64, c *CoolorColor, i int) uint64 {
-    return h + uint64(c.Color.Hex())
-  }, 0)
-	// for _, v := range cp.Colors {
-	// 	hash += uint64(v.Color.Hex())
-	// }
-  cp.Hash = hashed
-	return hashed
-}
-
-func (cp *CoolorColorsPalette) ToMap() map[string]string {
-	outcols := make(map[string]string)
-	for i, v := range cp.Colors {
-		k := fmt.Sprintf("color%d", i)
-		outcols[k] = v.Html()
-	}
-	return outcols
-}
 
 func GetDataDirs() (string, string, string, error) {
 	p, err := os.UserConfigDir()
@@ -433,7 +408,7 @@ func (pdc *HistoryDataConfig) LoadConfigFromFile(path string, overwrite bool) er
 	pdc.Koanf = koanf.New(".")
 	err := k.Load(file.Provider(path), toml.Parser())
   // mapd := k.All()
-  dump.P(k.Keys())
+  // dump.P(k.Keys())
 	if err != nil {
 		return errorx.Newf("error loading config: %s err: %v", path, err)
 	}

@@ -17,7 +17,7 @@ import (
 
 	// "github.com/gdamore/tcell/v2"
 
-	"github.com/gookit/goutil/dump"
+	// "github.com/gookit/goutil/dump"
 )
 
 type RootFloatContainer struct {
@@ -126,6 +126,41 @@ func NewSelectionFloater(
 	return f
 }
 
+// func NewExtraFloater(name string, p tview.Primitive) *ExtraFloater {
+// 	f := &FixedFloater{
+// 		Header:             tview.NewTextView(),
+// 		Footer:             tview.NewTextView(),
+// 		RootFloatContainer: NewFloater(p),
+// 	}
+// 	f.RootFloatContainer.
+// 		SetBorder(false).
+// 		SetBorderPadding(0, 0, 1, 1).
+// 		SetBackgroundColor(theme.GetTheme().SidebarBackground)
+// 	f.Container.SetBackgroundColor(theme.GetTheme().SidebarBackground)
+// 	f.RootFloatContainer.Rows.Clear()
+// 	f.RootFloatContainer.Rows.AddItem(f.Container, 0, 10, true)
+// 	f.RootFloatContainer.Clear()
+// 	f.RootFloatContainer.AddItem(nil, 0, 70, false)
+// 	f.RootFloatContainer.AddItem(f.Rows, 0, 30, true)
+//
+// 	f.Header.SetDynamicColors(true)
+// 	f.Header.SetTextAlign(tview.AlignCenter).
+// 		SetText(fmt.Sprintf("[yellow]%s[-]", name)).SetBorderPadding(1, 1, 1, 1)
+// 	f.Header.SetBackgroundColor(theme.GetTheme().SidebarLines).
+// 		SetBorderColor(theme.GetTheme().SidebarBackground)
+// 	bw := f.Header.BatchWriter()
+// 	bw.Close()
+//
+// 	f.Footer.SetDynamicColors(true)
+// 	f.Footer.SetTextAlign(tview.AlignCenter).
+// 		SetText(fmt.Sprintf("[yellow]%s[-]", name))
+// 	f.Footer.SetBackgroundColor(theme.GetTheme().SidebarBackground).
+// 		SetBorderColor(theme.GetTheme().SidebarBackground)
+//
+// 	f.UpdateView()
+//
+// 	return f
+// }
 func NewFixedFloater(name string, p tview.Primitive) *FixedFloater {
 	f := &FixedFloater{
 		Header:             tview.NewTextView(),
@@ -227,7 +262,7 @@ func (f *RootFloatContainer) Center(nw, nh int, prop int) {
 		fw = nw
 		fh = nh
 
-		dump.P(nw, nh, nwp, nhp, prop, w, h, rat, padw, padh, pw, ph, fw, fh)
+		// dump.P(nw, nh, nwp, nhp, prop, w, h, rat, padw, padh, pw, ph, fw, fh)
 
 		f.AddItem(nil, padw, 0, false)
 		f.AddItem(f.Rows, fw, 0, true)
@@ -276,6 +311,7 @@ func (f *RootFloatContainer) InputHandler() func(event *tcell.EventKey, setFocus
 func (f *RootFloatContainer) UpdateView() {
 	f.Container.AddItem(f.Item, 0, 8, true)
 }
+
 func (f *ListFloater) GetRoot() *RootFloatContainer {
 	return f.RootFloatContainer
 }

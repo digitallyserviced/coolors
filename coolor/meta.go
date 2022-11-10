@@ -5,19 +5,22 @@ import (
 	"time"
 )
 
+func (ccpm *CoolorColorsPaletteMeta) GetRef() interface{} {
+  return ccpm
+}
+
 //
 //
 func NewCoolorColorsPaletteMeta(
-	name string,
 	ccp *CoolorColorsPalette,
 ) *CoolorColorsPaletteMeta {
   if ccp == nil {
     return nil
   }
-	now := time.Now()
+	now := time.Now().Unix()
 	ccm := &CoolorColorsPaletteMeta{
 		Created: now,
-		Name:    name,
+		Name:    IfElseStr(ccp.Name() != "", ccp.Name(), Generator().GenerateName(1)),
 		Author:  os.ExpandEnv("$USER"),
 		ExtraData:    make(map[string]interface{}),
 		Palette: ccp,

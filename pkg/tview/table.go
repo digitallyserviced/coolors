@@ -1101,6 +1101,9 @@ func (t *Table) Draw(screen tcell.Screen) {
 	// Helper function which draws border runes.
 	borderStyle := tcell.StyleDefault.Background(t.backgroundColor).Foreground(t.bordersColor)
 	drawBorder := func(colX, rowY int, ch rune) {
+    if !t.Box.borderVisible {
+      return
+    }
 		screen.SetContent(x+colX, y+rowY, ch, nil, borderStyle)
 	}
 

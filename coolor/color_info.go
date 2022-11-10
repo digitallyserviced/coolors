@@ -132,9 +132,6 @@ func (cci *CoolorColorClusterInfo) Debug() string {
 
 func (cci *CoolorColorClusterInfo) String() string {
 	rand.Seed(time.Now().UnixNano())
-	// suff2 := lo.Sample[string](levels)
-  
-
 	main := cci.clusters[0].cluster.name
   fondler := cci.DemoteGray(cci.clusters[1].cluster.name, cci.clusters[2].cluster.name)
   adj := Generator().Adjectives(1)

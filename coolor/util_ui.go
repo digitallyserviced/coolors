@@ -55,7 +55,7 @@ func MakeTemplate(
 		out := &strings.Builder{}
 		ntpl, ok := template.Must(status_tpl.Clone()).Parse(s)
 		if ok != nil {
-			fmt.Println(fmt.Errorf("%s", ok))
+			// fmt.Println(fmt.Errorf("%s", ok))
 		}
 		ntpl.Execute(out, data)
 		return out.String()

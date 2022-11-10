@@ -6,7 +6,7 @@ import (
 
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
-	"github.com/gookit/goutil/dump"
+	// "github.com/gookit/goutil/dump"
 	"github.com/lucasb-eyer/go-colorful"
 	"github.com/mazznoer/colorgrad"
 
@@ -482,7 +482,7 @@ func (cce *CoolorColorEditor) NavSelection(idx int) {
 }
 
 func (cce *CoolorColorEditor) GetSelectedVimNav() VimNav {
-	dump.P(cce.settings.GetSelectedMod())
+	// dump.P(cce.settings.GetSelectedMod())
 	id := cce.settings.GetSelectedMod()
 
 	selCm := cce.previews.colorMods[id]

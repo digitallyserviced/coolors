@@ -1,24 +1,20 @@
 package coolor
 
 import (
-	// "bytes"
 	"flag"
 	"fmt"
 	"math"
-	// "strings"
 	"time"
 
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
-	"github.com/gookit/goutil/dump"
-	"github.com/gookit/goutil/structs"
-	// "github.com/gookit/goutil/strutil"
 
-	// "github.com/samber/lo"
+	"github.com/gookit/goutil/structs"
 
 	"github.com/digitallyserviced/coolors/coolor/anim"
 	. "github.com/digitallyserviced/coolors/coolor/anim"
 	"github.com/digitallyserviced/coolors/coolor/events"
+	"github.com/digitallyserviced/coolors/coolor/shortcuts"
 	"github.com/digitallyserviced/coolors/coolor/stack"
 	"github.com/digitallyserviced/coolors/coolor/util"
 
@@ -29,66 +25,85 @@ import (
 )
 
 type MainContainer struct {
-	floater Floater
-	current tview.Primitive
-	preview *Square
-	pages   *tview.Pages
-	palette *CoolorMainPalette
-	mixer   *CoolorBlendPalette
-	shades  *CoolorShadePalette
-	scratch *PaletteFloater
-	info    *CoolorColorFloater
-	editor  *CoolorColorEditor
-	*tview.Flex
-	fileviewer *CoolorFileView
-	filetree   *PaletteFileTree
-	menu       *CoolorToolMenu
-	ScrollLine *ScrollLine
-	sidebar    *FixedFloater
-	main       *tview.Flex
-	app        *tview.Application
-	options    *structs.Data
-	conf       *HistoryDataConfig
-	screen     *tcell.Screen
-	*events.EventNotifier
+	floater        Floater
+	current        tview.Primitive
+	filetree       *PaletteFileTree
+	palette        *CoolorMainPalette
+	menu           *CoolorToolMenu
+	mixer          *CoolorBlendPalette
+	shades         *CoolorShadePalette
+	scratch        *PaletteFloater
+	info           *CoolorColorFloater
+	editor         *CoolorColorEditor
+	ScrollLine     *ScrollLine
+	fileviewer     *CoolorFileView
+	pages          *tview.Pages
+	sidebar        *FixedFloater
+	main           *tview.Flex
+	app            *tview.Application
+	options        *structs.Data
+	conf           *HistoryDataConfig
+	screen         *tcell.Screen
+	preview        *Square
 	inputSwallowed bool
 	*stack.PageStack
+	*tview.Flex
+	*events.EventNotifier
+	*shortcuts.Scope
 }
 
 // GetRef implements events.Referenced
 func (mc *MainContainer) GetRef() interface{} {
-  return mc
+	return mc
 }
 
-var MainC *MainContainer
-var cpName = flag.String("palette", "", "Palette name to open")
+var (
+	MainC  *MainContainer
+	cpName = flag.String("palette", "", "Palette name to open")
+)
 
-func CreateStartupPalette() *CoolorMainPalette {
+func LoadPaletteFromArgs() *CoolorMainPalette {
 	flag.Parse()
+	if len(*cpName) > 0 {
+		pal := GetStore().FindNamedPalette("stupefied_elastic_hypatia")
+		if pal != nil {
+			colors := NewCoolorColorsPaletteFromMeta(pal)
+			events.Global.Notify(
+				*events.Global.NewObservableEvent(events.PaletteLoadedEvent, "loaded_palette", colors, pal),
+			)
+			return colors
+		} else {
+			panic(fmt.Errorf("no palette named %s", *cpName))
+		}
+	}
 	values := flag.Args()
-
-	colsize := 0
-	// var pal *CoolorColorsPaletteMeta
-	// if len(*cpName) > 0 {
-	// 	pal = Store.FindNamedPalette(*cpName)
-	// }
-	// if pal != nil {
-	// 	return NewCoolorColorsPaletteFromMeta(pal)
-	// }
 	if len(values) > 0 {
-		colsize = len(values)
-	} else {
-		colsize = 16
+		colors := NewCoolorPaletteFromCSSStrings(values)
+		events.Global.Notify(
+			*events.Global.NewObservableEvent(events.PaletteCreatedEvent, "startup_palette", colors, nil),
+		)
+		return colors
 	}
+	return nil
+}
 
-	var colors *CoolorMainPalette
+func DefaultStartupPalette() *CoolorMainPalette {
+	colsize := 16
+	colors := NewCoolorPaletteWithColors(GenerateRandomColors(colsize))
 
-	if len(values) > 0 {
-		colors = NewCoolorPaletteFromCssStrings(values)
-	} else {
-		colors = NewCoolorPaletteWithColors(GenerateRandomColors(colsize))
-	}
+	events.Global.Notify(
+		*events.Global.NewObservableEvent(events.PaletteCreatedEvent, "startup_palette", colors, nil),
+	)
 	return colors
+}
+
+func GetStartupPalette() *CoolorMainPalette {
+
+	if colors := LoadPaletteFromArgs(); colors != nil {
+		return colors
+	}
+
+	return DefaultStartupPalette()
 }
 
 func NewMainContainer(app *tview.Application) *MainContainer {
@@ -109,35 +124,50 @@ func NewMainContainer(app *tview.Application) *MainContainer {
 	}
 
 	addPluginOnLoad("register palette file view", func(pm *PluginsManager) {
-		pm.Register(events.PluginEvents, events.NewAnonymousHandlerFunc(func(e events.ObservableEvent) bool {
-			if e.Type.Is(events.PluginEvents) {
-				if pe, ok := e.Ref.(*PluginEvent); ok {
-					txt := fmt.Sprintf("Loaded Plugin %s", pe.name)
-					status.NewStatusUpdate("action_str", txt)
-					id := Notid("notif_")
-					noti := anim.GetAnimator().GetAnimation(id)
-					if noti == nil {
-						noti = NewNotification(
-							id,
-							"  ",
-							txt,
-						)
+		pm.Register(
+			events.PluginEvents,
+			events.NewAnonymousHandlerFunc(func(e events.ObservableEvent) bool {
+				if e.Type.Is(events.PluginEvents) {
+					if pe, ok := e.Ref.(*PluginEvent); ok {
+						txt := fmt.Sprintf("Loaded Plugin %s", pe.name)
+						status.NewStatusUpdate("action_str", txt)
+						id := Notid("notif_")
+						noti := anim.GetAnimator().GetAnimation(id)
+						if noti == nil {
+				noti = NewNotification(Notid("cpnotif_"), txt, InfoNotify)
+						}
+						noti.Control.Play()
 					}
-					noti.Control.Play()
 				}
-
-			}
-			return true
-		}))
+				return true
+			}),
+		)
 	})
+
+	// events.Global.Register(
+	// 	events.PaletteCreatedEvent,
+	// 	events.NewAnonymousHandlerFunc(func(e events.ObservableEvent) bool {
+	// 		if events.ObservableEventType(events.PaletteCreatedEvent | events.PaletteSavedEvent).
+	// 			Is(e.Type) {
+ //        fmt.Println(e)
+	// 			ccpm, ok := e.Ref.(*CoolorColorsPaletteMeta)
+	// 			if !ok {
+	// 				return true
+	// 			}
+	// 			status.NewStatusUpdate("title", ccpm.Name)
+	// 		}
+	// 		return true
+	// 	}),
+	// )
 	MainC.menu = NewCoolorColorMainMenu(app)
-	MainC.palette = CreateStartupPalette()
+
+	MainC.palette = GetStartupPalette()
 	MainC.conf.AddPalette("random", MainC.palette)
 	MainC.menu.Init()
 	// events.Global.Register(events.PaletteColorSelectedEvent, MainC.ScrollLine)
 	MainC.palette.SetMenu(MainC.menu)
 	MainC.palette.Register(events.PaletteColorSelectedEvent, MainC.menu)
-	MainC.editor = NewCoolorEditor(app, MainC.palette)
+	// MainC.editor = NewCoolorEditor(app, MainC.palette)
 	MainC.preview = NewRecursiveSquare(MainC.palette.GetPalette(), 5)
 	// MainC.fileviewer = NewFileViewer()
 	// MainC.filetree = NewPaletteFileTree()
@@ -145,13 +175,35 @@ func NewMainContainer(app *tview.Application) *MainContainer {
 	InitPlugins()
 	return MainC
 }
+
+func (mc *MainContainer) SetupKeys() {
+	mc.Scope.NewShortcut(
+		"ESC",
+		"cancel",
+		tcell.NewEventKey(tcell.KeyEscape, 0, tcell.ModNone),
+		func(i ...interface{}) bool {
+			events.Global.Notify(
+				*events.Global.NewObservableEvent(events.CancelledEvent, "esc", mc, nil),
+			)
+			if mc.PageStack.FrontPageStacked() {
+				mc.Pop()
+				name, pg := mc.PageStack.Pages.GetFrontPage()
+				mc.app.SetFocus(pg)
+				events.Global.Notify(
+					*events.Global.NewObservableEvent(events.StatusEvent, name, mc, nil),
+				)
+			}
+			return true
+		},
+	)
+}
 func (mc *MainContainer) Init() {
 	mc.SetBackgroundColor(ct.GetTheme().SidebarBackground)
 	mc.SetDirection(tview.FlexRow)
 	MainC.ScrollLine = NewScrollLine()
 	mc.AddItem(mc.pages, 0, 80, false)
 	mc.AddItem(MainC.ScrollLine, 1, 0, false)
-	mc.pages.AddPage("editor", mc.editor, true, false)
+	// mc.pages.AddPage("editor", mc.editor, true, false)
 	mc.pages.AddPage("preview", mc.preview, true, true)
 	// mc.pages.AddPage("filetree", mc.filetree, false, false)
 	mc.pages.AddAndSwitchToPage("palette", mc.palette, true)
@@ -160,32 +212,32 @@ func (mc *MainContainer) Init() {
 		mc.current = page
 		status.NewStatusUpdate("action", name)
 	})
-	AppModel.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyF40 {
-			mc.inputSwallowed = true
-		} else if event.Key() == tcell.KeyF41 {
-			mc.inputSwallowed = false
-		}
-
-		if mc.inputSwallowed {
-			fmt.Printf("swallow:%v", mc.inputSwallowed, event)
-			p := MainC.app.GetFocus()
-			p.InputHandler()(event, func(tp tview.Primitive) {
-				MainC.app.SetFocus(tp)
-			})
-			return nil
-		}
-
-		ch := event.Rune()
-		if event.Modifiers() == tcell.ModShift {
-		}
-		switch ch {
-		// case 'Q':
-		// 	AppModel.app.Stop()
+	// AppModel.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		// if event.Key() == tcell.KeyF40 {
+		// 	mc.inputSwallowed = true
+		// } else if event.Key() == tcell.KeyF41 {
+		// 	mc.inputSwallowed = false
+		// }
+		//
+		// if mc.inputSwallowed {
+		// 	// fmt.Printf("swallow:%+v %+v", mc.inputSwallowed, event)
+		// 	p := MainC.app.GetFocus()
+		// 	p.InputHandler()(event, func(tp tview.Primitive) {
+		// 		MainC.app.SetFocus(tp)
+		// 	})
 		// 	return nil
-		}
-		return event
-	})
+		// }
+		//
+		// ch := event.Rune()
+		// if event.Modifiers() == tcell.ModShift {
+		// }
+		// switch ch {
+		// // case 'Q':
+		// // 	AppModel.app.Stop()
+		// // 	return nil
+		// }
+		// return event
+	// })
 }
 
 func (mc *MainContainer) OpenTagView(cp *CoolorColorsPalette) {
@@ -197,6 +249,7 @@ func (mc *MainContainer) OpenTagView(cp *CoolorColorsPalette) {
 	tf := NewTagEditFloater(cp)
 	mc.pages.AddAndSwitchToPage("tagView", tf, true)
 }
+
 func (mc *MainContainer) CloseConfig() {
 	mc.conf.ref.Close()
 }
@@ -234,28 +287,30 @@ func (mc *MainContainer) InputHandler() func(event *tcell.EventKey, setFocus fun
 			ch := event.Rune()
 			kp := event.Key()
 			name, page := mc.pages.GetFrontPage()
-			if kp == tcell.KeyEscape {
-				events.Global.Notify(*events.Global.NewObservableEvent(events.CancelledEvent, "esc", mc, nil))
-				// if mc.menu.Activated() != nil {
-				// 	mc.menu.Activated().Cancel()
-				// }
-        if mc.PageStack.FrontPageStacked() {
-          mc.Pop()
-          mc.app.SetFocus(page)
-        }
-
-				// strutil.HasOneSub(name, []string{"floater", "sidebar", "colorpick", "info"})
-				// if !strutil.HasOneSub(name, []string{"palette", "mixer", "shades"}) {
-				// 	mc.Pop()
-				// }
-				// if name == "floater" {
-				// 	mc.pages.HidePage("floater")
-				// 	page.Blur()
-				// 	mc.pages.RemovePage("floater")
-				// 	mc.floater = nil
-				// }
-				return
-			}
+			// if kp == tcell.KeyEscape {
+			// 	events.Global.Notify(
+			// 		*events.Global.NewObservableEvent(events.CancelledEvent, "esc", mc, nil),
+			// 	)
+			// 	// if mc.menu.Activated() != nil {
+			// 	// 	mc.menu.Activated().Cancel()
+			// 	// }
+			// 	if mc.PageStack.FrontPageStacked() {
+			// 		mc.Pop()
+			// 		mc.app.SetFocus(page)
+			// 	}
+			//
+			// 	// strutil.HasOneSub(name, []string{"floater", "sidebar", "colorpick", "info"})
+			// 	// if !strutil.HasOneSub(name, []string{"palette", "mixer", "shades"}) {
+			// 	// 	mc.Pop()
+			// 	// }
+			// 	// if name == "floater" {
+			// 	// 	mc.pages.HidePage("floater")
+			// 	// 	page.Blur()
+			// 	// 	mc.pages.RemovePage("floater")
+			// 	// 	mc.floater = nil
+			// 	// }
+			// 	return
+			// }
 			switch ch {
 			case 'P':
 				mc.Pop()
@@ -266,8 +321,7 @@ func (mc *MainContainer) InputHandler() func(event *tcell.EventKey, setFocus fun
 			case 'F':
 				mc.Pop()
 				sb := OpenFavoritesView()
-				mc.Push("colorpick", sb, true)
-				mc.app.SetFocus(sb.Item)
+				_ = sb
 				// mc.app.QueueUpdateDraw(func() {
 				// 	if mc.sidebar == nil {
 				// 		mc.pages.AddPage("sidebar", mc.sidebar.GetRoot(), true, true)
@@ -287,26 +341,26 @@ func (mc *MainContainer) InputHandler() func(event *tcell.EventKey, setFocus fun
 				// 		AppModel.helpbar.SetTable("sidebar")
 				// 	}
 				// })
-			case 't':
-				//  
-			case 'i':
-				cc, _ := mc.palette.GetSelected()
-				if mc.info == nil {
-					mc.info = NewCoolorColorFloater(cc)
-					mc.pages.AddPage("info", mc.info, true, false)
-					mc.pages.ShowPage("info")
-				} else {
-					// name, page := mc.pages.GetFrontPage()
-					if name == "info" {
-						mc.pages.HidePage("info")
-						page.Blur()
-					} else {
-						mc.pages.ShowPage("info")
-						mc.app.SetFocus(mc.info.Flex)
-						mc.info.Color.UpdateColor(cc)
-					}
-					AppModel.helpbar.SetTable("info")
-				}
+			// case 't':
+			//  
+			// case 'i':
+			// 	cc, _ := mc.palette.GetSelected()
+			// 	if mc.info == nil {
+			// 		mc.info = NewCoolorColorModal(cc)
+			// 		mc.pages.AddPage("info", mc.info, true, false)
+			// 		mc.pages.ShowPage("info")
+			// 	} else {
+			// 		// name, page := mc.pages.GetFrontPage()
+			// 		if name == "info" {
+			// 			mc.pages.HidePage("info")
+			// 			page.Blur()
+			// 		} else {
+			// 			mc.pages.ShowPage("info")
+			// 			mc.app.SetFocus(mc.info.Flex)
+			// 			mc.info.Color.UpdateColor(cc)
+			// 		}
+			// 		AppModel.helpbar.SetTable("info")
+			// 	}
 			case '$':
 
 				AppModel.app.GetComponentAt(20, 20)
@@ -336,28 +390,15 @@ func (mc *MainContainer) InputHandler() func(event *tcell.EventKey, setFocus fun
 				mc.Pop()
 				mc.Push("filetree", mc.filetree, false)
 				mc.app.SetFocus(mc.filetree)
-
-				// if name != "filetree" {
-				// 	mc.pages.ShowPage("filetree")    // .HidePage("editor")
-				// 	mc.pages.SendToFront("filetree") // .HidePage("editor")
-				// 	mc.app.SetFocus(mc.filetree)
-				// 	AppModel.helpbar.SetTable("filetree")
-				// } else {
-				// 	mc.pages.HidePage("filetree") // .HidePage("editor")
-				// 	mc.pages.SendToBack("filetree")
-				// 	mc.app.SetFocus(mc.palette)
-				// 	AppModel.helpbar.SetTable("palette")
-				// }
-			// case 'F':
-			// 	mc.pages.SwitchToPage("fileviewer") // .HidePage("editor")
-			// 	mc.app.SetFocus(mc.fileviewer.treeView)
-			// 	AppModel.helpbar.SetTable("fileviewer")
 			case 'S':
 				mc.pages.SwitchToPage("shades") // .HidePage("editor")
 				AppModel.helpbar.SetTable("shades")
+			case 'N':
+      OpenPalettesHistory()
 			case 'M':
-				mc.pages.SwitchToPage("mixer") // .HidePage("editor")
-				AppModel.helpbar.SetTable("mixer")
+      OpenMainMenu("MENU")
+				// mc.pages.SwitchToPage("mixer") // .HidePage("editor")
+				// AppModel.helpbar.SetTable("mixer")
 			case 'p':
 				mc.pages.SwitchToPage("palette") // .HidePage("editor")
 				AppModel.helpbar.SetTable("palette")
@@ -370,29 +411,14 @@ func (mc *MainContainer) InputHandler() func(event *tcell.EventKey, setFocus fun
 				_, _, _, _ = x, y, w, h
 				mc.preview.SetRect(x, y, w/2, h/2)
 				mc.preview.TopInit(8)
-			// case 'e':
-			// 	mc.pages.SwitchToPage("editor") //.HidePage("palette")
-			// 	AppModel.helpbar.SetTable("editor")
 			case 'V':
 				ani := NewFrameAnimator()
 				ani.Start()
 				ani.Control.Play()
-			// case 'v':
-			// 	bFrequency += 0.1
-			// case 'G':
-			// 	bDamping += 0.1
-			// case 'g':
-			// 	bDamping -= 0.1
 			case 'u':
-				noti := NewNotification(
-					Notid("notif_"),
-					"  ",
-					fmt.Sprintf("Favorited %s", NewCoolorColor("#fb3292").TVPreview()),
-				)
+				noti := NewNotification(Notid("cpnotif_"), fmt.Sprintf("Favorited %s some really long wholly shit", NewCoolorColor("#fb3292").TVPreview()), NewNotificationStatus(" ", "#f7e6b5"))
 				noti.Control.Play()
 
-				// })
-				// MainC.pages.AddPage("anim", tview.NewP, resize bool, visible bool)
 			}
 
 			if page == nil {
@@ -411,9 +437,9 @@ func (mc *MainContainer) InputHandler() func(event *tcell.EventKey, setFocus fun
 				HandleVimNavigableHorizontal(mc.palette, ch, kp)
 				// HandleCoolorSelectable(mc.palette, ch, kp)
 				// dump.P(fmt.Sprintf("%s horiz input handled", name))
-			case "info":
-				HandleVimNavigableHorizontal(mc.info, ch, kp)
-				HandleVimNavigableVertical(mc.info, ch, kp)
+			// case "info":
+			// 	HandleVimNavigableHorizontal(mc.info, ch, kp)
+			// 	HandleVimNavigableVertical(mc.info, ch, kp)
 				// HandleCoolorSelectable(mc.info, ch, kp)
 			case "scratch":
 				// HandleVimNavigableHorizontal(mc.scratch.Palette.Palette.Palette, ch, kp)
@@ -427,7 +453,7 @@ func (mc *MainContainer) InputHandler() func(event *tcell.EventKey, setFocus fun
 			}
 
 			if handler := page.InputHandler(); handler != nil {
-				dump.P(fmt.Sprintf("%s input handled", name))
+				// dump.P(fmt.Sprintf("%s input handled", name))
 				handler(event, setFocus)
 			}
 		},
@@ -444,7 +470,7 @@ func (mc *MainContainer) InputHandler() func(event *tcell.EventKey, setFocus fun
 //                          ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ
 //                           ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ
 //                             ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ
-//                               ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ⬢ ⬣  ⬡
+//                               ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ  ﯟ ⬢ ⬡
 //                              ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ
 //                                         ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ⬢ ⬣  ⬡
 //                                             ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ ﯟ
@@ -462,7 +488,7 @@ func (mc *MainContainer) Draw(s tcell.Screen) {
 	mc.Flex.Draw(s)
 	mc.ScrollLine.Box.DrawForSubclass(s, mc.ScrollLine)
 	mc.ScrollLine.Draw(s)
-  // mc.menu.Draw(s)
+	// mc.menu.Draw(s)
 }
 
 func (mc *MainContainer) NewShades(base *CoolorColor) {
@@ -531,7 +557,6 @@ func (sl *ScrollLine) HandleEvent(o events.ObservableEvent) bool {
 		}
 	}
 	return true
-
 }
 
 // Name implements events.Observer
@@ -548,16 +573,16 @@ func (sl *ScrollLine) UpdatePos(cp *CoolorColorsPalette) {
 	pos := (sl.selectedIndex + 1) * sl.indicatorSize
 	sl.indicatorPad = sl.indicatorSize / 2
 	sl.indicatorTgtPos = pos
-	fmt.Println(sl.indicatorTgtPos, sl.indicatorPos)
+	// fmt.Println(sl.indicatorTgtPos, sl.indicatorPos)
 	sl.Animation.GetCurrentFrame().Motions[0].UpdateTween(
 		float64(sl.indicatorPos),
 		float64(sl.indicatorTgtPos),
 	)
-	fmt.Println(
-		"delta",
-		math.Abs(float64(sl.indicatorTgtPos)-float64(sl.indicatorPos)),
-		sl.Animation.State.String(),
-	)
+	// fmt.Println(
+	// 	"delta",
+	// 	math.Abs(float64(sl.indicatorTgtPos)-float64(sl.indicatorPos)),
+	// 	sl.Animation.State.String(),
+	// )
 	if math.Abs(float64(sl.indicatorTgtPos)-float64(sl.indicatorPos)) > 1 {
 		if sl.Animation.State.Is(events.AnimationNext) ||
 			sl.Animation.State.Is(events.AnimationPaused) ||
@@ -600,6 +625,9 @@ func NewScrollLine() *ScrollLine {
 			x, y, width, height = btmLine.GetInnerRect()
 			_, _, _, _ = x, y, width, height
 			width = width - 6
+			//
+			// ◢◣◤◥◧◸◹◺◿🭼🭽🭾🭿           ─━╸╺ ╼ ╾ ╍  ═ ┅    ╌╍═▪▫▬▭▮▯▰▱▶▷▸▹►▻▼▽▾▿◀◁◂◃◄◅◆◇◈◉◊○◌◍◍◎●◻◼◽◾◦🭶🭷🭸🭹🭺🭻🮂🮃🬂🬋🬭🬏🬇🬋🬃
+			// ╶ ◂─◆◇◈─▸ ─╴ ╺▬━▰╸▬▭▮▯▰▱   ╺ ╼ ╾ ╍   ╍
 			fullBar, leftHalfBar, rightHalfBar := '━', '╸', '╺'
 			blur := util.Clamp(int(MapVal(math.Abs(sl.vel), 0, 100, 0, 10)), 1, 10)
 			sl.indicatorBlur = ((sl.indicatorBlur) + blur) / 2
@@ -618,19 +646,26 @@ func NewScrollLine() *ScrollLine {
 				return x, y, width, height
 			}
 			for i := x; i < x+sl.lineWidth-3; i++ {
-				glyph := fullBar
+				glyph := '─'
 				col := tcell.Color238
 				//  ━━━━━━━━━━━━━━━━━╸╺━━━━━━━━━━━━━━━━━━━━━━
+				if int(i) == mid-padl-1 {
+					glyph = '╼'
+				}
 				if int(i) == mid-padl {
 					col = *sl.selectedColor
 					glyph = rightHalfBar
 				}
-				if int(i) >= mid-padl && int(i) <= mid+padr {
+				if int(i) > mid-padl && int(i) < mid+padr {
+					glyph = fullBar
 					col = *sl.selectedColor
 				}
 				if int(i) == mid+padr {
 					glyph = leftHalfBar
 					col = *sl.selectedColor
+				}
+				if int(i) == mid+padr+1 {
+					glyph = '╾'
 				}
 				AppModel.scr.SetContent(
 					x+int(i),

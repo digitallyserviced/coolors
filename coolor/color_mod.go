@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gookit/goutil/dump"
+	// "github.com/gookit/goutil/dump"
 	"github.com/samber/lo"
 	// "golang.org/x/exp/constraints"
 
@@ -107,7 +107,7 @@ func (cm *ColorMod) Log(action *ColorModAction) **ColorModAction {
 	cm.history = append(cm.history, action)
 	cm.last = action
   status.NewStatusUpdateWithTimeout("action_str", action.Summary(), 3 * time.Second)
-	dump.P(cm.history.String())
+	// dump.P(cm.history.String())
 	return &cm.last
 }
 

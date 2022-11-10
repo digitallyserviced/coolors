@@ -17,6 +17,9 @@ const (
 	SecondaryEvent
 	CancelledEvent
 
+  CopyEvent
+  PasteEvent
+
 	ChangedEvent
 	StatusEvent
 	InputEvent
@@ -31,6 +34,7 @@ const (
 	PaletteColorModifiedEvent
 	PaletteMetaUpdatedEvent
 	PaletteCreatedEvent
+	PaletteLoadedEvent
 	PaletteSavedEvent
 
 	AnimationInit
@@ -48,9 +52,9 @@ const (
 
 	PluginEvents
 
-  PromptedEvents ObservableEventType = PrimaryEvent | SecondaryEvent | CancelledEvent
+	PromptedEvents ObservableEventType = PrimaryEvent | SecondaryEvent | CancelledEvent
 
-	AllEvents ObservableEventType = SelectedEvent | ColorSeentEvent | ColorEvent | ColorSelectedEvent | ColorSelectionEvent | PrimaryEvent | SecondaryEvent | CancelledEvent | ChangedEvent | StatusEvent | InputEvent | DrawEvent |ColorFavoriteEvent | 	ColorUnfavoriteEvent| EditEvent | CancelableEvent | ExclusiveEvent | PaletteColorModifiedEvent | PaletteColorRemovedEvent | PaletteMetaUpdatedEvent | PaletteCreatedEvent | PaletteSavedEvent | PaletteColorSelectedEvent | PaletteColorSelectionEvent | AnimationInit | AnimationPlaying | AnimationPaused | AnimationDone | AnimationIdle | AnimationNext | AnimationSet | AnimationUpdate | AnimationFinished | AnimationLooped | AnimationCanceled | AnimationPrevious | PluginEvents
+	AllEvents ObservableEventType = SelectedEvent | ColorSeentEvent | ColorEvent | ColorSelectedEvent | ColorSelectionEvent | PrimaryEvent | SecondaryEvent | CancelledEvent | ChangedEvent | StatusEvent | InputEvent | DrawEvent | ColorFavoriteEvent | ColorUnfavoriteEvent | EditEvent | CopyEvent | PasteEvent | CancelableEvent | ExclusiveEvent | PaletteColorModifiedEvent | PaletteColorRemovedEvent | PaletteMetaUpdatedEvent | PaletteLoadedEvent | PaletteCreatedEvent | PaletteSavedEvent | PaletteColorSelectedEvent | PaletteColorSelectionEvent | AnimationInit | AnimationPlaying | AnimationPaused | AnimationDone | AnimationIdle | AnimationNext | AnimationSet | AnimationUpdate | AnimationFinished | AnimationLooped | AnimationCanceled | AnimationPrevious | PluginEvents
 )
 
 var observableEventTypes = []EnumName{
@@ -61,20 +65,23 @@ var observableEventTypes = []EnumName{
 	{uint64(InputEvent), "InputEvent"},
 	{uint64(DrawEvent), "DrawEvent"},
 	{uint64(ColorEvent), "ColorEvent"},
-{uint64(ColorFavoriteEvent), "ColorFavoriteEvent"},
-{uint64(ColorUnfavoriteEvent), "ColorUnfavoriteEvent"},
+	{uint64(ColorFavoriteEvent), "ColorFavoriteEvent"},
+	{uint64(ColorUnfavoriteEvent), "ColorUnfavoriteEvent"},
 	{uint64(EditEvent), "EditEvent"},
 	{uint64(CancelableEvent), "CancelableEvent"},
 	{uint64(ExclusiveEvent), "ExclusiveEvent"},
 	{uint64(PrimaryEvent), "PrimaryEvent"},
 	{uint64(SecondaryEvent), "SecondaryEvent"},
 	{uint64(CancelledEvent), "CancelledEvent"},
+{uint64(CopyEvent), "CopyEvent"},
+{uint64(PasteEvent), "PasteEvent"},
 	{uint64(PaletteColorRemovedEvent), "PaletteColorRemovedEvent"},
 	{uint64(PaletteColorSelectedEvent), "PaletteColorSelectedEvent"},
 	{uint64(PaletteColorSelectedEvent), "PaletteColorSelectionEvent"},
 	{uint64(PaletteColorModifiedEvent), "PaletteColorModifiedEvent"},
 	{uint64(PaletteMetaUpdatedEvent), "PaletteMetaUpdatedEvent"},
 	{uint64(PaletteCreatedEvent), "PaletteCreatedEvent"},
+	{uint64(PaletteLoadedEvent), "PaletteLoadedEvent"},
 	{uint64(PaletteSavedEvent), "PaletteSavedEvent"},
 	{uint64(AnimationInit), "AnimationInit"},
 	{uint64(AnimationPlaying), "AnimationPlaying"},

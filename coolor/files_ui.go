@@ -236,13 +236,14 @@ func NewFileViewer() *CoolorFileView {
 		}
 		MainC.app.QueueUpdateDraw(func() {
 			x, y, w, h := cfv.treeView.Box.GetRect()
+      _,_,_,_ = x,y,w,h
 			collapsed := cfv.treeView.GetCollapsed()
 			if !collapsed {
-				fmt.Println("collapsing", fmt.Sprintf("%d %d %d %d", x, y, w, h))
+				// fmt.Println("collapsing", fmt.Sprintf("%d %d %d %d", x, y, w, h))
 				cfv.Grid.SetColumns(2, -98)
 				// MainC.app.SetFocus(cfv.contentView.contentView)
 			} else {
-				fmt.Println("expanding", fmt.Sprintf("%d %d %d %d", x, y, w, h))
+				// fmt.Println("expanding", fmt.Sprintf("%d %d %d %d", x, y, w, h))
 				cfv.Grid.SetColumns(-15, -85)
 			}
 			cfv.treeView.SetCollapsed(!collapsed)
@@ -275,14 +276,14 @@ func NewFileViewer() *CoolorFileView {
 
 // HandleEvent implements Observer
 func (pft *PaletteFileTree) HandleEvent(o ObservableEvent) bool {
-	fmt.Println("FUCKER")
+	// fmt.Println("FUCKER")
 	if !o.Type.Is(PluginEvents) {
-		fmt.Println("NOT plugin events ")
+		// fmt.Println("NOT plugin events ")
 		return false
 	}
 	pe, ok := o.Ref.(*PluginEvent)
 	if !ok {
-		fmt.Println("NIL plugin event REFS")
+		// fmt.Println("NIL plugin event REFS")
 		return false
 	}
 	// dump.P(o)
@@ -293,12 +294,12 @@ func (pft *PaletteFileTree) HandleEvent(o ObservableEvent) bool {
 	vr.ExpandAll()
 	// childs := vr.GetChildren()
 	if len(pe.refs) == 0 {
-		fmt.Println("NO REFS for plugins")
+		// fmt.Println("NO REFS for plugins")
 		return true
 	}
 	b, ok := pe.refs[0].(*PluginSchemeFile)
 	if !ok {
-		fmt.Println("NO no scheme file")
+		// fmt.Println("NO no scheme file")
 		return true
 	}
 	pft.pluginEntries.Add(b.Plugin.Name, b)
@@ -408,7 +409,7 @@ func (psftns PluginSchemeFileTreeNodes) Add(
 		// schemeNode, ok := v.treeNode.GetReference().(*tree.TreeNode)
 		opsf, ok := schemeNode.GetReference().(*PluginSchemeFile)
 		if !ok {
-			fmt.Println("NO plugin scheme file node")
+			// fmt.Println("NO plugin scheme file node")
 			continue
 		}
 		if psf.Name == opsf.Name {
@@ -616,11 +617,11 @@ func (pfp *PaletteFilePreviews) SetFile(fsnode *tree.TreeNode) {
 func (cfv *CoolorFileView) InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
 	return cfv.WrapInputHandler(
 		func(event *tcell.EventKey, f func(p tview.Primitive)) {
-			if event.Modifiers() == tcell.ModShift {
-				if DirectionalFocusHandling(event, AppModel.app) == nil {
-					return
-				}
-			}
+			// if event.Modifiers() == tcell.ModShift {
+			// 	if DirectionalFocusHandling(event, AppModel.app) == nil {
+			// 		return
+			// 	}
+			// }
 			cfv.Grid.InputHandler()(event, f)
 		},
 	)

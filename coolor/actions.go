@@ -1148,7 +1148,9 @@ func favFunc() *CoolorColorActionFunctions {
 			}
       // doCallers()
 			_, fav := GetStore().MetaService.FavoriteColors.Contains(cc)
-			cca.icon = IfElseStr(!fav, " ", " ")
+		//  
+      // cca.icon = IfElseStr(!fav, " ", " ")
+      cca.icon = IfElseStr(!fav, " ", " ")
 			cca.name = IfElseStr(!fav, "unfavorite", "favorite")
 			return false
 		},
@@ -1158,7 +1160,7 @@ func favFunc() *CoolorColorActionFunctions {
 				return false
 			}
 			_, fav:= GetStore().MetaService.FavoriteColors.Contains(cc)
-			cca.icon = IfElseStr(fav, " ", " ")
+      cca.icon = IfElseStr(fav, " ", " ")
 			cca.name = IfElseStr(fav, "unfavorite", "favorite")
 			return false
 		},
@@ -1168,7 +1170,7 @@ func favFunc() *CoolorColorActionFunctions {
 				return 
 			}
 			_, fav := GetStore().MetaService.FavoriteColors.Contains(cc)
-			icon := IfElseStr(!fav, " ", " ")
+      icon := IfElseStr(fav, " ", " ")
 			name := IfElseStr(!fav, "unfavorite", "favorite")
 			status.NewStatusUpdateWithTimeout(
 				"action_str",

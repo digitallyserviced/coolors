@@ -41,7 +41,7 @@ type shortcut struct {
 	key  rune
 }
 
-func NewShortcut(key rune, icon, name, desc string) *shortcut {
+func NewShortcutText(key rune, icon, name, desc string) *shortcut {
 	sc := &shortcut{
 		key:  key,
 		mods: "",
@@ -77,27 +77,27 @@ func init() {
 	paletteKeys = make(keyMap, 0)
 	editKeys = make(keyMap, 0)
 
-	mainKeys = append(mainKeys, NewShortcut('', "", "toggle help", " toggle help"))
-	mainKeys = append(mainKeys, NewShortcut('q', "", "quit", " quit"))
+	mainKeys = append(mainKeys, NewShortcutText('', "", "toggle help", " toggle help"))
+	mainKeys = append(mainKeys, NewShortcutText('q', "", "quit", " quit"))
 	table[mainTable] = mainKeys
 
-	paletteKeys = append(paletteKeys, NewShortcut('h', "ﰯ", "colors", " colors"))
-	paletteKeys = append(paletteKeys, NewShortcut('l', "ﰲ", "colors", " colors"))
-	paletteKeys = append(paletteKeys, NewShortcut('j', "ﰬ", "tools", " tools"))
-	paletteKeys = append(paletteKeys, NewShortcut('k', "ﰵ", "tools", " tools"))
-	paletteKeys = append(paletteKeys, NewShortcut('+', "螺", "add", "螺add color"))
-	paletteKeys = append(paletteKeys, NewShortcut('-', "羅", "del", "羅delete color"))
-	paletteKeys = append(paletteKeys, NewShortcut('i', "", "info", " info"))
-	paletteKeys = append(paletteKeys, NewShortcut('e', "", "edit", " edit color"))
-	paletteKeys = append(paletteKeys, NewShortcut('*', "", "randomize", " randomize"))
+	paletteKeys = append(paletteKeys, NewShortcutText('h', "ﰯ", "colors", " colors"))
+	paletteKeys = append(paletteKeys, NewShortcutText('l', "ﰲ", "colors", " colors"))
+	paletteKeys = append(paletteKeys, NewShortcutText('j', "ﰬ", "tools", " tools"))
+	paletteKeys = append(paletteKeys, NewShortcutText('k', "ﰵ", "tools", " tools"))
+	paletteKeys = append(paletteKeys, NewShortcutText('+', "螺", "add", "螺add color"))
+	paletteKeys = append(paletteKeys, NewShortcutText('-', "羅", "del", "羅delete color"))
+	paletteKeys = append(paletteKeys, NewShortcutText('i', "", "info", " info"))
+	paletteKeys = append(paletteKeys, NewShortcutText('e', "", "edit", " edit color"))
+	paletteKeys = append(paletteKeys, NewShortcutText('*', "", "randomize", " randomize"))
 	table[paletteTable] = paletteKeys
 	// 
-	editKeys = append(editKeys, NewShortcut('h', "ﰯ", "channel", " channel"))
-	editKeys = append(editKeys, NewShortcut('j', "", "decrease", " decrease"))
-	editKeys = append(editKeys, NewShortcut('k', "", "increase", " increase"))
-	editKeys = append(editKeys, NewShortcut('l', "ﰲ", "channel", " channel"))
-	editKeys = append(editKeys, NewShortcut('>', "", "incr", " increments"))
-	editKeys = append(editKeys, NewShortcut('<', "", "decr", " increments"))
+	editKeys = append(editKeys, NewShortcutText('h', "ﰯ", "channel", " channel"))
+	editKeys = append(editKeys, NewShortcutText('j', "", "decrease", " decrease"))
+	editKeys = append(editKeys, NewShortcutText('k', "", "increase", " increase"))
+	editKeys = append(editKeys, NewShortcutText('l', "ﰲ", "channel", " channel"))
+	editKeys = append(editKeys, NewShortcutText('>', "", "incr", " increments"))
+	editKeys = append(editKeys, NewShortcutText('<', "", "decr", " increments"))
 	table[editTable] = editKeys
 	theme := theme.GetTheme()
 	_ = theme

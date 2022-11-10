@@ -68,17 +68,15 @@ func NewPaddles() []*PalettePaddle {
 func NewCoolorColorsPalette(colors ...string) *CoolorColorsPalette {
 	ccp := &CoolorColorsPalette{
 		l:             &sync.RWMutex{},
-		EventObserver: NewEventObserver("palette"),
+		// EventObserver: NewEventObserver("palette"),
 		EventNotifier: NewEventNotifier("palette"),
-		Name:          Generator().GenerateName(2),
+		// Name:          Generator().GenerateName(2),
 		ptype:         "",
 		Colors:        make(CoolorColors, 0),
 		Hash:          0,
 		selectedIdx:   0,
 		tagType:       &Base16Tags,
 	}
-	// ccm := NewCoolorColorsPaletteMeta(Generator().GenerateName(2), ccp)
-	// ccm.Update()
 	// MainC.conf.Meta = append(MainC.conf.Meta, ccm)
 	return ccp
 }
@@ -216,23 +214,42 @@ func NewCoolorPaletteFromMap(cols map[string]string) *CoolorColorsPalette {
 		col := cp.AddCoolorColor(NewCoolorColor(v))
 		col.SetName(n)
 	}
+	// cp.Name = Generator().WithSeed(int64(cp.UpdateHash())).GenerateName(2)
 	cp.SetSelected(0)
 	return cp
 }
 
-func NewCoolorColorsPaletteFromCssStrings(cols []string) *CoolorColorsPalette {
+func NewCoolorColorsPaletteFromCSSStrings(cols []string) *CoolorColorsPalette {
 	ccp := NewCoolorColorsPalette()
 	for _, v := range cols {
 		ccp.AddCoolorColor(NewCoolorColor(v))
 	}
+	// ccp.Name = Generator().WithSeed(int64(ccp.UpdateHash())).GenerateName(2)
 	return ccp
 }
-func NewCoolorPaletteFromCssStrings(cols []string) *CoolorMainPalette {
+func NewCoolorColorsPaletteFromMeta(ccpm *CoolorColorsPaletteMeta) *CoolorMainPalette {
+  if ccpm.Palette == nil {
+    return nil
+  }
 	cp := BlankCoolorPalette()
-	cp.Name = Generator().GenerateName(2)
+	// cp.Name = Generator().GenerateName(2)
+	for _, v := range ccpm.Palette.Colors {
+		cp.AddCoolorColor(v.Clone())
+	}
+	// cp.Name = Generator().WithSeed(int64(cp.UpdateHash())).GenerateName(2)
+	cp.SetSelected(0)
+	cmp := &CoolorMainPalette{
+		CoolorPaletteMainView: cp,
+	}
+	return cmp
+}
+func NewCoolorPaletteFromCSSStrings(cols []string) *CoolorMainPalette {
+	cp := BlankCoolorPalette()
+	// cp.Name = Generator().GenerateName(2)
 	for _, v := range cols {
 		cp.AddCssCoolorColor(v)
 	}
+	// cp.Name = Generator().WithSeed(int64(cp.UpdateHash())).GenerateName(2)
 	cp.SetSelected(0)
 	cmp := &CoolorMainPalette{
 		CoolorPaletteMainView: cp,
@@ -249,7 +266,7 @@ func NewCoolorPaletteWithColors(tcols []tcell.Color) *CoolorMainPalette {
 		SeentColor("startup", NewIntCoolorColor(v.Hex()), cp)
 	}
 
-	cp.Name = Generator().WithSeed(int64(cp.UpdateHash())).GenerateName(2)
+	// cp.Name = Generator().WithSeed(int64(cp.UpdateHash())).GenerateName(2)
 	cp.SetSelected(0)
 	cmp := &CoolorMainPalette{
 		CoolorPaletteMainView: cp,
@@ -293,16 +310,8 @@ func (cp *CoolorPaletteMainView) SetMenu(menu *CoolorToolMenu) {
 	events.Global.Register(CancelledEvent, cp.menu)
 	cp.SpawnSelectionEvent(cc, i)
 }
-
 func (cp *CoolorPaletteMainView) RemoveItem(rcc *CoolorColor) {
-	newColors := cp.Colors[:0]
-	cp.Each(func(cc *CoolorColor, _ int) {
-		if cc != rcc {
-			newColors = append(newColors, cc)
-		}
-	})
-	cp.Colors = newColors
-	cp.PaletteEvent(PaletteColorRemovedEvent, rcc)
+  cp.CoolorColorsPalette.RemoveItem(rcc)
 	cp.ResetViews()
 	// MainC.conf.AddPalette(fmt.Sprintf("current_%x", time.Now().Unix()), cp)
 }
@@ -373,7 +382,7 @@ func (cp *CoolorPaletteMainView) ResetViews() {
 		} else {
 			cp.paddles[1].SetStatus("disabled")
 		}
-		fmt.Println(min, max, cp.colSize, cp.maxColors)
+		// fmt.Println(min, max, cp.colSize, cp.maxColors)
 		// dots := make([]string, len(cp.colors))
 		//   
 		//     ﱣ   ﳁ ﭜ   ﳂ  ﱤ     喇    ﴞ           
@@ -404,11 +413,11 @@ func (cp *CoolorPaletteMainView) SetSelected(idx int) error {
 	// if cp.CoolorColorsPalette.GetMeta().Saved {
 	//   dirty = ""
 	// } %s
-	cc := cp.Colors[cp.selectedIdx]
+	cc := cp.Colors[idx]
 	status.NewStatusUpdate(
 		"name",
 		fmt.Sprintf(
-			"[red:gray:-][-:-:-][-:gray:-]  [-:-:-][gray:red:-][-:-:-][black:red:b] %s [-:-:-][red:gray:-][-:gray:-]  [gray:pink:-][black::b] %d [pink:gray:-][-:gray:-]  [gray:%s:-][black::b]%s[%s:-:-][-:-:-]",
+			"[red:gray:-][-:-:-][-:gray:-]  [-:-:-][gray:red:-][-:-:-][black:red:b] %s [-:-:-][red:gray:-][-:gray:-] 濫 [gray:pink:-][black::b] %d [pink:gray:-][-:gray:-]  [gray:%s:-][black::b]%s[%s:-:-][-:-:-]",
 			"base16",
 			cp.Len(),
 			cc.Html(),
@@ -537,8 +546,8 @@ func (cp *CoolorMainPalette) InputHandler() func(event *tcell.EventKey, setFocus
 		func(event *tcell.EventKey, _ func(p tview.Primitive)) {
 			MainC.app.QueueUpdateDraw(func() {
 				ch := event.Rune()
-				kp := event.Key()
-        fmt.Println(kp)
+				// kp := event.Key()
+        // fmt.Println(kp)
      //    if kp == tcell.KeyESC {
      //      fmt.Println("SHIT")
 					// color, _ := cp.GetSelected()

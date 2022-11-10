@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"github.com/gdamore/tcell/v2"
-	"github.com/gookit/goutil/dump"
+	// "github.com/gookit/goutil/dump"
 	"github.com/samber/lo"
 
 	"github.com/digitallyserviced/coolors/coolor/events"
@@ -21,14 +21,15 @@ type (
  //  }
 	CoolorColorsPalette struct {
 		l              *sync.RWMutex
-		*events.EventObserver `msgpack:"-" clover:"-,omitempty"`
+		// *events.EventObserver `msgpack:"-" clover:"-,omitempty"`
 		*events.EventNotifier `msgpack:"-" clover:"-,omitempty"`
 		tagType        *TagType `msgpack:"-" clover:"-,omitempty"`
-		Name           string
+		// Name           string
 		ptype          string
 		Colors         CoolorColors // `clover:"foreignKey:Color"`
 		Hash           uint64       // `gorm:"uniqueIndex"`
 		selectedIdx    int
+    dirty bool
 	}
 )
 
@@ -106,7 +107,6 @@ func (cp *CoolorColorsPalette) SetSelected(idx int) error {
 	return nil
 }
 
-
 func (cc *CoolorColorsPalette) SpawnSelectionEvent(
 	c *CoolorColor,
 	idx int,
@@ -136,7 +136,7 @@ func (cp *CoolorColorsPalette) IconPalette(
 }
 
 func (cp *CoolorColorsPalette) TagsKeys(random bool) CoolorPaletteTagsMeta {
-  dump.P(cp)
+  // dump.P(cp)
 	tagKeys := make(map[string]*Coolor)
 	cptm := &CoolorPaletteTagsMeta{
 		tagCount:     0,
@@ -170,8 +170,40 @@ func (cp *CoolorColorsPalette) TagsKeys(random bool) CoolorPaletteTagsMeta {
 		}
 	})
 
-  dump.P(cptm)
+  // dump.P(cptm)
 	return *cptm
+}
+// ▌▐
+// 
+// ██
+// ████████████████████
+// ▆ ▆ ▆ ▆ ▆ ▆ ▆ ▆ ▆ ▆ ▆
+
+func (cp *CoolorColorsPalette) MakeMenuPalette(showSelected bool) []string {
+	// main, sel := "[%s:-:-]ﱢ[-:-2:-]", "[%s:-:b]ﱡ[-:-:-]"
+  // 
+// ﱢ  ﱡ            ﱣ  ﱤ 
+  // ██  ﯟ ⬢ ⬡
+	// main, sel := "[%s:-:b]🮐[-:-:-]", "[%s:-:-]▉[-:-:-]"
+	// main, sel := "[%s:-:b]▆[-:-:-]", "[%s:-:-]▆[-:-:-]"
+	// main, sel := "[%s:-]⬢ [-:-:-]", "[%s:-:-]ﯟ [-:-:-]"
+	main, sel := "[%s:-] [-:-:-]", "[%s:-:-] [-:-:-]"
+	// main, sel := "[%s:-:b][-:-:-]", "[%s:-:-][-:-:-]"
+	// main, sel := "[%s:-:b]ﱡ[-:-:-]", "[%s:-:-]ﱢ[-:-:-]"
+	// main, sel := "[%s:-:-]▉▉[-:-:-]", "[%s:-:b]▉▉[-:-:-]"
+	if !showSelected {
+		main = sel
+	}
+
+  cols := cp.IconPalette(main, sel)
+  chunks := lo.Chunk[string](cols, 8)
+  lines := make([]string, len(chunks)+1)
+  for i, v := range chunks {
+    // str := fmt.Sprintf("%s%s", IfElseStr(i % 2 == 1, "", " "),strings.Join(v, " "))
+    str := fmt.Sprintf("%s%s", "",strings.Join(v, " "))
+    lines[i] = str
+  }
+	return lines
 }
 func (cp *CoolorColorsPalette) MakeSquarePalette(showSelected bool) []string {
 	// main, sel := "[%s:-:-]ﱢ[-:-2:-]", "[%s:-:b]ﱡ[-:-:-]"
@@ -189,7 +221,7 @@ func (cp *CoolorColorsPalette) MakeSquarePalette(showSelected bool) []string {
 }
 
 func (cp *CoolorColorsPalette) MakeDotPalette() []string {
-	return cp.IconPalette("[%s:-:-]ﱤ[-:-:-]", "[%s:-:b][-:-:-]")
+	return cp.IconPalette("[%s:-:-]ﱤ [-:-:-]", "[%s:-:b] [-:-:-]")
 }
  // █▉▊▋▌▍▎
 func (cp *CoolorColorsPalette) SquishPaletteBar(
@@ -258,6 +290,22 @@ func (cp *CoolorColorsPalette) GetItem(idx uint) *CoolorColor {
 	return cp.Colors[id%len(cp.Colors)]
 }
 
+func (cp *CoolorColorsPalette) RemoveItem(rcc *CoolorColor) {
+	newColors := cp.Colors[:0]
+  remIdx := -1
+	cp.Each(func(cc *CoolorColor, i int) {
+		if cc != rcc {
+			newColors = append(newColors, cc)
+		} else {
+      remIdx = i
+    }
+	})
+  if remIdx > 0 {
+    cp.SetSelected(remIdx-1)
+  }
+	cp.Colors = newColors
+	cp.PaletteEvent(events.PaletteColorRemovedEvent, rcc)
+}
 
 func (cp *CoolorColorsPalette) PaletteEvent(
 	t events.ObservableEventType,
@@ -270,6 +318,13 @@ func (cp *CoolorColorsPalette) PaletteEvent(
 	MainC.EventNotifier.Notify(
 		*MainC.NewObservableEvent(t, "palette_event", color, cp),
 	)
+  hash := cp.HashColors()
+  if cp.Hash != hash {
+    if cp == GetStore().Current.Palette {
+
+    }
+
+  }
 }
 
 func (cp *CoolorColorsPalette) SetColors(
@@ -282,6 +337,35 @@ func (cp *CoolorColorsPalette) SetColors(
 	}
 
 	return cp
+}
+func (cp *CoolorColorsPalette) HandleEvent(o events.ObservableEvent) bool {
+	// var cp *CoolorColorsPalette
+	// if cp, ok := o.Src.(*CoolorColorsPalette); ok {
+	// 	if cp != nil {
+	// 		var selcol *CoolorColor
+	// 		selcol, sl.selectedIndex = cp.GetSelected()
+	// 		sl.selectedColor = selcol.Color
+	// 		// AppModel.app.QueueUpdateDraw(func() {
+	// 		sl.UpdatePos(cp)
+	// 		// })
+	// 	}
+	// }
+	return true
+
+}
+
+// Name implements events.Observer
+func (cp *CoolorColorsPalette) Name() string {
+  return Generator().WithSeed(int64(cp.UpdateHash())).GenerateName(2)
+	// return "coolors_color_palette"
+}
+
+func (cp *CoolorColorsPalette) Lock() {
+  cp.l.Lock()
+}
+
+func (cp *CoolorColorsPalette) Unlock() {
+  cp.l.Unlock()
 }
 
 func (cp *CoolorColorsPalette) AddCoolorColor(color *CoolorColor) *CoolorColor {
@@ -315,4 +399,29 @@ func (ccs *CoolorColorsPalette) Less(a, b int) bool {
 
 func (ccs *CoolorColorsPalette) Len() int {
 	return len(ccs.Colors)
+}
+
+func (cp *CoolorColorsPalette) UpdateHash() uint64 {
+  cp.Hash = cp.HashColors()
+  return cp.Hash
+}
+func (cp *CoolorColorsPalette) HashColors() uint64 {
+	// var hash uint64 = 0
+  hashed := lo.Reduce[*CoolorColor, uint64](cp.Colors, func(h uint64, c *CoolorColor, i int) uint64 {
+    return h + uint64(c.Color.Hex())
+  }, 0)
+	// for _, v := range cp.Colors {
+	// 	hash += uint64(v.Color.Hex())
+	// }
+  cp.Hash = hashed
+	return hashed
+}
+
+func (cp *CoolorColorsPalette) ToMap() map[string]string {
+	outcols := make(map[string]string)
+	for i, v := range cp.Colors {
+		k := fmt.Sprintf("color%d", i)
+		outcols[k] = v.Html()
+	}
+	return outcols
 }

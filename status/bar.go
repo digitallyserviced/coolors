@@ -140,11 +140,11 @@ func (s *StatusBars) Init() {
 	// s.AddStatusItem(action)
 	// pn := NewStatusItem("name", "[red:gray:-][-:-:-][-:gray:-]  [-:-:-][gray:red:-] [-:-:-][black:red:b] %s [-:-:-][red:gray:-][-:gray:-] [gray:-:-][-:-:-]", "untitled", s, done) // [-:gray:-]  [-:-:-]
 	// 
-	// █
+	// █
   cpname := 
 		s.Title.NewStatusItem(
 			"title",
-			"[-:gray:-]  [-:-:-][gray:green:-] [-:-:-][black:green:b] %s [-:-:-][green:gray:-][-:gray:-] [gray:-:-][-:-:-]",
+			"[-:gray:-] 識 [-:-:-][gray:green:-] [-:-:-][black:green:b] %s [-:-:-][green:gray:-][-:gray:-] [gray:-:-][-:-:-]",
 			"title",
 			s,
 			done,

@@ -163,8 +163,11 @@ func Jcenter(s string, n int) string {
 	if n < 0 {
 		n = 0
 	}
-	div := n / 2
-	return strings.Repeat(" ", div) + s + strings.Repeat(" ", div)
+	// div := ((2 * (n-len(s))) / 2) + 1
+  rem := n - len(s)
+  rem = ((rem * 2) / 2) / 2
+  rem = rem
+	return strings.Repeat(" ", rem) + s + strings.Repeat(" ", rem)
 }
 
 func (t *Theme) FixedSize(w int) string {
@@ -172,14 +175,14 @@ func (t *Theme) FixedSize(w int) string {
 }
 
 func GetTheme() *Theme {
-	tags := color.GetColorTags()
-	tags["infolabel"] = RgbHex256toCode("5c6370", false)
-	tags["sckey"] = RgbHex256toCode("fda47f", false)
-	tags["scicon"] = RgbHex256toCode("7aa4a1", false)
-	tags["scname"] = RgbHex256toCode("7aa4a1", false)
-	tags["scdesc"] = RgbHex256toCode("5a93aa", false)
-	tags["colorinfolabel"] = RgbHex256toCode("7aa4a1", false)
-	tags["colorinfovalue"] = RgbHex256toCode("fda47f", false)
+	// tags := color.GetColorTags()
+	// tags["infolabel"] = RgbHex256toCode("5c6370", false)
+	// tags["sckey"] = RgbHex256toCode("fda47f", false)
+	// tags["scicon"] = RgbHex256toCode("7aa4a1", false)
+	// tags["scname"] = RgbHex256toCode("7aa4a1", false)
+	// tags["scdesc"] = RgbHex256toCode("5a93aa", false)
+	// tags["colorinfolabel"] = RgbHex256toCode("7aa4a1", false)
+	// tags["colorinfovalue"] = RgbHex256toCode("fda47f", false)
 	//"#cb7985"
 	//"#ff8349"
 	//"#2f3239", "#e85c51", "#7aa4a1", "#fda47f", "#5a93aa", "#ad5c7c", "#a1cdd8", "#ebebeb"

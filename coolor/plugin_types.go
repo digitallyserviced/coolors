@@ -51,6 +51,7 @@ type Plugin struct {
 	EventTypes    PluginEventType
 	KeyMapTypes   PluginKeyMapType
 }
+
 type PluginData struct {
 	ConfigKeys         []string `json:"configKeys"`
 	Handlers           []string `json:"handlers"`

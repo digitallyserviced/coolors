@@ -4,7 +4,7 @@ import (
 	// "fmt"
 
 	// "fmt"
-	"fmt"
+	// "fmt"
 	"io/ioutil"
 	"time"
 
@@ -81,7 +81,7 @@ func (pfe *PaletteFileEditor) InputHandler() func(event *tcell.EventKey, setFocu
 	return pfe.WrapInputHandler(func(ek *tcell.EventKey, f func(p tview.Primitive)) {
 		switch ek.Key() {
 		case tcell.KeyEscape:
-      fmt.Println(time.Since(pfe.escapeTime).String())
+      // fmt.Println(time.Since(pfe.escapeTime).String())
 			if time.Since(pfe.escapeTime) <= time.Duration(time.Millisecond*1000) {
 				pfe.swallowed = false
 				ev := tcell.NewEventKey(tcell.KeyF41, 0, tcell.ModNone)

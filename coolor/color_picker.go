@@ -31,7 +31,14 @@ func OpenColorPicker(mc *MainContainer, colors... *CoolorColor) bool {
   if len(colors) > 0 {
     c = *colors[0].GetColorable()
   }
+  gv := tview.NewGrid()
+	newFrame := tview.NewFrame(c.GetCC())
+	newFrame.SetBorder(false).SetBorderPadding(0, 1, 1, 1)
+	newFrame.SetBorders(0, 0, 1, 1, 0, 0)
+  gv.AddItem(newFrame, 0, 0, 1, 1, 1, 1, false)
 	tv := NewTabbedView()
+  gv.AddItem(tv, 1, 0, 1, 1, 1, 1, false)
+  gv.SetRows(3, -100)
 	rgbPick := NewColorPicker(&RGBChannel, c)
 	hslPick := NewColorPicker(&HSLChannel, c)
   setColor := func(c Color) {
@@ -61,7 +68,7 @@ func OpenColorPicker(mc *MainContainer, colors... *CoolorColor) bool {
 	hslpick := NewTabView("  HSL", tv.TakeNext(), hslPick)
 	tv.AddTab(hslpick)
 	tv.UpdateView()
-	sb := NewSideBar("colorpick", tv, 0, 40)
+	sb := NewSideBar("colorpick", gv, 0, 40)
 	mc.Push("colorpick", sb, true)
 	mc.app.SetFocus(tv)
 	return false
@@ -219,7 +226,7 @@ func (ttvc *ColorPicker) InputHandler() func(event *tcell.EventKey, setFocus fun
 	return ttvc.WrapInputHandler(
 		func(ek *tcell.EventKey, f func(p tview.Primitive)) {
 			// var current Color
-			fmt.Println(ttvc.current)
+			// fmt.Println(ttvc.current)
         switch ek.Key() {
         case tcell.KeyEnter:
 					ttvc.Notify(

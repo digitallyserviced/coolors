@@ -16,7 +16,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/knadh/koanf"
 
-	"github.com/gookit/goutil/dump"
+	// "github.com/gookit/goutil/dump"
 	"github.com/gookit/goutil/errorx"
 	"github.com/gookit/goutil/fsutil"
 	"github.com/gookit/goutil/fsutil/finder"
@@ -501,7 +501,7 @@ func (p *Plugin) ParseScheme(f *os.File) (psf *PluginSchemeFile, valid bool){
 					confData := eajs(plugin.GoStructToV8Object(gov8.Ctx, psf.ConfigData))
 					mapd, er := fn.Function().Call(gov8.Ctx.Global(), confData)
 					if er != nil {
-						dump.P("err", er.Error())
+						// dump.P("err", er.Error())
 						panic(er)
 					}
 					psf.Name = eajs(mapd.Object().Get("name")).DetailString()
@@ -518,7 +518,7 @@ func (p *Plugin) ParseScheme(f *os.File) (psf *PluginSchemeFile, valid bool){
 					confData := eajs(plugin.GoStructToV8Object(gov8.Ctx, psf.ConfigData))
 					mapd, er := fn.Function().Call(gov8.Ctx.Global(), confData)
 					if er != nil {
-						dump.P("err", er.Error())
+						// dump.P("err", er.Error())
 						panic(er)
 					}
 					tlist := GetTerminalColorsAnsiTags()
@@ -693,7 +693,7 @@ func (p *Plugin) LoadBundle(
 		if err := recover(); err != nil {
 			e, ok := err.(error)
 			if ok {
-				fmt.Println(e)
+				// fmt.Println(e)
 				eajs([]string{}, e)
 				zlog.Error(
 					"js script recovered",
@@ -846,7 +846,7 @@ func (pm *PluginsManager) Each(
 	f func(p *Plugin, pm *PluginsManager, idx int) error,
 ) {
 	lo.ForEach[*Plugin](pm.Plugins, func(p *Plugin, i int) {
-		fmt.Printf("each: %v %v\n", p, i)
+		// fmt.Printf("each: %v %v\n", p, i)
 		err := f(p, pm, i)
 		if err != nil {
 			fmt.Printf("each: %v %v\n", p, err)
@@ -1033,7 +1033,7 @@ func (pm *PluginsManager) StartPluginMonitor() error {
 }
 
 func (pm *PluginsManager) InitPlugin(ppath string) error {
-	fmt.Println(ppath)
+	// fmt.Println(ppath)
 	if pm.Loaded(ppath) {
 		// p, m := pm.getPluginByPath(ppath)
 		// m <- *NewPluginEvent(PluginModified, "modded", p)

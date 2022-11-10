@@ -155,14 +155,14 @@ func (mod ColorChannel) Decr(v float64, c Color) Color {
 	return mod.ModColor(-v, c)
 }
 func (mod ColorChannel) Incr(v float64, c Color) Color {
-  fmt.Println(v, c)
+  // fmt.Println(v, c)
 	return mod.ModColor(v, c)
 }
 func (mod ColorChannel) ModColor(v float64, c Color) Color {
 	o := mod.Get(c)
 	o += v
 	o = util.Clamp(o, mod.Min, mod.Max)
-  fmt.Println(mod.Max, mod.Min, o)
+  // fmt.Println(mod.Max, mod.Min, o)
 	return mod.Set(o, c)
 }
 func (mod ColorChannel) SetColor(v float64, c Color) Color {

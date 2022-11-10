@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"text/template"
+	// "text/template"
 
 	"github.com/digitallyserviced/tview"
 	"github.com/gdamore/tcell/v2"
@@ -39,14 +39,14 @@ type CoolorColor struct {
 
 // UnmarshalJSON implements json.Unmarshaler
 func (cc *CoolorColor) UnmarshalJSON(b []byte) error {
-  fmt.Println(b)
+  // fmt.Println(b)
   m := make(map[string]interface{})
   cc = NewDefaultCoolorColor()
   err := json.Unmarshal(b, &m)
   if err != nil {
     return err
   }
-fmt.Printf("#%06x", int32(m["Color"].(float64)))
+// fmt.Printf("#%06x", int32(m["Color"].(float64)))
   cc.SetColorCss(fmt.Sprintf("#%06x", int32(m["Color"].(float64))))
   cc.Favorite = m["Favorite"].(bool)
   return nil
@@ -138,21 +138,22 @@ func (cc *CoolorColor) DrawFunc() func(screen tcell.Screen, x int, y int, width 
 				// screen.SetContent(cx, lowerCenterY + 4, tview.BoxDrawingsLightHorizontal, nil, tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(*cc.color))
 				// }
 			}
-			status_tpl := MakeTemplate("color_status", `
-      {{define "locked"}}{{- if not locked }}  {{ else }}  {{ end -}}{{- end -}}
-      {{define "selected"}}{{- if selected }}   {{ else }}   {{ end -}}{{- end -}}
-    `, template.FuncMap{
-				"locked":   cc.GetLocked,
-				"selected": cc.GetSelected,
-				"dirty":    cc.GetDirty,
-				"css":      cc.GetColor,
-			})
+			// status_tpl := MakeTemplate("color_status", `
+   //    {{define "locked"}}{{- if not locked }}  {{ else }}  {{ end -}}{{- end -}}
+   //    {{define "selected"}}{{- if selected }}   {{ else }}   {{ end -}}{{- end -}}
+   //  `, template.FuncMap{
+			// 	"locked":   cc.GetLocked,
+			// 	"selected": cc.GetSelected,
+			// 	"dirty":    cc.GetDirty,
+			// 	"css":      cc.GetColor,
+			// })
 			// sel := status_tpl(`{{- template "selected" . -}}`, cc)
-			lock := status_tpl(`{{- template "locked" . -}}`, cc)
+			// lock := status_tpl(`{{- template "locked" . -}}`, cc)
 			// tview.Print(screen, sel, x+1, (lowerCenterY - centerY) / 2, width-2, tview.AlignCenter, txtColor)
+      lock := IfElseStr(!cc.locked, " ", " ")
 			tview.Print(screen, lock, x+1, lowerCenterY, width-2, tview.AlignCenter, txtColor)
 		}
-    if cc.selected {
+    if cc.selected && (!cc.plain && !cc.static){
       if cc.pallette == nil || cc.pallette.menu == nil || cc.pallette.menu.list == nil {
         return x + 1, centerY + 1, width - 2, height - (centerY + 1 - y)
       }
@@ -523,7 +524,7 @@ func (cc *CoolorColor) updateStyle() {
 	if cc.selected || cc.centered {
 		// cc.GetFgColorShade()
 		inverse := cc.GetFgColor()
-		fmt.Println(MakeColorFromTcell(inverse).GetCC().TerminalPreview())
+		// fmt.Println(MakeColorFromTcell(inverse).GetCC().TerminalPreview())
 		cc.Box.
 			SetBorderFocusColor(inverse).
 			SetBorder(true).

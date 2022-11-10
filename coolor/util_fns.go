@@ -55,7 +55,7 @@ func setupLogger(){
 		{
 			Filename: "out.log",
 			Ropt: zzlog.RotateOptions{
-				MaxSize:    4,
+				MaxSize:    1,
 				// MaxAge:     1,
 				// MaxBackups: 1,
 			},
@@ -310,6 +310,11 @@ func reverse(n []int, start, end int) []int {
 		end--
 	}
 	return n
+}
+
+func NewAltEventKey(k tcell.Key, ch rune) *tcell.EventKey {
+  ek := tcell.NewEventKey(k, ch, tcell.ModAlt)
+  return ek
 }
 
 /*
